@@ -92,6 +92,36 @@ final class MainViewModel: ObservableObject {
         selectedDirection.displayName
     }
 
+    /// 다음 버스까지 남은 시간 (분)
+    var minutesUntilNextBus: Int? {
+        guard let nextTime = nextBusTime else { return nil }
+        return DateService.minutesUntil(timeString: nextTime, from: Date())
+    }
+
+    /// 남은 시간 표시 문자열
+    var remainingTimeText: String {
+        guard let minutes = minutesUntilNextBus else { return "" }
+        if minutes == 0 {
+            return "곧 도착"
+        } else if minutes < 60 {
+            return "\(minutes)분 후"
+        } else {
+            let hours = minutes / 60
+            let mins = minutes % 60
+            return mins > 0 ? "\(hours)시간 \(mins)분 후" : "\(hours)시간 후"
+        }
+    }
+
+    /// 첫차 시간
+    var firstBusTime: String {
+        currentTimes.first ?? "--:--"
+    }
+
+    /// 막차 시간
+    var lastBusTime: String {
+        currentTimes.last ?? "--:--"
+    }
+
     // MARK: - Initialization
 
     init() {}

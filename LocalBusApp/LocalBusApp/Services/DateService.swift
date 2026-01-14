@@ -64,6 +64,33 @@ enum DateService {
         return nil
     }
 
+    // MARK: - 남은 시간 계산
+
+    /// 특정 시간까지 남은 분 계산
+    /// - Parameters:
+    ///   - timeString: 목표 시간 (HH:mm 형식)
+    ///   - from: 기준 시간
+    /// - Returns: 남은 분 (음수면 이미 지남)
+    static func minutesUntil(timeString: String, from date: Date) -> Int? {
+        var calendar = Calendar.current
+        calendar.timeZone = koreaTimeZone
+
+        let components = timeString.split(separator: ":")
+        guard components.count == 2,
+              let targetHour = Int(components[0]),
+              let targetMinute = Int(components[1]) else {
+            return nil
+        }
+
+        let currentHour = calendar.component(.hour, from: date)
+        let currentMinute = calendar.component(.minute, from: date)
+
+        let targetTotalMinutes = targetHour * 60 + targetMinute
+        let currentTotalMinutes = currentHour * 60 + currentMinute
+
+        return targetTotalMinutes - currentTotalMinutes
+    }
+
     // MARK: - Private Helpers
 
     private static func formatDate(_ date: Date) -> String {
