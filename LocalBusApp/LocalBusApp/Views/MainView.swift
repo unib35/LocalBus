@@ -3,6 +3,7 @@ import SwiftUI
 /// 메인 화면
 struct MainView: View {
     @StateObject private var viewModel = MainViewModel()
+    @State private var showingInfo = false
 
     var body: some View {
         NavigationStack {
@@ -34,6 +35,18 @@ struct MainView: View {
             }
             .navigationTitle("장유 → 사상")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingInfo = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingInfo) {
+                InfoView()
+            }
         }
         .task {
             await viewModel.onAppear()
