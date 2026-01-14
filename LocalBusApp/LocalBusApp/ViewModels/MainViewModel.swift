@@ -34,6 +34,13 @@ final class MainViewModel: ObservableObject {
     /// 에러 메시지
     @Published var errorMessage: String?
 
+    /// 오프라인 모드 여부
+    @Published var isOffline: Bool = false
+
+    // MARK: - Constants
+
+    private let remoteURL = URL(string: "https://raw.githubusercontent.com/JongMini/LocalBus-Data/main/timetable.json")
+
     // MARK: - Computed Properties
 
     /// 공지가 있는지 여부
@@ -83,22 +90,43 @@ final class MainViewModel: ObservableObject {
 
     /// 앱 시작 시 데이터 로드
     func onAppear() async {
-        let service = TimetableService()
+        let timetableService = TimetableService()
+        let networkService = NetworkService()
 
-        // 1. 캐시된 데이터 먼저 시도
-        if let cached = service.loadCachedData() {
+        // 1. 원격 데이터 fetch 시도
+        if let url = remoteURL {
+            do {
+                let remoteData: TimetableData = try await networkService.fetch(from: url)
+                timetableService.saveToCache(remoteData)
+                await loadTimetable(with: remoteData)
+                isOffline = false
+                return
+            } catch {
+                // 네트워크 실패 - 오프라인 모드로 전환
+                isOffline = true
+            }
+        }
+
+        // 2. 캐시된 데이터 시도
+        if let cached = timetableService.loadCachedData() {
             await loadTimetable(with: cached)
             return
         }
 
-        // 2. 로컬 번들 데이터 사용
-        if let local = service.loadLocalData() {
+        // 3. 로컬 번들 데이터 사용
+        if let local = timetableService.loadLocalData() {
             await loadTimetable(with: local)
             return
         }
 
-        // 3. 데이터 없음
+        // 4. 데이터 없음
         isLoading = false
         errorMessage = "시간표를 불러올 수 없습니다."
+    }
+
+    /// 데이터 새로고침
+    func refresh() async {
+        isLoading = true
+        await onAppear()
     }
 }

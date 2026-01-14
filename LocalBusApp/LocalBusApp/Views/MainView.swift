@@ -8,6 +8,11 @@ struct MainView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                // 오프라인 배너
+                if viewModel.isOffline {
+                    OfflineBanner()
+                }
+
                 // 공지 배너
                 if viewModel.hasNotice {
                     NoticeBanner(message: viewModel.noticeMessage ?? "")
@@ -31,6 +36,9 @@ struct MainView: View {
                         times: viewModel.currentTimes,
                         nextBusTime: viewModel.nextBusTime
                     )
+                    .refreshable {
+                        await viewModel.refresh()
+                    }
                 }
             }
             .navigationTitle("장유 → 사상")
@@ -51,6 +59,24 @@ struct MainView: View {
         .task {
             await viewModel.onAppear()
         }
+    }
+}
+
+// MARK: - 오프라인 배너
+
+struct OfflineBanner: View {
+    var body: some View {
+        HStack {
+            Image(systemName: "wifi.slash")
+                .foregroundStyle(.white)
+            Text("오프라인 모드 - 저장된 시간표를 표시합니다")
+                .font(.caption)
+                .foregroundStyle(.white)
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(Color.gray)
     }
 }
 
