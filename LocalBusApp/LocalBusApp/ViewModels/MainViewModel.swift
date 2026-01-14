@@ -31,11 +31,19 @@ final class MainViewModel: ObservableObject {
     /// 선택된 시간표 타입
     @Published var selectedScheduleType: ScheduleType = .weekday
 
+    /// 선택된 노선 방향
+    @Published var selectedDirection: RouteDirection = .jangyuToSasang
+
     /// 에러 메시지
     @Published var errorMessage: String?
 
     /// 오프라인 모드 여부
     @Published var isOffline: Bool = false
+
+    // MARK: - Private Properties
+
+    /// 전체 시간표 데이터 (routes 포함)
+    private var timetableData: TimetableData?
 
     // MARK: - Constants
 
@@ -46,6 +54,17 @@ final class MainViewModel: ObservableObject {
     /// 공지가 있는지 여부
     var hasNotice: Bool {
         noticeMessage != nil && !noticeMessage!.isEmpty
+    }
+
+    /// routes 데이터가 있는지 여부 (양방향 지원)
+    var hasRoutes: Bool {
+        timetableData?.routes != nil
+    }
+
+    /// 현재 선택된 방향의 정류장 목록
+    var currentStops: [BusStop] {
+        guard let data = timetableData else { return [] }
+        return TimetableService().getStops(for: selectedDirection, data: data)
     }
 
     /// 현재 선택된 시간표
@@ -68,6 +87,11 @@ final class MainViewModel: ObservableObject {
         nextBusTime == nil && !currentTimes.isEmpty
     }
 
+    /// 현재 방향의 표시 이름
+    var currentDirectionName: String {
+        selectedDirection.displayName
+    }
+
     // MARK: - Initialization
 
     init() {}
@@ -76,16 +100,41 @@ final class MainViewModel: ObservableObject {
 
     /// 시간표 데이터 로드
     func loadTimetable(with data: TimetableData) async {
-        weekdayTimes = data.timetable.weekday
-        weekendTimes = data.timetable.weekend
+        timetableData = data
         holidays = data.holidays
         noticeMessage = data.meta.noticeMessage
+
+        // 현재 선택된 방향에 맞는 시간표 로드
+        loadTimesForCurrentDirection(from: data)
 
         // 오늘 날짜에 맞는 시간표 타입 자동 선택
         let shouldUseWeekday = DateService.shouldUseWeekdaySchedule(Date(), holidays: holidays)
         selectedScheduleType = shouldUseWeekday ? .weekday : .weekend
 
         isLoading = false
+    }
+
+    /// 방향 변경
+    func changeDirection(to direction: RouteDirection) {
+        selectedDirection = direction
+        if let data = timetableData {
+            loadTimesForCurrentDirection(from: data)
+        }
+    }
+
+    // MARK: - Private Methods
+
+    /// 현재 방향에 맞는 시간표 로드
+    private func loadTimesForCurrentDirection(from data: TimetableData) {
+        // routes가 있으면 routes 사용, 없으면 기존 timetable 사용 (하위호환)
+        if let routes = data.routes,
+           let route = routes[selectedDirection.rawValue] {
+            weekdayTimes = route.timetable.weekday
+            weekendTimes = route.timetable.weekend
+        } else if let timetable = data.timetable {
+            weekdayTimes = timetable.weekday
+            weekendTimes = timetable.weekend
+        }
     }
 
     /// 앱 시작 시 데이터 로드

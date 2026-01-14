@@ -15,9 +15,10 @@ struct TimetableServiceTests {
 
         // Then
         #expect(result != nil)
-        #expect(result?.meta.version == 1)
-        #expect(result?.timetable.weekday.isEmpty == false)
-        #expect(result?.timetable.weekend.isEmpty == false)
+        #expect(result?.meta.version == 2)
+        #expect(result?.routes != nil)
+        #expect(result?.routes?["jangyu_to_sasang"]?.timetable.weekday.isEmpty == false)
+        #expect(result?.routes?["sasang_to_jangyu"]?.timetable.weekend.isEmpty == false)
     }
 
     @Test func 번들_JSON이_없으면_nil_반환() {
@@ -48,8 +49,8 @@ struct TimetableServiceTests {
         #expect(loaded != nil)
         #expect(loaded?.meta.version == testData.meta.version)
         #expect(loaded?.holidays == testData.holidays)
-        #expect(loaded?.timetable.weekday == testData.timetable.weekday)
-        #expect(loaded?.timetable.weekend == testData.timetable.weekend)
+        #expect(loaded?.timetable?.weekday == testData.timetable?.weekday)
+        #expect(loaded?.timetable?.weekend == testData.timetable?.weekend)
 
         // Cleanup
         clearCache(key: cacheKey)
@@ -80,7 +81,7 @@ struct TimetableServiceTests {
         let result = service.getCurrentTimetable(for: weekday, data: testData)
 
         // Then
-        #expect(result == testData.timetable.weekday)
+        #expect(result == testData.timetable?.weekday)
     }
 
     @Test func 평일_공휴일_주말시간표_반환() {
@@ -93,7 +94,7 @@ struct TimetableServiceTests {
         let result = service.getCurrentTimetable(for: holiday, data: testData)
 
         // Then
-        #expect(result == testData.timetable.weekend)
+        #expect(result == testData.timetable?.weekend)
     }
 
     @Test func 토요일_주말시간표_반환() {
@@ -106,7 +107,7 @@ struct TimetableServiceTests {
         let result = service.getCurrentTimetable(for: saturday, data: testData)
 
         // Then
-        #expect(result == testData.timetable.weekend)
+        #expect(result == testData.timetable?.weekend)
     }
 
     @Test func 일요일_주말시간표_반환() {
@@ -119,7 +120,7 @@ struct TimetableServiceTests {
         let result = service.getCurrentTimetable(for: sunday, data: testData)
 
         // Then
-        #expect(result == testData.timetable.weekend)
+        #expect(result == testData.timetable?.weekend)
     }
 
     // MARK: - Helper Methods

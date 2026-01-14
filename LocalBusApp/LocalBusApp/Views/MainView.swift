@@ -41,9 +41,22 @@ struct MainView: View {
                     }
                 }
             }
-            .navigationTitle("장유 → 사상")
+            .navigationTitle(viewModel.currentDirectionName)
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                // 방향 전환 버튼 (양방향 지원시에만 표시)
+                if viewModel.hasRoutes {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            let newDirection: RouteDirection = viewModel.selectedDirection == .jangyuToSasang
+                                ? .sasangToJangyu : .jangyuToSasang
+                            viewModel.changeDirection(to: newDirection)
+                        } label: {
+                            Image(systemName: "arrow.left.arrow.right")
+                        }
+                    }
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showingInfo = true

@@ -55,16 +55,48 @@ struct TimetableService {
 
     // MARK: - Timetable Selection
 
-    /// 특정 날짜에 맞는 시간표 반환 (평일/주말)
+    /// 특정 날짜에 맞는 시간표 반환 (평일/주말) - 하위호환용
     /// - Parameters:
     ///   - date: 기준 날짜
     ///   - data: 시간표 데이터
     /// - Returns: 해당 날짜의 버스 시간 배열
     func getCurrentTimetable(for date: Date, data: TimetableData) -> [String] {
+        guard let timetable = data.timetable else { return [] }
+
         if DateService.shouldUseWeekdaySchedule(date, holidays: data.holidays) {
-            return data.timetable.weekday
+            return timetable.weekday
         } else {
-            return data.timetable.weekend
+            return timetable.weekend
         }
+    }
+
+    /// 특정 날짜와 방향에 맞는 시간표 반환
+    /// - Parameters:
+    ///   - date: 기준 날짜
+    ///   - direction: 노선 방향
+    ///   - data: 시간표 데이터
+    /// - Returns: 해당 날짜/방향의 버스 시간 배열
+    func getCurrentTimetable(for date: Date, direction: RouteDirection, data: TimetableData) -> [String] {
+        // routes가 있으면 routes 사용
+        if let routes = data.routes,
+           let route = routes[direction.rawValue] {
+            if DateService.shouldUseWeekdaySchedule(date, holidays: data.holidays) {
+                return route.timetable.weekday
+            } else {
+                return route.timetable.weekend
+            }
+        }
+
+        // routes가 없으면 기존 timetable 사용 (하위호환)
+        return getCurrentTimetable(for: date, data: data)
+    }
+
+    /// 특정 방향의 정류장 목록 반환
+    /// - Parameters:
+    ///   - direction: 노선 방향
+    ///   - data: 시간표 데이터
+    /// - Returns: 정류장 목록
+    func getStops(for direction: RouteDirection, data: TimetableData) -> [BusStop] {
+        data.routes?[direction.rawValue]?.stops ?? []
     }
 }

@@ -89,7 +89,7 @@ struct NetworkServiceTests {
         // Then
         #expect(result.meta.version == 1)
         #expect(result.holidays.count == 2)
-        #expect(result.timetable.weekday.count == 2)
+        #expect(result.timetable?.weekday.count == 2)
     }
 
     // MARK: - 실패 케이스 테스트
