@@ -1,0 +1,47 @@
+name: 기능 요청
+description: 새로운 기능 추가 또는 개선
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 기능 요청
+        새로운 기능이나 개선 사항을 요청해주세요.
+
+  - type: input
+    id: title
+    attributes:
+      label: 기능 제목
+      description: "형식: {Area}: {설명}"
+      placeholder: "예: NextBus: 다음 버스 자동 스크롤 기능"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 기능 설명
+      description: 어떤 기능을 원하시나요?
+      placeholder: 앱 실행 시 다음 버스로 자동 스크롤되면 좋겠습니다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: 작업 내용
+      description: 구체적인 작업 내용을 체크리스트로 작성해주세요.
+      value: |
+        - [ ] 작업 1
+        - [ ] 작업 2
+        - [ ] 작업 3
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: 참고 사항
+      description: 관련 파일, 링크, 스크린샷 등
+    validations:
+      required: false

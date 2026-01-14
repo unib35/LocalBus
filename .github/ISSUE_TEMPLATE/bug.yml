@@ -1,0 +1,70 @@
+name: 버그 리포트
+description: 버그나 오류를 신고해주세요
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 버그 리포트
+        발견한 버그를 상세히 알려주세요.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 버그 설명
+      description: 어떤 문제가 발생했나요?
+      placeholder: 공휴일인데 평일 시간표가 표시됩니다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현 방법
+      description: 버그를 재현하는 단계를 알려주세요.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 예상 동작
+      description: 정상적으로 동작해야 하는 방식
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 동작
+      description: 현재 발생하는 문제
+    validations:
+      required: true
+
+  - type: input
+    id: ios-version
+    attributes:
+      label: iOS 버전
+      placeholder: "16.0"
+    validations:
+      required: false
+
+  - type: input
+    id: device
+    attributes:
+      label: 기기
+      placeholder: "iPhone 15 Pro"
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 스크린샷
+      description: 문제 상황 스크린샷이 있다면 첨부해주세요.
+    validations:
+      required: false
