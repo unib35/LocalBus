@@ -316,35 +316,90 @@ struct ScheduleTypePicker: View {
     }
 }
 
-// MARK: - 시간표 그리드
+// MARK: - 시간표 그리드 (시간대별 그룹)
 
 struct TimetableGrid: View {
     let times: [String]
     let nextBusTime: String?
 
+    /// 시간대별로 그룹화된 시간표
+    private var groupedTimes: [(hour: String, times: [String])] {
+        let grouped = Dictionary(grouping: times) { time -> String in
+            String(time.prefix(2))
+        }
+        return grouped.sorted { $0.key < $1.key }.map { (hour: $0.key, times: $0.value) }
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ForEach(groupedTimes, id: \.hour) { group in
+                HourSection(
+                    hour: group.hour,
+                    times: group.times,
+                    nextBusTime: nextBusTime,
+                    allTimes: times
+                )
+            }
+        }
+    }
+}
+
+struct HourSection: View {
+    let hour: String
+    let times: [String]
+    let nextBusTime: String?
+    let allTimes: [String]
+
     private let columns = [
-        GridItem(.flexible()),
         GridItem(.flexible()),
         GridItem(.flexible()),
         GridItem(.flexible())
     ]
 
+    /// 이 시간대에 다음 버스가 있는지
+    private var hasNextBus: Bool {
+        guard let next = nextBusTime else { return false }
+        return times.contains(next)
+    }
+
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 8) {
-            ForEach(times, id: \.self) { time in
-                TimeCell(
-                    time: time,
-                    isNextBus: time == nextBusTime,
-                    isPast: isPastTime(time)
-                )
+        VStack(alignment: .leading, spacing: 8) {
+            // 시간대 헤더
+            HStack(spacing: 6) {
+                Text("\(hour)시")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(hasNextBus ? .blue : .secondary)
+
+                if hasNextBus {
+                    Image(systemName: "arrow.right.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+
+            // 시간 그리드
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(times, id: \.self) { time in
+                    TimeCell(
+                        time: time,
+                        isNextBus: time == nextBusTime,
+                        isPast: isPastTime(time)
+                    )
+                }
             }
         }
+        .padding(12)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private func isPastTime(_ time: String) -> Bool {
         guard let nextTime = nextBusTime,
-              let nextIndex = times.firstIndex(of: nextTime),
-              let timeIndex = times.firstIndex(of: time) else {
+              let nextIndex = allTimes.firstIndex(of: nextTime),
+              let timeIndex = allTimes.firstIndex(of: time) else {
             return nextBusTime == nil
         }
         return timeIndex < nextIndex
@@ -356,26 +411,37 @@ struct TimeCell: View {
     let isNextBus: Bool
     let isPast: Bool
 
+    /// 분만 표시 (예: "00", "20", "40")
+    private var minuteOnly: String {
+        String(time.suffix(2))
+    }
+
     var body: some View {
-        Text(time)
-            .font(isNextBus ? .headline : .subheadline)
-            .fontWeight(isNextBus ? .bold : .regular)
-            .foregroundStyle(cellForegroundColor)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(cellBackgroundColor)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(isNextBus ? Color.blue : Color.clear, lineWidth: 2)
-            )
+        HStack(spacing: 2) {
+            Text(":")
+                .font(.callout)
+                .foregroundStyle(.tertiary)
+            Text(minuteOnly)
+                .font(.title3.monospacedDigit())
+                .fontWeight(isNextBus ? .bold : .medium)
+        }
+        .foregroundStyle(cellForegroundColor)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(cellBackgroundColor)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(isNextBus ? Color.blue : Color.clear, lineWidth: 2.5)
+        )
+        .shadow(color: isNextBus ? .blue.opacity(0.2) : .clear, radius: 4, x: 0, y: 2)
     }
 
     private var cellForegroundColor: Color {
         if isNextBus {
             return .blue
         } else if isPast {
-            return .secondary
+            return Color(.tertiaryLabel)
         }
         return .primary
     }
@@ -383,8 +449,10 @@ struct TimeCell: View {
     private var cellBackgroundColor: Color {
         if isNextBus {
             return Color.blue.opacity(0.15)
+        } else if isPast {
+            return Color(.tertiarySystemFill)
         }
-        return Color(.secondarySystemBackground)
+        return Color(.systemBackground)
     }
 }
 
