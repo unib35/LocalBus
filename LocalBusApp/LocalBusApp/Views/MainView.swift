@@ -491,159 +491,83 @@ struct ScheduleTypePicker: View {
     }
 }
 
-// MARK: - 시간표 테이블 (세로 스크롤)
+// MARK: - 시간표 리스트 (세로 스크롤)
 
 struct TimetableGrid: View {
     let times: [String]
     let nextBusTime: String?
 
-    /// 시간대별로 그룹화된 시간표
-    private var groupedTimes: [(hour: String, times: [String])] {
-        let grouped = Dictionary(grouping: times) { time -> String in
-            String(time.prefix(2))
-        }
-        return grouped.sorted { $0.key < $1.key }.map { (hour: $0.key, times: $0.value) }
-    }
-
     var body: some View {
         VStack(spacing: 0) {
-            // 테이블 헤더
-            HStack {
-                Text("시간")
-                    .font(.caption.bold())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 50)
-
-                Text("출발 시각")
-                    .font(.caption.bold())
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color(.tertiarySystemBackground))
-
-            Divider()
-
-            // 시간표 리스트
-            ForEach(Array(groupedTimes.enumerated()), id: \.element.hour) { index, group in
-                TimetableRow(
-                    hour: group.hour,
-                    times: group.times,
-                    nextBusTime: nextBusTime,
-                    allTimes: times
+            ForEach(Array(times.enumerated()), id: \.element) { index, time in
+                TimeRow(
+                    time: time,
+                    isNextBus: time == nextBusTime,
+                    isPast: isPastTime(time)
                 )
 
-                if index < groupedTimes.count - 1 {
+                if index < times.count - 1 {
                     Divider()
-                        .padding(.leading, 66)
+                        .padding(.leading, 16)
                 }
             }
         }
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
-}
-
-struct TimetableRow: View {
-    let hour: String
-    let times: [String]
-    let nextBusTime: String?
-    let allTimes: [String]
-
-    /// 이 시간대에 다음 버스가 있는지
-    private var hasNextBus: Bool {
-        guard let next = nextBusTime else { return false }
-        return times.contains(next)
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // 시간대 레이블
-            VStack {
-                Text("\(hour)")
-                    .font(.title3.bold().monospacedDigit())
-                    .foregroundStyle(hasNextBus ? .blue : .primary)
-                Text("시")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(width: 50)
-            .padding(.vertical, 12)
-
-            // 분 리스트 (가로 스크롤)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(times, id: \.self) { time in
-                        MinuteChip(
-                            time: time,
-                            isNextBus: time == nextBusTime,
-                            isPast: isPastTime(time)
-                        )
-                    }
-                }
-                .padding(.vertical, 12)
-                .padding(.trailing, 16)
-            }
-        }
-        .padding(.leading, 16)
-        .background(hasNextBus ? Color.blue.opacity(0.05) : Color.clear)
-    }
 
     private func isPastTime(_ time: String) -> Bool {
         guard let nextTime = nextBusTime,
-              let nextIndex = allTimes.firstIndex(of: nextTime),
-              let timeIndex = allTimes.firstIndex(of: time) else {
+              let nextIndex = times.firstIndex(of: nextTime),
+              let timeIndex = times.firstIndex(of: time) else {
             return nextBusTime == nil
         }
         return timeIndex < nextIndex
     }
 }
 
-struct MinuteChip: View {
+struct TimeRow: View {
     let time: String
     let isNextBus: Bool
     let isPast: Bool
 
-    /// 분만 표시 (예: "00", "20", "40")
-    private var minuteOnly: String {
-        String(time.suffix(2))
-    }
-
     var body: some View {
-        Text(":\(minuteOnly)")
-            .font(.body.monospacedDigit())
-            .fontWeight(isNextBus ? .bold : .medium)
-            .foregroundStyle(chipForegroundColor)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(chipBackgroundColor)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .strokeBorder(isNextBus ? Color.blue : Color.clear, lineWidth: 2)
-            )
-            .scaleEffect(isNextBus ? 1.1 : 1.0)
-            .animation(.easeInOut(duration: 0.2), value: isNextBus)
+        HStack {
+            // 시간 표시
+            Text(time)
+                .font(.title3.monospacedDigit())
+                .fontWeight(isNextBus ? .bold : .medium)
+                .foregroundStyle(textColor)
+
+            Spacer()
+
+            // 다음 버스 표시
+            if isNextBus {
+                HStack(spacing: 6) {
+                    Image(systemName: "bus.fill")
+                        .font(.caption)
+                    Text("다음 버스")
+                        .font(.caption.bold())
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.blue)
+                .clipShape(Capsule())
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(isNextBus ? Color.blue.opacity(0.1) : Color.clear)
     }
 
-    private var chipForegroundColor: Color {
+    private var textColor: Color {
         if isNextBus {
-            return .white
+            return .blue
         } else if isPast {
             return Color(.tertiaryLabel)
         }
         return .primary
-    }
-
-    private var chipBackgroundColor: Color {
-        if isNextBus {
-            return .blue
-        } else if isPast {
-            return Color(.tertiarySystemFill)
-        }
-        return Color(.systemBackground)
     }
 }
 
