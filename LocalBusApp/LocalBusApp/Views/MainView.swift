@@ -19,7 +19,7 @@ struct MainView: View {
                         NoticeBanner(message: viewModel.noticeMessage ?? "")
                     }
 
-                    VStack(spacing: 20) {
+                    VStack(spacing: 16) {
                         // 방향 선택 (양방향 지원시에만 표시)
                         if viewModel.hasRoutes {
                             DirectionSelector(
@@ -32,16 +32,38 @@ struct MainView: View {
                             )
                         }
 
-                        // 다음 버스 히어로 카드
+                        // 다음 버스 실시간 카운트다운 카드
                         if viewModel.isLoading {
                             LoadingCard()
                         } else if viewModel.isServiceEnded {
                             EndOfServiceCard(firstBusTime: viewModel.firstBusTime)
                         } else if let nextTime = viewModel.nextBusTime {
-                            NextBusHeroCard(
-                                time: nextTime,
-                                remainingText: viewModel.remainingTimeText,
-                                direction: viewModel.currentDirectionName
+                            LiveCountdownCard(
+                                nextBusTime: nextTime,
+                                countdownText: viewModel.countdownText,
+                                direction: viewModel.currentDirectionName,
+                                isNotificationScheduled: viewModel.isNotificationScheduled(for: nextTime),
+                                onNotificationTap: {
+                                    Task {
+                                        await viewModel.toggleNotification(for: nextTime)
+                                    }
+                                }
+                            )
+                        }
+
+                        // 노선 정보 (소요시간/요금)
+                        if viewModel.hasRoutes && viewModel.durationMinutes > 0 {
+                            RouteInfoBar(
+                                durationMinutes: viewModel.durationMinutes,
+                                fareText: viewModel.fareText
+                            )
+                        }
+
+                        // 정류장 경로
+                        if viewModel.hasRoutes && !viewModel.currentStops.isEmpty {
+                            RouteStopsView(
+                                stops: viewModel.currentStops,
+                                durationMinutes: viewModel.durationMinutes
                             )
                         }
 
@@ -222,6 +244,159 @@ struct EndOfServiceCard: View {
         .padding(24)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+// MARK: - 노선 정보 (소요시간/요금)
+
+struct RouteInfoBar: View {
+    let durationMinutes: Int
+    let fareText: String
+
+    var body: some View {
+        HStack(spacing: 20) {
+            HStack(spacing: 6) {
+                Image(systemName: "clock")
+                    .foregroundStyle(.blue)
+                Text("약 \(durationMinutes)분")
+                    .font(.subheadline.weight(.medium))
+            }
+
+            Divider()
+                .frame(height: 16)
+
+            HStack(spacing: 6) {
+                Image(systemName: "wonsign.circle")
+                    .foregroundStyle(.green)
+                Text(fareText)
+                    .font(.subheadline.weight(.medium))
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - 정류장 경로
+
+struct RouteStopsView: View {
+    let stops: [BusStop]
+    let durationMinutes: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
+                HStack(spacing: 12) {
+                    // 타임라인
+                    VStack(spacing: 0) {
+                        Circle()
+                            .fill(stop.isDeparture ? Color.blue : Color.green)
+                            .frame(width: 12, height: 12)
+
+                        if index < stops.count - 1 {
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(width: 2, height: 30)
+                        }
+                    }
+
+                    // 정류장 정보
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(stop.name)
+                            .font(.subheadline.weight(.medium))
+                        if let desc = stop.description {
+                            Text(desc)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    // 소요시간 (마지막 정류장)
+                    if index == stops.count - 1 {
+                        Text("약 \(durationMinutes)분")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+// MARK: - 실시간 카운트다운 카드
+
+struct LiveCountdownCard: View {
+    let nextBusTime: String
+    let countdownText: String
+    let direction: String
+    let isNotificationScheduled: Bool
+    let onNotificationTap: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("다음 버스")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.8))
+                    Text(nextBusTime)
+                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("남은 시간")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.8))
+                    Text(countdownText)
+                        .font(.system(size: 32, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.white)
+                }
+            }
+
+            HStack {
+                Text(direction)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.8))
+
+                Spacer()
+
+                Button(action: onNotificationTap) {
+                    HStack(spacing: 4) {
+                        Image(systemName: isNotificationScheduled ? "bell.fill" : "bell")
+                        Text(isNotificationScheduled ? "알림 ON" : "5분 전 알림")
+                            .font(.caption.weight(.medium))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(isNotificationScheduled ? Color.white : Color.white.opacity(0.2))
+                    .foregroundStyle(isNotificationScheduled ? .blue : .white)
+                    .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            LinearGradient(
+                colors: [Color.blue, Color.indigo],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
     }
 }
 

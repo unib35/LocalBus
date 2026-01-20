@@ -24,6 +24,8 @@
   "routes": {
     "jangyu_to_sasang": {
       "name": "장유 → 사상",
+      "duration_minutes": 25,
+      "fare": 2500,
       "stops": [
         {
           "id": "gapeul_hospital",
@@ -59,6 +61,8 @@
     },
     "sasang_to_jangyu": {
       "name": "사상 → 장유",
+      "duration_minutes": 25,
+      "fare": 2500,
       "stops": [
         {
           "id": "sasang_terminal",

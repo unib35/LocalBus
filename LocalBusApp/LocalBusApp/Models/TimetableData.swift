@@ -43,8 +43,15 @@ struct BusStop: Codable {
 /// 노선별 시간표 데이터
 struct RouteData: Codable {
     let name: String
+    let durationMinutes: Int
+    let fare: Int
     let stops: [BusStop]
     let timetable: Timetable
+
+    enum CodingKeys: String, CodingKey {
+        case name, stops, timetable, fare
+        case durationMinutes = "duration_minutes"
+    }
 }
 
 // MARK: - 시간표 데이터

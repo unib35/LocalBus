@@ -40,10 +40,19 @@ final class MainViewModel: ObservableObject {
     /// 오프라인 모드 여부
     @Published var isOffline: Bool = false
 
+    /// 현재 시간 (1초마다 업데이트)
+    @Published var currentTime: Date = Date()
+
+    /// 알림 예약 상태
+    @Published var scheduledNotifications: Set<String> = []
+
     // MARK: - Private Properties
 
     /// 전체 시간표 데이터 (routes 포함)
     private var timetableData: TimetableData?
+
+    /// 실시간 타이머
+    private var timer: Timer?
 
     // MARK: - Constants
 
@@ -95,7 +104,44 @@ final class MainViewModel: ObservableObject {
     /// 다음 버스까지 남은 시간 (분)
     var minutesUntilNextBus: Int? {
         guard let nextTime = nextBusTime else { return nil }
-        return DateService.minutesUntil(timeString: nextTime, from: Date())
+        return DateService.minutesUntil(timeString: nextTime, from: currentTime)
+    }
+
+    /// 다음 버스까지 남은 초
+    var secondsUntilNextBus: Int? {
+        guard let nextTime = nextBusTime else { return nil }
+        return DateService.secondsUntil(timeString: nextTime, from: currentTime)
+    }
+
+    /// 카운트다운 텍스트 (MM:SS 형식)
+    var countdownText: String {
+        guard let seconds = secondsUntilNextBus, seconds > 0 else { return "--:--" }
+        let mins = seconds / 60
+        let secs = seconds % 60
+        return String(format: "%02d:%02d", mins, secs)
+    }
+
+    /// 현재 방향의 소요시간 (분)
+    var durationMinutes: Int {
+        guard let data = timetableData,
+              let routes = data.routes,
+              let route = routes[selectedDirection.rawValue] else { return 0 }
+        return route.durationMinutes
+    }
+
+    /// 현재 방향의 요금
+    var fare: Int {
+        guard let data = timetableData,
+              let routes = data.routes,
+              let route = routes[selectedDirection.rawValue] else { return 0 }
+        return route.fare
+    }
+
+    /// 요금 포맷팅
+    var fareText: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return (formatter.string(from: NSNumber(value: fare)) ?? "\(fare)") + "원"
     }
 
     /// 남은 시간 표시 문자열
@@ -126,6 +172,10 @@ final class MainViewModel: ObservableObject {
 
     init() {}
 
+    deinit {
+        timer?.invalidate()
+    }
+
     // MARK: - Public Methods
 
     /// 시간표 데이터 로드
@@ -152,6 +202,39 @@ final class MainViewModel: ObservableObject {
         }
     }
 
+    /// 실시간 타이머 시작
+    func startTimer() {
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.currentTime = Date()
+            }
+        }
+    }
+
+    /// 알림 토글
+    func toggleNotification(for busTime: String, minutesBefore: Int = 5) async {
+        let key = "\(busTime)_\(minutesBefore)"
+        if scheduledNotifications.contains(key) {
+            NotificationService.shared.cancelNotification(busTime: busTime, minutesBefore: minutesBefore)
+            scheduledNotifications.remove(key)
+        } else {
+            let granted = await NotificationService.shared.requestAuthorization()
+            if granted {
+                NotificationService.shared.scheduleBusNotification(
+                    busTime: busTime,
+                    minutesBefore: minutesBefore,
+                    direction: currentDirectionName
+                )
+                scheduledNotifications.insert(key)
+            }
+        }
+    }
+
+    /// 알림이 예약되어 있는지 확인
+    func isNotificationScheduled(for busTime: String, minutesBefore: Int = 5) -> Bool {
+        scheduledNotifications.contains("\(busTime)_\(minutesBefore)")
+    }
+
     // MARK: - Private Methods
 
     /// 현재 방향에 맞는 시간표 로드
@@ -169,6 +252,8 @@ final class MainViewModel: ObservableObject {
 
     /// 앱 시작 시 데이터 로드
     func onAppear() async {
+        startTimer()
+
         let timetableService = TimetableService()
         let networkService = NetworkService()
 
