@@ -137,6 +137,8 @@ struct TimetableDataTests {
         let json = """
         {
             "name": "장유 → 사상",
+            "duration_minutes": 40,
+            "fare": 3200,
             "stops": [
                 {
                     "id": "gapeul_hospital",
@@ -157,6 +159,8 @@ struct TimetableDataTests {
 
         // Then
         #expect(route.name == "장유 → 사상")
+        #expect(route.durationMinutes == 40)
+        #expect(route.fare == 3200)
         #expect(route.stops.count == 1)
         #expect(route.stops.first?.name == "갑을장유병원")
         #expect(route.timetable.weekday == ["06:00", "06:30"])
@@ -175,6 +179,8 @@ struct TimetableDataTests {
             "routes": {
                 "jangyu_to_sasang": {
                     "name": "장유 → 사상",
+                    "duration_minutes": 40,
+                    "fare": 3200,
                     "stops": [
                         {
                             "id": "gapeul_hospital",
@@ -189,6 +195,8 @@ struct TimetableDataTests {
                 },
                 "sasang_to_jangyu": {
                     "name": "사상 → 장유",
+                    "duration_minutes": 40,
+                    "fare": 3200,
                     "stops": [
                         {
                             "id": "sasang",

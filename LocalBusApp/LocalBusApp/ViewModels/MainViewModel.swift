@@ -1,12 +1,6 @@
 import Foundation
 import SwiftUI
 
-/// 시간표 타입 (평일/주말)
-enum ScheduleType: String, CaseIterable {
-    case weekday = "평일"
-    case weekend = "주말"
-}
-
 /// 메인 화면 ViewModel
 @MainActor
 final class MainViewModel: ObservableObject {
