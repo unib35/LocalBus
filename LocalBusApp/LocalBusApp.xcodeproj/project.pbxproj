@@ -27,6 +27,13 @@
 			remoteGlobalIDString = 9B86056C2F125AD00021EC15;
 			remoteInfo = LocalBusApp;
 		};
+		9BC0DE502F20010000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9B8605652F125AD00021EC15 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9B86056C2F125AD00021EC15;
+			remoteInfo = LocalBusApp;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -49,6 +56,7 @@
 		9B44DB112F1FAF4700F7AC27 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		9B6B77442F171CDC00F06192 /* LocalBusAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalBusAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9B86056D2F125AD00021EC15 /* LocalBusApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LocalBusApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9BC0DE512F20010000000002 /* LocalBusAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalBusAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -90,6 +98,11 @@
 			path = LocalBusApp;
 			sourceTree = "<group>";
 		};
+		9BC0DE522F20010000000003 /* LocalBusAppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = LocalBusAppUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -116,6 +129,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9BC0DE532F20010000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -133,6 +153,7 @@
 			children = (
 				9B86056F2F125AD00021EC15 /* LocalBusApp */,
 				9B6B77452F171CDC00F06192 /* LocalBusAppTests */,
+				9BC0DE522F20010000000003 /* LocalBusAppUITests */,
 				9B44DB132F1FAF4700F7AC27 /* LocalBusWidget */,
 				9B44DB0E2F1FAF4700F7AC27 /* Frameworks */,
 				9B86056E2F125AD00021EC15 /* Products */,
@@ -144,6 +165,7 @@
 			children = (
 				9B86056D2F125AD00021EC15 /* LocalBusApp.app */,
 				9B6B77442F171CDC00F06192 /* LocalBusAppTests.xctest */,
+				9BC0DE512F20010000000002 /* LocalBusAppUITests.xctest */,
 				9B44DB0D2F1FAF4700F7AC27 /* LocalBusWidgetExtension.appex */,
 			);
 			name = Products;
@@ -221,6 +243,29 @@
 			productReference = 9B86056D2F125AD00021EC15 /* LocalBusApp.app */;
 			productType = "com.apple.product-type.application";
 		};
+		9BC0DE542F20010000000005 /* LocalBusAppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9BC0DE5A2F20010000000009 /* Build configuration list for PBXNativeTarget "LocalBusAppUITests" */;
+			buildPhases = (
+				9BC0DE552F20010000000006 /* Sources */,
+				9BC0DE532F20010000000004 /* Frameworks */,
+				9BC0DE562F20010000000007 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9BC0DE572F20010000000008 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9BC0DE522F20010000000003 /* LocalBusAppUITests */,
+			);
+			name = LocalBusAppUITests;
+			packageProductDependencies = (
+			);
+			productName = LocalBusAppUITests;
+			productReference = 9BC0DE512F20010000000002 /* LocalBusAppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -241,6 +286,10 @@
 					9B86056C2F125AD00021EC15 = {
 						CreatedOnToolsVersion = 16.4;
 					};
+					9BC0DE542F20010000000005 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 9B86056C2F125AD00021EC15;
+					};
 				};
 			};
 			buildConfigurationList = 9B8605682F125AD00021EC15 /* Build configuration list for PBXProject "LocalBusApp" */;
@@ -259,6 +308,7 @@
 			targets = (
 				9B86056C2F125AD00021EC15 /* LocalBusApp */,
 				9B6B77432F171CDC00F06192 /* LocalBusAppTests */,
+				9BC0DE542F20010000000005 /* LocalBusAppUITests */,
 				9B44DB0C2F1FAF4700F7AC27 /* LocalBusWidgetExtension */,
 			);
 		};
@@ -280,6 +330,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9B86056B2F125AD00021EC15 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BC0DE562F20010000000007 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -310,6 +367,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9BC0DE552F20010000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -322,6 +386,11 @@
 			isa = PBXTargetDependency;
 			target = 9B86056C2F125AD00021EC15 /* LocalBusApp */;
 			targetProxy = 9B6B77482F171CDC00F06192 /* PBXContainerItemProxy */;
+		};
+		9BC0DE572F20010000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9B86056C2F125AD00021EC15 /* LocalBusApp */;
+			targetProxy = 9BC0DE502F20010000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -597,6 +666,42 @@
 			};
 			name = Release;
 		};
+		9BC0DE582F2001000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AMNS6W2AA9;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = kr.co.lee.LocalBusAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = LocalBusApp;
+			};
+			name = Debug;
+		};
+		9BC0DE592F2001000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AMNS6W2AA9;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = kr.co.lee.LocalBusAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = LocalBusApp;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -632,6 +737,15 @@
 			buildConfigurations = (
 				9B8605792F125AD20021EC15 /* Debug */,
 				9B86057A2F125AD20021EC15 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9BC0DE5A2F20010000000009 /* Build configuration list for PBXNativeTarget "LocalBusAppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9BC0DE582F2001000000000A /* Debug */,
+				9BC0DE592F2001000000000B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
