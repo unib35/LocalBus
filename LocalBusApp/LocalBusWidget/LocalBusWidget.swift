@@ -194,44 +194,38 @@ struct SmallWidgetView: View {
     let entry: BusEntry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             // 헤더
-            HStack {
-                Image(systemName: "bus.fill")
-                    .font(.caption)
-                Text("시외버스")
-                    .font(.caption.bold())
-            }
-            .foregroundStyle(.blue)
+            Text("시외버스")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             Spacer()
 
             if entry.isServiceEnded {
                 // 운행 종료
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("운행 종료")
-                        .font(.headline)
-                    Text("내일 첫차 06:00")
+                    Text("운행종료")
+                        .font(.title3.bold())
+                    Text("첫차 06:00")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             } else if let nextTime = entry.nextBusTime {
                 // 다음 버스
                 Text(nextTime)
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
 
-                HStack(spacing: 4) {
-                    Text("\(entry.remainingMinutes)분 후")
-                        .font(.subheadline.bold())
-                        .foregroundStyle(.blue)
-                }
+                Text("\(entry.remainingMinutes)분 후")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
 
             Text(entry.direction)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -244,25 +238,21 @@ struct MediumWidgetView: View {
         HStack(spacing: 16) {
             // 왼쪽: 다음 버스 정보
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "bus.fill")
-                        .font(.caption)
-                    Text("다음 버스")
-                        .font(.caption.bold())
-                }
-                .foregroundStyle(.blue)
+                Text("다음 버스")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 if entry.isServiceEnded {
-                    Text("운행 종료")
+                    Text("운행종료")
                         .font(.title2.bold())
-                    Text("내일 첫차 06:00")
-                        .font(.caption)
+                    Text("첫차 06:00")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else if let nextTime = entry.nextBusTime {
                     Text(nextTime)
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
 
-                    Text("\(entry.remainingMinutes)분 후 출발")
+                    Text("\(entry.remainingMinutes)분 후")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -271,7 +261,7 @@ struct MediumWidgetView: View {
 
                 Text(entry.direction)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
             }
 
             Spacer()
@@ -280,22 +270,16 @@ struct MediumWidgetView: View {
             if !entry.isServiceEnded {
                 VStack {
                     Spacer()
-                    ZStack {
-                        Circle()
-                            .fill(Color.blue.opacity(0.15))
-                            .frame(width: 70, height: 70)
-
-                        VStack(spacing: 2) {
-                            Text("\(entry.remainingMinutes)")
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
-                                .foregroundStyle(.blue)
-                            Text("분")
-                                .font(.caption2)
-                                .foregroundStyle(.blue)
-                        }
+                    VStack(spacing: 0) {
+                        Text("\(entry.remainingMinutes)")
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                        Text("분")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
+                .frame(width: 70)
             }
         }
     }
