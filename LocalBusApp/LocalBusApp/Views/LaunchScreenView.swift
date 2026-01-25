@@ -5,25 +5,25 @@ struct LaunchScreenView: View {
     var body: some View {
         ZStack {
             // 배경색
-            Color.blue
+            Color(uiColor: .systemBackground)
                 .ignoresSafeArea()
 
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
                 // 아이콘
                 Image(systemName: "bus.fill")
-                    .font(.system(size: 80))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 64))
+                    .foregroundStyle(.primary)
 
                 // 앱 이름
                 Text("LocalBus")
-                    .font(.largeTitle)
+                    .font(.title)
                     .fontWeight(.bold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
 
                 // 부제
                 Text("장유 ↔ 사상")
-                    .font(.headline)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
         }
     }

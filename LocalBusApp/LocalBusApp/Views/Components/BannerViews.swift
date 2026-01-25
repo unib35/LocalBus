@@ -7,14 +7,15 @@ struct OfflineBanner: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "wifi.slash")
+                .font(.caption)
             Text("오프라인 모드")
-                .font(.caption.bold())
+                .font(.caption.weight(.medium))
             Spacer()
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(.secondary)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color.gray)
+        .background(Color(uiColor: .secondarySystemBackground))
     }
 }
 
@@ -26,15 +27,16 @@ struct NoticeBanner: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "megaphone.fill")
-                .foregroundStyle(.orange)
+            Image(systemName: "info.circle")
+                .font(.subheadline)
             Text(message)
                 .font(.subheadline)
                 .lineLimit(2)
             Spacer()
         }
+        .foregroundStyle(.primary)
         .padding()
-        .background(Color.orange.opacity(0.1))
+        .background(Color(uiColor: .secondarySystemBackground))
     }
 }
 

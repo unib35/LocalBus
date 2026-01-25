@@ -8,9 +8,9 @@ struct FirstLastBusInfo: View {
     let lastBus: String
 
     var body: some View {
-        HStack(spacing: 16) {
-            InfoChip(icon: "sunrise.fill", title: "첫차", time: firstBus, color: .orange)
-            InfoChip(icon: "sunset.fill", title: "막차", time: lastBus, color: .purple)
+        HStack(spacing: 12) {
+            InfoChip(icon: "sunrise", title: "첫차", time: firstBus)
+            InfoChip(icon: "sunset", title: "막차", time: lastBus)
         }
     }
 }
@@ -22,25 +22,25 @@ struct InfoChip: View {
     let icon: String
     let title: String
     let time: String
-    let color: Color
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .foregroundStyle(color)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(time)
-                    .font(.subheadline.bold())
+                    .font(.subheadline.weight(.semibold))
             }
             Spacer()
         }
         .padding(12)
         .frame(maxWidth: .infinity)
         .background(Color(uiColor: .secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -52,6 +52,6 @@ struct InfoChip: View {
 }
 
 #Preview("InfoChip") {
-    InfoChip(icon: "sunrise.fill", title: "첫차", time: "06:00", color: .orange)
+    InfoChip(icon: "sunrise", title: "첫차", time: "06:00")
         .padding()
 }

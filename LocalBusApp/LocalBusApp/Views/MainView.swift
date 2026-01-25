@@ -75,7 +75,11 @@ struct MainView: View {
                     if viewModel.isLoading {
                         LoadingCard()
                     } else if viewModel.isServiceEnded {
-                        EndOfServiceCard(firstBusTime: viewModel.firstBusTime)
+                        EndOfServiceCard(
+                            firstBusTime: viewModel.firstBusTime,
+                            hoursUntilFirstBus: viewModel.hoursUntilFirstBus,
+                            minutesUntilFirstBus: viewModel.minutesUntilFirstBus
+                        )
                     } else if let nextTime = viewModel.nextBusTime {
                         LiveCountdownCard(
                             nextBusTime: nextTime,

@@ -8,9 +8,9 @@ struct ErrorView: View {
     var body: some View {
         VStack(spacing: 24) {
             // 에러 아이콘
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(.orange)
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
 
             // 에러 메시지
             VStack(spacing: 8) {
@@ -29,14 +29,14 @@ struct ErrorView: View {
                     Image(systemName: "arrow.clockwise")
                     Text("다시 시도")
                 }
-                .font(.headline)
-                .foregroundStyle(.white)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color(uiColor: .systemBackground))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(Color.blue)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .background(Color.primary)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            .padding(.horizontal, 40)
+            .padding(.horizontal, 48)
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -8,26 +8,24 @@ struct RouteInfoBar: View {
     let fareText: String
 
     var body: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 24) {
             HStack(spacing: 6) {
                 Image(systemName: "clock")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.secondary)
                 Text("약 \(durationMinutes)분")
-                    .font(.subheadline.weight(.medium))
+                    .font(.subheadline)
             }
-
-            Divider()
-                .frame(height: 16)
 
             HStack(spacing: 6) {
                 Image(systemName: "wonsign.circle")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(.secondary)
                 Text(fareText)
-                    .font(.subheadline.weight(.medium))
+                    .font(.subheadline)
             }
 
             Spacer()
         }
+        .foregroundStyle(.primary)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Color(uiColor: .secondarySystemBackground))
@@ -49,13 +47,13 @@ struct RouteStopsView: View {
                     // 타임라인
                     VStack(spacing: 0) {
                         Circle()
-                            .fill(stop.isDeparture ? Color.blue : Color.green)
-                            .frame(width: 12, height: 12)
+                            .fill(Color.primary)
+                            .frame(width: 8, height: 8)
 
                         if index < stops.count - 1 {
                             Rectangle()
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 2, height: 30)
+                                .fill(Color.primary.opacity(0.2))
+                                .frame(width: 1, height: 28)
                         }
                     }
 
@@ -84,7 +82,7 @@ struct RouteStopsView: View {
         }
         .padding(16)
         .background(Color(uiColor: .secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 

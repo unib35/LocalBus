@@ -162,6 +162,20 @@ final class MainViewModel: ObservableObject {
         currentTimes.last ?? "--:--"
     }
 
+    /// 첫차까지 남은 시간 (시)
+    var hoursUntilFirstBus: Int {
+        guard let firstTime = currentTimes.first else { return 0 }
+        let totalMinutes = DateService.minutesUntilNextDay(timeString: firstTime, from: currentTime)
+        return totalMinutes / 60
+    }
+
+    /// 첫차까지 남은 시간 (분)
+    var minutesUntilFirstBus: Int {
+        guard let firstTime = currentTimes.first else { return 0 }
+        let totalMinutes = DateService.minutesUntilNextDay(timeString: firstTime, from: currentTime)
+        return totalMinutes % 60
+    }
+
     // MARK: - Initialization
 
     init() {}

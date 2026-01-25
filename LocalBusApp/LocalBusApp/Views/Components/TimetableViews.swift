@@ -39,7 +39,7 @@ struct TimetableGrid: View {
             }
         }
         .background(Color(uiColor: .secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func isPastTime(_ time: String) -> Bool {
@@ -65,34 +65,30 @@ struct TimeRow: View {
             // 시간 표시
             Text(time)
                 .font(.title3.monospacedDigit())
-                .fontWeight(isNextBus ? .bold : .medium)
+                .fontWeight(isNextBus ? .bold : .regular)
                 .foregroundStyle(textColor)
 
             Spacer()
 
             // 다음 버스 표시
             if isNextBus {
-                HStack(spacing: 6) {
-                    Image(systemName: "bus.fill")
-                        .font(.caption)
-                    Text("다음 버스")
-                        .font(.caption.bold())
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.blue)
-                .clipShape(Capsule())
+                Text("다음")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(uiColor: .systemBackground))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.primary)
+                    .clipShape(Capsule())
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(isNextBus ? Color.blue.opacity(0.1) : Color.clear)
+        .background(isNextBus ? Color.primary.opacity(0.05) : Color.clear)
     }
 
     private var textColor: Color {
         if isNextBus {
-            return .blue
+            return .primary
         } else if isPast {
             return Color(uiColor: .tertiaryLabel)
         }
