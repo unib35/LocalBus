@@ -251,7 +251,7 @@
 | 앱 설명                    | ✅   | 한국어/영어 (Docs/deploy 참조)   |
 | 스크린샷 (6.7", 6.5", 5.5")| ⬜   | 필수 사이즈                   |
 | 앱 아이콘                  | ⬜   | 1024x1024                     |
-| 개인정보 처리방침          | ✅   | Docs/deploy/privacy-policy.md |
+| 개인정보 처리방침          | ✅   | https://unib35.github.io/LocalBus/privacy-policy.html |
 | 카테고리                   | ✅   | 여행 (Travel)                 |
 | 연령 등급                  | ✅   | 4+                            |
 

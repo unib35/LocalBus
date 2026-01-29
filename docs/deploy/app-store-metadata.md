@@ -137,8 +137,8 @@ bus,timetable,jangyu,sasang,intercity,gimhae,busan,commute,transit,korea
 | 항목 | URL |
 |------|-----|
 | 지원 URL | https://github.com/unib35/LocalBus |
-| 개인정보 처리방침 | (준비 필요) |
-| 마케팅 URL | (선택) |
+| 개인정보 처리방침 | https://unib35.github.io/LocalBus/privacy-policy.html |
+| 마케팅 URL | https://unib35.github.io/LocalBus/ |
 
 ---
 
