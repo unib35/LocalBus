@@ -58,11 +58,11 @@ struct InfoView: View {
     private var appInfoRow: some View {
         HStack {
             Image(systemName: "bus.fill")
-                .font(.largeTitle)
-                .foregroundStyle(.blue)
-                .frame(width: 60, height: 60)
-                .background(Color.blue.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .font(.title2)
+                .foregroundStyle(.primary)
+                .frame(width: 50, height: 50)
+                .background(Color(uiColor: .tertiarySystemFill))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("LocalBus")
@@ -94,8 +94,8 @@ struct InfoView: View {
             sendFeedbackEmail()
         } label: {
             HStack {
-                Image(systemName: "envelope.fill")
-                    .foregroundStyle(.blue)
+                Image(systemName: "envelope")
+                    .foregroundStyle(.primary)
                 Text("시간표 오류 제보하기")
                 Spacer()
                 Image(systemName: "chevron.right")
