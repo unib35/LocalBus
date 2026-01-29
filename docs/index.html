@@ -3,101 +3,250 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LocalBus</title>
+    <meta name="description" content="LocalBus - 장유-사상 시외버스 시간표 앱">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <title>LocalBus - 장유-사상 버스 시간표</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #ffffff;
+            --bg-secondary: #f5f5f7;
+            --text: #1d1d1f;
+            --text-secondary: #86868b;
+            --border: #d2d2d7;
+            --accent: #0071e3;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #000000;
+                --bg-secondary: #1c1c1e;
+                --text: #f5f5f7;
+                --text-secondary: #86868b;
+                --border: #424245;
+                --accent: #2997ff;
+            }
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #fff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hero {
+            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-        }
-        .container {
+            padding: 60px 24px;
             text-align: center;
-            max-width: 400px;
         }
-        .icon {
-            font-size: 4em;
-            margin-bottom: 0.5em;
-        }
-        h1 {
-            font-size: 2em;
-            margin-bottom: 0.25em;
-        }
-        .subtitle {
-            color: #666;
-            margin-bottom: 2em;
-        }
-        .links {
+
+        .app-icon {
+            width: 120px;
+            height: 120px;
+            background: var(--bg-secondary);
+            border-radius: 28px;
             display: flex;
-            flex-direction: column;
-            gap: 1em;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
         }
-        a {
-            display: block;
-            padding: 1em 2em;
-            background: #f5f5f5;
-            color: #333;
-            text-decoration: none;
+
+        .app-icon svg {
+            width: 60px;
+            height: 60px;
+            fill: var(--text);
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 21px;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+        }
+
+        .features {
+            display: flex;
+            gap: 32px;
+            margin-bottom: 48px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+
+        .feature svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--text-secondary);
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 32px;
             border-radius: 12px;
-            transition: background 0.2s;
+            font-size: 17px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s ease;
         }
-        a:hover {
-            background: #eee;
+
+        .btn-primary {
+            background: var(--text);
+            color: var(--bg);
         }
-        .app-store {
-            background: #000;
-            color: #fff;
+
+        .btn-primary:hover {
+            opacity: 0.85;
+            transform: scale(1.02);
         }
-        .app-store:hover {
-            background: #333;
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text);
         }
-        @media (prefers-color-scheme: dark) {
-            body {
-                background: #1c1c1e;
-                color: #fff;
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        footer {
+            padding: 24px;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--text);
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 36px;
             }
+
             .subtitle {
-                color: #999;
+                font-size: 18px;
             }
-            a {
-                background: #2c2c2e;
-                color: #fff;
+
+            .features {
+                gap: 16px;
             }
-            a:hover {
-                background: #3c3c3e;
+
+            .cta-group {
+                flex-direction: column;
+                width: 100%;
+                max-width: 300px;
             }
-            .app-store {
-                background: #fff;
-                color: #000;
-            }
-            .app-store:hover {
-                background: #eee;
+
+            .btn {
+                width: 100%;
+                justify-content: center;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="icon">🚌</div>
-        <h1>LocalBus</h1>
-        <p class="subtitle">장유-사상 버스 시간표</p>
-
-        <div class="links">
-            <a href="privacy-policy.html">개인정보 처리방침</a>
-            <a href="https://github.com/unib35/LocalBus">GitHub</a>
-            <!-- <a href="#" class="app-store">App Store에서 다운로드</a> -->
+    <main class="hero">
+        <div class="app-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+            </svg>
         </div>
-    </div>
+
+        <h1>LocalBus</h1>
+        <p class="subtitle">장유-사상 시외버스 시간표</p>
+
+        <div class="features">
+            <div class="feature">
+                <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                <span>실시간 카운트다운</span>
+            </div>
+            <div class="feature">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm4.2 14.2L11 13V7h1.5v5.2l4.5 2.7-.8 1.3z"/></svg>
+                <span>평일/주말 자동 판단</span>
+            </div>
+            <div class="feature">
+                <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+                <span>출발 5분 전 알림</span>
+            </div>
+        </div>
+
+        <div class="cta-group">
+            <a href="https://github.com/unib35/LocalBus" class="btn btn-primary">
+                <svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                GitHub
+            </a>
+            <a href="#" class="btn btn-secondary" style="opacity: 0.5; pointer-events: none;">
+                <svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                App Store (준비중)
+            </a>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-links">
+            <a href="privacy-policy.html">개인정보 처리방침</a>
+            <a href="https://github.com/unib35/LocalBus/issues">문의하기</a>
+            <a href="https://github.com/unib35/LocalBus">소스코드</a>
+        </div>
+    </footer>
 </body>
 </html>
