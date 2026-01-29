@@ -38,7 +38,7 @@ LocalBusApp/
 ## Git 컨벤션 (필수 준수)
 
 ### 브랜치 네이밍
-> 📖 상세: [Docs/git/branch.md](./Docs/git/branch.md)
+> 📖 상세: [docs/git/branch.md](./docs/git/branch.md)
 
 ```bash
 {type}/{description}
@@ -50,7 +50,7 @@ refactor/timetable-service
 ```
 
 ### 커밋 메시지
-> 📖 상세: [Docs/git/commit.md](./Docs/git/commit.md)
+> 📖 상세: [docs/git/commit.md](./docs/git/commit.md)
 
 ```bash
 [Type]: 제목 (한국어, 50자 이내, 마침표 없이)
@@ -79,7 +79,7 @@ refactor/timetable-service
 ```
 
 ### 마이크로 커밋 원칙
-> 📖 상세: [Docs/git/micro-strategy.md](./Docs/git/micro-strategy.md)
+> 📖 상세: [docs/git/micro-strategy.md](./docs/git/micro-strategy.md)
 
 - 하나의 논리적 변경 = 하나의 커밋
 - 파일 1-3개 변경 시 즉시 커밋
@@ -91,7 +91,7 @@ refactor/timetable-service
 ## 개발 가이드
 
 ### TDD 워크플로우
-> 📖 상세: [Docs/dev/kentback-tdd-guide.md](./Docs/dev/kentback-tdd-guide.md)
+> 📖 상세: [docs/dev/kentback-tdd-guide.md](./docs/dev/kentback-tdd-guide.md)
 
 ```
 Red → Green → Refactor
@@ -117,11 +117,11 @@ xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iP
 
 | 문서 | 설명 |
 |------|------|
-| [Docs/design/PRD.md](./Docs/design/PRD.md) | 제품 요구사항 정의서 |
-| [Docs/dev/development-checklist.md](./Docs/dev/development-checklist.md) | MVP 개발 체크리스트 |
-| [Docs/dev/versioning-guide.md](./Docs/dev/versioning-guide.md) | iOS 앱 버전 관리 |
-| [Docs/git/commit.md](./Docs/git/commit.md) | 커밋 컨벤션 |
-| [Docs/git/branch.md](./Docs/git/branch.md) | 브랜치 컨벤션 |
+| [docs/design/PRD.md](./docs/design/PRD.md) | 제품 요구사항 정의서 |
+| [docs/dev/development-checklist.md](./docs/dev/development-checklist.md) | MVP 개발 체크리스트 |
+| [docs/dev/versioning-guide.md](./docs/dev/versioning-guide.md) | iOS 앱 버전 관리 |
+| [docs/git/commit.md](./docs/git/commit.md) | 커밋 컨벤션 |
+| [docs/git/branch.md](./docs/git/branch.md) | 브랜치 컨벤션 |
 
 ---
 
