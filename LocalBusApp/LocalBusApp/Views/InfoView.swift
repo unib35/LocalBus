@@ -180,6 +180,14 @@ struct InfoView: View {
 
                 rowDivider
 
+                // 시간표 제보
+                NavigationLink(destination: ReportView()) {
+                    infoNavigationRow("시간표 제보")
+                }
+                .buttonStyle(.plain)
+
+                rowDivider
+
                 // 문의하기
                 Button { sendFeedbackEmail() } label: {
                     infoNavigationRow("문의하기")
@@ -201,22 +209,38 @@ struct InfoView: View {
     // MARK: - 공지사항 시트
 
     private var noticeSheet: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
-                VStack(spacing: 16) {
-                    Text("현재 공지사항이 없습니다.")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color(red: 142/255, green: 142/255, blue: 147/255))
-                    Spacer()
-                }
-                .padding(.top, 40)
-            }
-            .navigationTitle("공지사항")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-        }
-        .presentationDetents([.medium])
+        NoticeDetailView(
+            notice: latestNotice,
+            onDismiss: { showingNotice = false }
+        )
+    }
+
+    private var latestNotice: NoticeItem {
+        NoticeItem(
+            id: "notice-001",
+            title: "2025년 8월 25일부\n운행 시간표 변경 안내",
+            date: "2025.08.14",
+            author: "관리자",
+            body: [
+                "안녕하세요. 장유-사상 시외버스 운행 시간표가 2025년 8월 25일부로 일부 변경됩니다.",
+                "이번 변경은 최근 출퇴근 시간대의 교통 혼잡도 증가와 이용객 수요 변화를 반영하여 더 효율적인 배차 간격을 제공하기 위함입니다. 이용에 착오 없으시길 바랍니다.",
+                "자세한 변경 시간표는 아래를 참고해 주시기 바랍니다."
+            ],
+            timetableSummary: NoticeTimetableSummary(
+                effectiveDate: "2025.08.25",
+                departureLabel: "장유 출발",
+                arrivalLabel: "사상 도착",
+                rows: [
+                    NoticeTimetableRow(departure: "06:20", arrival: "06:46", isNew: false),
+                    NoticeTimetableRow(departure: "06:40", arrival: "07:06", isNew: true),
+                    NoticeTimetableRow(departure: "07:00", arrival: "07:26", isNew: false),
+                    NoticeTimetableRow(departure: "07:20", arrival: "07:46", isNew: true),
+                    NoticeTimetableRow(departure: "07:35", arrival: "08:01", isNew: false)
+                ],
+                note: "* 도로 사정에 따라 도착 시간이 지연될 수 있습니다.",
+                hasFullScheduleImage: true
+            )
+        )
     }
 
     // MARK: - 헬퍼 뷰
