@@ -117,6 +117,30 @@ enum DateService {
         return targetTotalSeconds - currentTotalSeconds
     }
 
+    /// 특정 시간에 분을 더한 HH:mm 문자열 반환
+    static func timeByAdding(minutes: Int, to timeString: String) -> String? {
+        guard let totalMinutes = totalMinutes(from: timeString) else {
+            return nil
+        }
+
+        let wrappedMinutes = (totalMinutes + minutes).positiveModulo(24 * 60)
+        return formattedTime(fromTotalMinutes: wrappedMinutes)
+    }
+
+    /// 두 시간 사이의 차이를 분으로 반환
+    static func minutesBetween(from startTime: String, to endTime: String) -> Int? {
+        guard let startMinutes = totalMinutes(from: startTime),
+              let endMinutes = totalMinutes(from: endTime) else {
+            return nil
+        }
+
+        if endMinutes >= startMinutes {
+            return endMinutes - startMinutes
+        }
+
+        return (24 * 60 - startMinutes) + endMinutes
+    }
+
     /// 다음 날 특정 시간까지 남은 분 계산 (운행 종료 후 첫차까지)
     /// - Parameters:
     ///   - timeString: 목표 시간 (HH:mm 형식)
@@ -151,5 +175,29 @@ enum DateService {
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.timeZone = koreaTimeZone
         return formatter.string(from: date)
+    }
+
+    private static func totalMinutes(from timeString: String) -> Int? {
+        let components = timeString.split(separator: ":")
+        guard components.count == 2,
+              let hour = Int(components[0]),
+              let minute = Int(components[1]) else {
+            return nil
+        }
+
+        return hour * 60 + minute
+    }
+
+    private static func formattedTime(fromTotalMinutes totalMinutes: Int) -> String {
+        let hour = totalMinutes / 60
+        let minute = totalMinutes % 60
+        return String(format: "%02d:%02d", hour, minute)
+    }
+}
+
+private extension Int {
+    func positiveModulo(_ value: Int) -> Int {
+        let remainder = self % value
+        return remainder >= 0 ? remainder : remainder + value
     }
 }
