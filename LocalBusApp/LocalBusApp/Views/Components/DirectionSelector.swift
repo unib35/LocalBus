@@ -1,52 +1,71 @@
 import SwiftUI
 
-/// 방향 선택 컴포넌트
+/// 노선 + 방향 2단계 선택 컴포넌트
 struct DirectionSelector: View {
     let selectedDirection: RouteDirection
     let onDirectionChange: (RouteDirection) -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
-            ForEach(RouteDirection.allCases, id: \.self) { direction in
-                DirectionButton(
-                    direction: direction,
-                    isSelected: selectedDirection == direction,
-                    action: { onDirectionChange(direction) }
-                )
-            }
-        }
-    }
-}
+        VStack(spacing: 8) {
+            // 1단계: 노선 선택 (장유 / 율하)
+            segmentRow(
+                items: RouteLine.allCases,
+                selectedID: selectedDirection.routeLine,
+                label: { $0.displayName },
+                onTap: { line in
+                    if line != selectedDirection.routeLine {
+                        onDirectionChange(line.defaultDirection)
+                    }
+                }
+            )
 
-/// 방향 선택 버튼
-struct DirectionButton: View {
-    let direction: RouteDirection
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: direction == .jangyuToSasang ? "arrow.right" : "arrow.left")
-                    .font(.caption.bold())
-                Text(direction.displayName)
-                    .font(.subheadline.weight(.medium))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(isSelected ? Color.primary : Color.clear)
-            .foregroundStyle(isSelected ? Color(uiColor: .systemBackground) : .primary)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.primary.opacity(isSelected ? 0 : 0.2), lineWidth: 1)
+            // 2단계: 방향 선택
+            segmentRow(
+                items: selectedDirection.routeLine.directions,
+                selectedID: selectedDirection,
+                label: { $0.displayName },
+                onTap: { onDirectionChange($0) }
             )
         }
-        .buttonStyle(.plain)
+    }
+
+    private func segmentRow<T: Hashable>(
+        items: [T],
+        selectedID: T,
+        label: @escaping (T) -> String,
+        onTap: @escaping (T) -> Void
+    ) -> some View {
+        HStack(spacing: 0) {
+            ForEach(items, id: \.self) { item in
+                Button { onTap(item) } label: {
+                    Text(label(item))
+                        .font(HomeDashboardTypography.segmentDefault)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(selectedID == item ? Color.white : Color.clear)
+                        )
+                        .foregroundStyle(
+                            selectedID == item ? Color.black : HomeDashboardTheme.secondaryText
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(HomeDashboardTheme.segmentBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(HomeDashboardTheme.border, lineWidth: 1)
+                )
+        )
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     DirectionSelector(
@@ -54,4 +73,5 @@ struct DirectionButton: View {
         onDirectionChange: { _ in }
     )
     .padding()
+    .preferredColorScheme(.dark)
 }
