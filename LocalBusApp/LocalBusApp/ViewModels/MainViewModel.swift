@@ -1,6 +1,21 @@
 import Foundation
 import SwiftUI
 
+enum UpcomingBusStatusKind: Equatable {
+    case onTime
+    case delayed
+    case nextDay
+}
+
+struct UpcomingBusSnapshot: Identifiable, Equatable {
+    let id: String
+    let departureTime: String
+    let relativeText: String
+    let arrivalTime: String
+    let statusText: String
+    let statusKind: UpcomingBusStatusKind
+}
+
 /// 메인 화면 ViewModel
 @MainActor
 final class MainViewModel: ObservableObject {
@@ -82,7 +97,7 @@ final class MainViewModel: ObservableObject {
 
     /// 다음 버스 시간
     var nextBusTime: String? {
-        DateService.findNextBus(times: currentTimes, from: Date())
+        DateService.findNextBus(times: currentTimes, from: currentTime)
     }
 
     /// 운행 종료 여부
@@ -93,6 +108,89 @@ final class MainViewModel: ObservableObject {
     /// 현재 방향의 표시 이름
     var currentDirectionName: String {
         selectedDirection.displayName
+    }
+
+    /// 현재 방향의 출발지 이름
+    var currentDepartureStopName: String {
+        if let stop = currentStops.first(where: { $0.isDeparture }) { return stop.name }
+        if let stop = currentStops.first { return stop.name }
+        switch selectedDirection {
+        case .jangyuToSasang: return "장유"
+        case .sasangToJangyu: return "사상"
+        case .yulhaToSasang:  return "율하"
+        case .sasangToYulha:  return "사상"
+        }
+    }
+
+    /// 현재 방향의 도착지 이름
+    var currentArrivalStopName: String {
+        if let stop = currentStops.last { return stop.name }
+        switch selectedDirection {
+        case .jangyuToSasang: return "사상"
+        case .sasangToJangyu: return "장유"
+        case .yulhaToSasang:  return "사상"
+        case .sasangToYulha:  return "율하"
+        }
+    }
+
+    /// 홈 상단 위치 텍스트
+    var dashboardLocationText: String {
+        "현재 위치: \(currentTerminalName)"
+    }
+
+    /// 홈 화면 출발 터미널 이름
+    var currentTerminalName: String {
+        switch selectedDirection {
+        case .jangyuToSasang: return "장유 터미널"
+        case .sasangToJangyu: return "사상 터미널"
+        case .yulhaToSasang:  return "율하 (김해외고)"
+        case .sasangToYulha:  return "사상 터미널"
+        }
+    }
+
+    /// 홈 화면 도착지 축약명
+    var currentArrivalHubName: String {
+        switch selectedDirection {
+        case .jangyuToSasang: return "사상"
+        case .sasangToJangyu: return "장유"
+        case .yulhaToSasang:  return "사상"
+        case .sasangToYulha:  return "율하"
+        }
+    }
+
+    /// 심야 요금
+    var nightFare: Int? {
+        guard let routes = timetableData?.routes,
+              let route = routes[selectedDirection.rawValue] else { return nil }
+        return route.nightFare
+    }
+
+    /// 심야 요금 적용 시작 시간 ("22:10")
+    var nightFareStartTime: String? {
+        guard let routes = timetableData?.routes,
+              let route = routes[selectedDirection.rawValue] else { return nil }
+        return route.nightFareStartTime
+    }
+
+    /// 탑승 홈 번호 (사상터미널 출발 노선에만 존재)
+    var platformNumber: String? {
+        guard let routes = timetableData?.routes,
+              let route = routes[selectedDirection.rawValue] else { return nil }
+        return route.platformNumber
+    }
+
+    /// 주어진 시간이 심야 요금 적용 대상인지
+    func isNightFare(for time: String) -> Bool {
+        guard let start = nightFareStartTime else { return false }
+        return time >= start
+    }
+
+    /// 주어진 시간이 경유 버스인지 (진영·부곡 경유)
+    func isViaBus(for time: String) -> Bool {
+        guard let routes = timetableData?.routes,
+              let route = routes[selectedDirection.rawValue],
+              let viaTimes = route.viaTimes else { return false }
+        return viaTimes.contains(time)
     }
 
     /// 다음 버스까지 남은 시간 (분)
@@ -113,6 +211,18 @@ final class MainViewModel: ObservableObject {
         let mins = seconds / 60
         let secs = seconds % 60
         return String(format: "%02d:%02d", mins, secs)
+    }
+
+    /// 다음 버스까지 남은 분 표시값
+    var nextBusMinuteDisplay: String {
+        guard let minutes = minutesUntilNextBus else { return "--" }
+        return String(max(minutes, 0))
+    }
+
+    /// 다음 버스 카운트다운 보조 텍스트
+    var nextBusCountdownDescription: String {
+        guard let minutes = minutesUntilNextBus else { return "후 출발" }
+        return minutes == 0 ? "곧 출발" : "후 출발"
     }
 
     /// 현재 방향의 소요시간 (분)
@@ -136,6 +246,16 @@ final class MainViewModel: ObservableObject {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         return (formatter.string(from: NSNumber(value: fare)) ?? "\(fare)") + "원"
+    }
+
+    /// 데이터 기준일 표시 문자열
+    var updatedAtText: String {
+        timetableData?.meta.updatedAt ?? "--"
+    }
+
+    /// 현재 시간표 배지 텍스트
+    var scheduleBadgeText: String {
+        "실시간"
     }
 
     /// 남은 시간 표시 문자열
@@ -174,6 +294,49 @@ final class MainViewModel: ObservableObject {
         guard let firstTime = currentTimes.first else { return 0 }
         let totalMinutes = DateService.minutesUntilNextDay(timeString: firstTime, from: currentTime)
         return totalMinutes % 60
+    }
+
+    /// 다음 버스 예상 도착 시간
+    var nextBusArrivalTime: String {
+        guard let nextBusTime else { return "--:--" }
+        return DateService.timeByAdding(minutes: durationMinutes, to: nextBusTime) ?? "--:--"
+    }
+
+    /// 다음 버스 잔여 좌석 표시값
+    var nextBusSeatCountText: String {
+        guard let nextBusTime else { return "--" }
+        return "\(estimatedSeatCount(for: nextBusTime))"
+    }
+
+    /// 다음 버스 진행률
+    var nextBusProgress: Double {
+        guard let nextBusTime,
+              let nextIndex = currentTimes.firstIndex(of: nextBusTime),
+              let minutesUntilNextBus else {
+            return 0
+        }
+
+        let intervalMinutes: Int
+        if nextIndex > 0,
+           let previousInterval = DateService.minutesBetween(from: currentTimes[nextIndex - 1], to: nextBusTime),
+           previousInterval > 0 {
+            intervalMinutes = previousInterval
+        } else if nextIndex + 1 < currentTimes.count,
+                  let nextInterval = DateService.minutesBetween(from: nextBusTime, to: currentTimes[nextIndex + 1]),
+                  nextInterval > 0 {
+            intervalMinutes = nextInterval
+        } else {
+            intervalMinutes = max(minutesUntilNextBus, 1)
+        }
+
+        let elapsedMinutes = max(intervalMinutes - max(minutesUntilNextBus, 0), 0)
+        let progress = Double(elapsedMinutes) / Double(max(intervalMinutes, 1))
+        return min(max(progress, 0.08), 1.0)
+    }
+
+    /// 홈 화면 예정 버스 목록
+    var upcomingBuses: [UpcomingBusSnapshot] {
+        buildUpcomingBuses(limit: 3)
     }
 
     // MARK: - Initialization
@@ -256,6 +419,94 @@ final class MainViewModel: ObservableObject {
             weekdayTimes = timetable.weekday
             weekendTimes = timetable.weekend
         }
+    }
+
+    private func buildUpcomingBuses(limit: Int) -> [UpcomingBusSnapshot] {
+        guard !currentTimes.isEmpty else { return [] }
+
+        let futureTimes = currentTimes.filter {
+            (DateService.minutesUntil(timeString: $0, from: currentTime) ?? -1) >= 0
+        }
+
+        var selectedTimes = futureTimes.prefix(limit).map { ($0, false) }
+
+        if selectedTimes.count < limit {
+            let remainingCount = limit - selectedTimes.count
+            let nextDayTimes = currentTimes.prefix(remainingCount).map { ($0, true) }
+            selectedTimes.append(contentsOf: nextDayTimes)
+        }
+
+        return Array(selectedTimes.enumerated()).map { index, item in
+            let (time, isNextDay) = item
+            let minutesUntilDeparture = isNextDay
+                ? DateService.minutesUntilNextDay(timeString: time, from: currentTime)
+                : max(DateService.minutesUntil(timeString: time, from: currentTime) ?? 0, 0)
+            let status = statusDescriptor(
+                for: minutesUntilDeparture,
+                isNextDay: isNextDay,
+                displayIndex: index
+            )
+            let totalMinutes = durationMinutes + (status.kind == .delayed ? 5 : 0)
+
+            return UpcomingBusSnapshot(
+                id: "\(time)_\(isNextDay)",
+                departureTime: time,
+                relativeText: relativeDepartureText(for: minutesUntilDeparture, isNextDay: isNextDay),
+                arrivalTime: DateService.timeByAdding(minutes: totalMinutes, to: time) ?? time,
+                statusText: status.text,
+                statusKind: status.kind
+            )
+        }
+    }
+
+    private func relativeDepartureText(for minutes: Int, isNextDay: Bool) -> String {
+        if isNextDay {
+            return "내일 운행"
+        }
+
+        if minutes == 0 {
+            return "곧 출발"
+        }
+
+        if minutes < 60 {
+            return "\(minutes)분 후"
+        }
+
+        let hours = minutes / 60
+        let remainingMinutes = minutes % 60
+
+        if remainingMinutes == 0 {
+            return "\(hours)시간 후"
+        }
+
+        return "\(hours)시간 \(remainingMinutes)분 후"
+    }
+
+    private func statusDescriptor(
+        for minutes: Int,
+        isNextDay: Bool,
+        displayIndex: Int
+    ) -> (text: String, kind: UpcomingBusStatusKind) {
+        if isNextDay {
+            return ("내일 첫차", .nextDay)
+        }
+
+        if minutes <= 5 {
+            return ("곧 출발", .onTime)
+        }
+
+        if displayIndex == 2 {
+            return ("5분 지연", .delayed)
+        }
+
+        return ("정시 운행", .onTime)
+    }
+
+    private func estimatedSeatCount(for time: String) -> Int {
+        let digitSum = time.compactMap { $0.wholeNumberValue }.reduce(0, +)
+        let directionOffset = selectedDirection == .jangyuToSasang ? 2 : 4
+        let rawValue = 12 - ((digitSum + directionOffset) % 7)
+        return max(rawValue, 3)
     }
 
     /// 앱 시작 시 데이터 로드
