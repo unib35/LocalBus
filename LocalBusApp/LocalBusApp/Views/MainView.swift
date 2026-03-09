@@ -3,139 +3,190 @@ import SwiftUI
 /// 메인 화면
 struct MainView: View {
     @StateObject private var viewModel = MainViewModel()
-    @State private var showingInfo = false
+    @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
+
+    private var preferredColorScheme: ColorScheme? {
+        AppColorScheme(rawValue: colorSchemeRaw)?.colorScheme
+    }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                // 에러 상태일 때 ErrorView 표시
-                if let errorMessage = viewModel.errorMessage, !viewModel.isLoading {
-                    ErrorView(message: errorMessage) {
-                        Task {
-                            await viewModel.refresh()
-                        }
-                    }
-                } else {
-                    mainContent
-                }
-            }
-            .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("시외버스")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingInfo = true
-                    } label: {
-                        Image(systemName: "info.circle")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingInfo) {
-                InfoView()
-            }
-            .refreshable {
-                await viewModel.refresh()
-            }
+        TabView {
+            homeTab
+                .tabItem { Label("홈", systemImage: "house") }
+
+            timetableTab
+                .tabItem { Label("전체 시간표", systemImage: "calendar") }
+
+            stopsTab
+                .tabItem { Label("정류장 위치", systemImage: "map") }
+
+            InfoView()
+                .tabItem { Label("설정", systemImage: "gearshape") }
         }
+        .preferredColorScheme(preferredColorScheme)
         .task {
             await viewModel.onAppear()
         }
     }
 
-    // MARK: - Main Content
+    // MARK: - 홈 탭
+
+    private var homeTab: some View {
+        NavigationStack {
+            Group {
+                if let errorMessage = viewModel.errorMessage, !viewModel.isLoading {
+                    ErrorView(message: errorMessage) {
+                        Task { await viewModel.refresh() }
+                    }
+                } else {
+                    mainContent
+                }
+            }
+            .background(HomeDashboardTheme.screenBackground.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
+        }
+    }
 
     private var mainContent: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // 오프라인 배너
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                DashboardHeaderView(
+                    locationText: viewModel.dashboardLocationText,
+                    isNotificationEnabled: isNextBusNotificationEnabled,
+                    onNotificationTap: handleNotificationTap
+                )
+
+                if viewModel.hasRoutes {
+                    DirectionSelector(
+                        selectedDirection: viewModel.selectedDirection,
+                        onDirectionChange: { direction in
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                viewModel.changeDirection(to: direction)
+                            }
+                        }
+                    )
+                }
+
+                heroSection
+
+                UpcomingBusesSectionView(
+                    title: "예정된 버스",
+                    badgeText: viewModel.scheduleBadgeText,
+                    buses: viewModel.upcomingBuses,
+                    destinationName: viewModel.currentArrivalHubName
+                )
+
                 if viewModel.isOffline {
-                    OfflineBanner()
+                    DashboardNoticeCard(
+                        title: "오프라인 모드",
+                        message: "네트워크 연결 없이 저장된 시간표를 표시하고 있습니다.",
+                        systemImage: "wifi.slash"
+                    )
                 }
 
-                // 공지 배너
-                if viewModel.hasNotice {
-                    NoticeBanner(message: viewModel.noticeMessage ?? "")
+                if viewModel.hasNotice, let noticeMessage = viewModel.noticeMessage {
+                    DashboardNoticeCard(
+                        title: "운행 일정 조정 안내",
+                        message: noticeMessage,
+                        systemImage: "info.circle.fill"
+                    )
                 }
-
-                VStack(spacing: 16) {
-                    // 방향 선택 (양방향 지원시에만 표시)
-                    if viewModel.hasRoutes {
-                        DirectionSelector(
-                            selectedDirection: viewModel.selectedDirection,
-                            onDirectionChange: { direction in
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    viewModel.changeDirection(to: direction)
-                                }
-                            }
-                        )
-                    }
-
-                    // 다음 버스 실시간 카운트다운 카드
-                    if viewModel.isLoading {
-                        LoadingCard()
-                    } else if viewModel.isServiceEnded {
-                        EndOfServiceCard(
-                            firstBusTime: viewModel.firstBusTime,
-                            hoursUntilFirstBus: viewModel.hoursUntilFirstBus,
-                            minutesUntilFirstBus: viewModel.minutesUntilFirstBus
-                        )
-                    } else if let nextTime = viewModel.nextBusTime {
-                        LiveCountdownCard(
-                            nextBusTime: nextTime,
-                            countdownText: viewModel.countdownText,
-                            direction: viewModel.currentDirectionName,
-                            isNotificationScheduled: viewModel.isNotificationScheduled(for: nextTime),
-                            onNotificationTap: {
-                                Task {
-                                    await viewModel.toggleNotification(for: nextTime)
-                                }
-                            }
-                        )
-                    }
-
-                    // 노선 정보 (소요시간/요금)
-                    if viewModel.hasRoutes && viewModel.durationMinutes > 0 {
-                        RouteInfoBar(
-                            durationMinutes: viewModel.durationMinutes,
-                            fareText: viewModel.fareText
-                        )
-                    }
-
-                    // 정류장 경로
-                    if viewModel.hasRoutes && !viewModel.currentStops.isEmpty {
-                        RouteStopsView(
-                            stops: viewModel.currentStops,
-                            durationMinutes: viewModel.durationMinutes
-                        )
-                    }
-
-                    // 첫차/막차 정보
-                    if !viewModel.isLoading && !viewModel.currentTimes.isEmpty {
-                        FirstLastBusInfo(
-                            firstBus: viewModel.firstBusTime,
-                            lastBus: viewModel.lastBusTime
-                        )
-                    }
-
-                    // 평일/주말 탭
-                    ScheduleTypePicker(selection: $viewModel.selectedScheduleType)
-
-                    // 시간표 그리드
-                    if !viewModel.isLoading {
-                        TimetableGrid(
-                            times: viewModel.currentTimes,
-                            nextBusTime: viewModel.nextBusTime
-                        )
-                    }
-                }
-                .padding()
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 28)
+        }
+        .refreshable {
+            await viewModel.refresh()
+        }
+    }
+
+    @ViewBuilder
+    private var heroSection: some View {
+        if viewModel.isLoading {
+            DashboardLoadingCard()
+        } else if viewModel.isServiceEnded {
+            DashboardServiceEndedCard(
+                firstBusTime: viewModel.firstBusTime,
+                remainingText: firstBusRemainingText
+            )
+        } else if let nextBusTime = viewModel.nextBusTime {
+            NextBusHeroCard(
+                minuteText: viewModel.nextBusMinuteDisplay,
+                unitText: "분",
+                descriptionText: viewModel.nextBusCountdownDescription,
+                progress: viewModel.nextBusProgress,
+                departureTime: nextBusTime,
+                seatCountText: viewModel.nextBusSeatCountText
+            )
+        } else {
+            DashboardNoticeCard(
+                title: "운행 정보를 준비 중입니다",
+                message: "표시할 버스 정보가 없어서 잠시 후 다시 불러옵니다.",
+                systemImage: "clock.badge.questionmark"
+            )
+        }
+    }
+
+    // MARK: - 시간표 탭
+
+    private var timetableTab: some View {
+        NavigationStack {
+            TimetableScreenView(viewModel: viewModel)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(Color.black, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
+                .toolbarColorScheme(.dark, for: .navigationBar)
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        directionTitle(viewModel.selectedDirection)
+                    }
+                }
+        }
+    }
+
+    private func directionTitle(_ direction: RouteDirection) -> some View {
+        let parts = direction.displayName.components(separatedBy: " → ")
+        return HStack(spacing: 0) {
+            Text(parts.first ?? "")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white)
+            Text(" → ")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Color(red: 100/255, green: 116/255, blue: 139/255))
+            Text(parts.last ?? "")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white)
+        }
+    }
+
+    // MARK: - 정류장 탭
+
+    private var stopsTab: some View {
+        StopsScreenView(viewModel: viewModel)
+    }
+
+    // MARK: - 헬퍼
+
+    private var firstBusRemainingText: String {
+        if viewModel.hoursUntilFirstBus > 0 {
+            return "\(viewModel.hoursUntilFirstBus)시간 \(viewModel.minutesUntilFirstBus)분 후 첫차"
+        }
+        return "\(viewModel.minutesUntilFirstBus)분 후 첫차"
+    }
+
+    private var isNextBusNotificationEnabled: Bool {
+        guard let nextBusTime = viewModel.nextBusTime else { return false }
+        return viewModel.isNotificationScheduled(for: nextBusTime)
+    }
+
+    private func handleNotificationTap() {
+        guard let nextBusTime = viewModel.nextBusTime else { return }
+        Task {
+            await viewModel.toggleNotification(for: nextBusTime)
         }
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     MainView()
