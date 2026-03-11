@@ -20,8 +20,10 @@ struct MainView: View {
             stopsTab
                 .tabItem { Label("정류장 위치", systemImage: "map") }
 
-            InfoView()
-                .tabItem { Label("설정", systemImage: "gearshape") }
+            NavigationStack {
+                InfoView()
+            }
+            .tabItem { Label("설정", systemImage: "gearshape") }
         }
         .preferredColorScheme(preferredColorScheme)
         .task {
