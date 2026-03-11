@@ -28,13 +28,16 @@ struct StopsScreenView: View {
     @State private var selectedStop: BusStop? = nil
     @State private var centerOnUser = false
 
-    private var stops: [BusStop]          { viewModel.getStops(for: stopsDirection) }
-    private var adultFare: Int            { viewModel.getFare(for: stopsDirection) }
-    private var platform: String?         { viewModel.getPlatformNumber(for: stopsDirection) }
-    private var nightFare: Int?           { viewModel.getNightFare(for: stopsDirection) }
+    // 시트 드래그
+    @GestureState private var dragTranslation: CGFloat = 0
+    @State private var sheetOffset: CGFloat = 0
+
+    private var stops: [BusStop]            { viewModel.getStops(for: stopsDirection) }
+    private var adultFare: Int              { viewModel.getFare(for: stopsDirection) }
+    private var platform: String?           { viewModel.getPlatformNumber(for: stopsDirection) }
+    private var nightFare: Int?             { viewModel.getNightFare(for: stopsDirection) }
     private var nightFareStartTime: String? { viewModel.getNightFareStartTime(for: stopsDirection) }
 
-    // selectedCoordinate는 selectedStop에서 파생되므로 @State 불필요
     private var selectedCoordinate: CLLocationCoordinate2D? {
         selectedStop.flatMap { coordinate(for: $0) }
     }
@@ -53,7 +56,6 @@ struct StopsScreenView: View {
         return fallbackCoordinates[stop.name]
     }
 
-    /// 지도에 표시할 핀 목록 — stops를 한 번 캡처 후 사용
     private var mapPins: [StopPin] {
         let currentStops = stops
         let count = currentStops.count
@@ -62,6 +64,7 @@ struct StopsScreenView: View {
             guard let coord = coordinate(for: stop) else { return nil }
             return StopPin(
                 coordinate: coord,
+                stopID: stop.id,
                 stopName: stop.name,
                 isDeparture: stop.isDeparture,
                 isDestination: index == count - 1,
@@ -80,13 +83,29 @@ struct StopsScreenView: View {
         }
     }
 
+    // MARK: - Body
+
     var body: some View {
         GeometryReader { geo in
+            let collapsedOffset = geo.size.height * 0.52
+            let sheetY = min(collapsedOffset, max(0, sheetOffset + dragTranslation))
+
             ZStack(alignment: .top) {
                 Color.black.ignoresSafeArea()
 
                 // 지도
-                RouteMapView(pins: mapPins, selectedCoordinate: selectedCoordinate, centerOnUser: $centerOnUser)
+                RouteMapView(
+                    pins: mapPins,
+                    selectedCoordinate: selectedCoordinate,
+                    centerOnUser: $centerOnUser,
+                    onPinTap: { stopID in
+                        guard let stop = stops.first(where: { $0.id == stopID }) else { return }
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            selectedStop = selectedStop?.id == stop.id ? nil : stop
+                            if sheetOffset > 0 { sheetOffset = 0 }
+                        }
+                    }
+                )
                 .frame(height: geo.size.height * 0.44 + geo.safeAreaInsets.top)
                 .ignoresSafeArea(edges: .top)
 
@@ -128,14 +147,17 @@ struct StopsScreenView: View {
                         .ignoresSafeArea(edges: .bottom)
                         .shadow(color: .black.opacity(0.5), radius: 40, x: 0, y: -10)
 
-                        ScrollView(showsIndicators: false) {
-                            VStack(spacing: 0) {
-                                dragHandle
+                        VStack(spacing: 0) {
+                            // 드래그 핸들 (제스처 영역)
+                            dragHandleArea(collapsedOffset: collapsedOffset)
+
+                            ScrollView(showsIndicators: false) {
                                 sheetContent
                                     .padding(.bottom, 40)
                             }
                         }
                     }
+                    .offset(y: sheetY)
                 }
             }
         }
@@ -147,18 +169,33 @@ struct StopsScreenView: View {
 
     // MARK: - 드래그 핸들
 
-    private var dragHandle: some View {
-        Capsule()
-            .fill(Color(red: 82/255, green: 82/255, blue: 82/255))
-            .frame(width: 48, height: 4)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+    private func dragHandleArea(collapsedOffset: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            Capsule()
+                .fill(Color(red: 82/255, green: 82/255, blue: 82/255))
+                .frame(width: 48, height: 4)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture()
+                .updating($dragTranslation) { value, state, _ in
+                    state = value.translation.height
+                }
+                .onEnded { value in
+                    let projected = sheetOffset + value.predictedEndTranslation.height
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                        sheetOffset = projected > collapsedOffset / 2 ? collapsedOffset : 0
+                    }
+                }
+        )
     }
 
     // MARK: - 시트 콘텐츠
 
     private var sheetContent: some View {
-        // stops를 한 번만 조회하여 stopListSection·selectedStopCard·fareCard에 전달
         let currentStops = stops
         let adult = adultFare
         return VStack(spacing: 20) {
@@ -483,7 +520,6 @@ private struct StopRowView: View {
                             .opacity(isLast ? 0 : 1)
                     }
 
-                    // 원형 마커
                     if isFirst {
                         Circle()
                             .fill(HomeDashboardTheme.departureGreen)
@@ -505,13 +541,11 @@ private struct StopRowView: View {
                 }
                 .frame(width: 20)
 
-                // 정류장 이름
                 Text(stop.name)
                     .font(.system(size: 14, weight: isFirst || isLast ? .semibold : .regular))
                     .foregroundStyle(isSelected ? HomeDashboardTheme.primaryBlue : .white)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // 배지
                 StopBadge(isDeparture: isFirst, isDestination: isLast)
 
                 if isSelected {
@@ -563,6 +597,7 @@ private struct RouteMapView: UIViewRepresentable {
     let pins: [StopPin]
     let selectedCoordinate: CLLocationCoordinate2D?
     @Binding var centerOnUser: Bool
+    var onPinTap: (String) -> Void   // stop ID 전달
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -576,19 +611,18 @@ private struct RouteMapView: UIViewRepresentable {
         mv.pointOfInterestFilter = .excludingAll
 
         context.coordinator.requestLocationIfNeeded()
-
         refresh(mv)
         return mv
     }
 
     func updateUIView(_ uiView: MKMapView, context: Context) {
-        // 현재위치 버튼 탭 시 포커스
+        context.coordinator.onPinTap = onPinTap
+
         if centerOnUser {
             uiView.setUserTrackingMode(.follow, animated: true)
             DispatchQueue.main.async { centerOnUser = false }
         }
 
-        // 선택된 좌표가 바뀌면 해당 위치로 포커스
         if let coord = selectedCoordinate {
             let region = MKCoordinateRegion(
                 center: coord,
@@ -597,7 +631,6 @@ private struct RouteMapView: UIViewRepresentable {
             uiView.setRegion(region, animated: true)
         }
 
-        // compactMap으로 StopPin만 추출 (MKUserLocation 등 다른 annotation 제외)
         let existing = uiView.annotations.compactMap { $0 as? StopPin }
         let pinsChanged = existing.count != pins.count ||
             !zip(existing, pins).allSatisfy {
@@ -608,7 +641,6 @@ private struct RouteMapView: UIViewRepresentable {
             }
 
         if pinsChanged {
-            // MKUserLocation은 제외하고 StopPin만 제거
             let customAnnotations = uiView.annotations.filter { !($0 is MKUserLocation) }
             uiView.removeAnnotations(customAnnotations)
             uiView.removeOverlays(uiView.overlays)
@@ -620,14 +652,9 @@ private struct RouteMapView: UIViewRepresentable {
         guard !pins.isEmpty else { return }
 
         let coords = pins.map(\.coordinate)
-
-        // 경로 선
         mv.addOverlay(MKPolyline(coordinates: coords, count: coords.count))
-
-        // 핀
         mv.addAnnotations(pins)
 
-        // 전체 범위 (선택된 좌표가 없을 때만 fit)
         if selectedCoordinate == nil {
             let lats = coords.map(\.latitude)
             let lngs = coords.map(\.longitude)
@@ -649,15 +676,20 @@ private struct RouteMapView: UIViewRepresentable {
 
     class Coordinator: NSObject, MKMapViewDelegate, CLLocationManagerDelegate {
         private let locationManager = CLLocationManager()
+        var onPinTap: ((String) -> Void)?
 
         func requestLocationIfNeeded() {
             locationManager.delegate = self
-            switch locationManager.authorizationStatus {
-            case .notDetermined:
+            if locationManager.authorizationStatus == .notDetermined {
                 locationManager.requestWhenInUseAuthorization()
-            default:
-                break
             }
+        }
+
+        func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
+            guard let pin = view.annotation as? StopPin else { return }
+            // MapKit 기본 선택 상태 즉시 해제 (UI는 SwiftUI가 관리)
+            mapView.deselectAnnotation(view.annotation, animated: false)
+            onPinTap?(pin.stopID)
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
@@ -675,11 +707,9 @@ private struct RouteMapView: UIViewRepresentable {
                 ?? MKAnnotationView(annotation: annotation, reuseIdentifier: reuseID)
             v.annotation = annotation
             v.canShowCallout = false
-            // 재사용 시 기존 서브뷰 제거
             v.subviews.forEach { $0.removeFromSuperview() }
 
             if pin.isSelected {
-                // 선택됨: 파랑 28pt + 글로우
                 let size: CGFloat = 28
                 let outer = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
                 outer.backgroundColor = MapTheme.primaryBlue
@@ -693,7 +723,6 @@ private struct RouteMapView: UIViewRepresentable {
                 v.addSubview(outer)
                 v.frame = CGRect(x: 0, y: 0, width: size, height: size)
             } else if pin.isDeparture {
-                // 출발: 초록 20pt
                 let size: CGFloat = 20
                 let circle = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
                 circle.backgroundColor = MapTheme.departureGreen
@@ -703,7 +732,6 @@ private struct RouteMapView: UIViewRepresentable {
                 v.addSubview(circle)
                 v.frame = CGRect(x: 0, y: 0, width: size, height: size)
             } else if pin.isDestination {
-                // 종착: 파랑 32pt + 글로우
                 let size: CGFloat = 32
                 let outer = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
                 outer.backgroundColor = MapTheme.primaryBlue
@@ -721,7 +749,6 @@ private struct RouteMapView: UIViewRepresentable {
                 v.addSubview(outer)
                 v.frame = CGRect(x: 0, y: 0, width: size, height: size)
             } else {
-                // 일반: 어두운 16pt
                 let size: CGFloat = 16
                 let circle = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
                 circle.backgroundColor = MapTheme.stopBg
@@ -732,7 +759,6 @@ private struct RouteMapView: UIViewRepresentable {
                 v.frame = CGRect(x: 0, y: 0, width: size, height: size)
             }
 
-            // 이름 레이블
             let label = UILabel()
             label.text = pin.stopName
             label.textColor = .white
@@ -760,15 +786,17 @@ private struct RouteMapView: UIViewRepresentable {
 
 private final class StopPin: NSObject, MKAnnotation {
     let coordinate: CLLocationCoordinate2D
+    let stopID: String
     let stopName: String
     let isDeparture: Bool
     let isDestination: Bool
     let isSelected: Bool
     var title: String? { stopName }
 
-    init(coordinate: CLLocationCoordinate2D, stopName: String,
+    init(coordinate: CLLocationCoordinate2D, stopID: String, stopName: String,
          isDeparture: Bool, isDestination: Bool, isSelected: Bool) {
         self.coordinate = coordinate
+        self.stopID = stopID
         self.stopName = stopName
         self.isDeparture = isDeparture
         self.isDestination = isDestination
