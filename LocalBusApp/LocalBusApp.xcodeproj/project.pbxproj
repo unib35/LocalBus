@@ -10,6 +10,7 @@
 		9B44DB102F1FAF4700F7AC27 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B44DB0F2F1FAF4700F7AC27 /* WidgetKit.framework */; };
 		9B44DB122F1FAF4700F7AC27 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B44DB112F1FAF4700F7AC27 /* SwiftUI.framework */; };
 		9B44DB212F1FAF4900F7AC27 /* LocalBusWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9B44DB0D2F1FAF4700F7AC27 /* LocalBusWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AA51D19430A64FDA9D1624D9 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 036FCB026FEF4DA88E776FF8 /* Kingfisher */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -126,6 +127,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA51D19430A64FDA9D1624D9 /* Kingfisher in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -238,6 +240,7 @@
 			);
 			name = LocalBusApp;
 			packageProductDependencies = (
+				036FCB026FEF4DA88E776FF8 /* Kingfisher */,
 			);
 			productName = LocalBusApp;
 			productReference = 9B86056D2F125AD00021EC15 /* LocalBusApp.app */;
@@ -301,6 +304,9 @@
 			);
 			mainGroup = 9B8605642F125AD00021EC15;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9B9E27B92F60E8260049E89C /* XCRemoteSwiftPackageReference "Kingfisher" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9B86056E2F125AD00021EC15 /* Products */;
 			projectDirPath = "";
@@ -620,6 +626,7 @@
 				DEVELOPMENT_TEAM = AMNS6W2AA9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치를 지도에 표시하기 위해 위치 정보를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -648,6 +655,7 @@
 				DEVELOPMENT_TEAM = AMNS6W2AA9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치를 지도에 표시하기 위해 위치 정보를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -751,6 +759,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		9B9E27B92F60E8260049E89C /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		036FCB026FEF4DA88E776FF8 /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B9E27B92F60E8260049E89C /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 9B8605652F125AD00021EC15 /* Project object */;
 }
