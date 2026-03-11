@@ -349,6 +349,29 @@ final class MainViewModel: ObservableObject {
 
     // MARK: - Public Methods
 
+    func getStops(for direction: RouteDirection) -> [BusStop] {
+        guard let data = timetableData else { return [] }
+        return TimetableService().getStops(for: direction, data: data)
+    }
+
+    func getFare(for direction: RouteDirection) -> Int {
+        guard let data = timetableData,
+              let route = data.routes?[direction.rawValue] else { return 0 }
+        return route.fare
+    }
+
+    func getPlatformNumber(for direction: RouteDirection) -> String? {
+        timetableData?.routes?[direction.rawValue]?.platformNumber
+    }
+
+    func getNightFare(for direction: RouteDirection) -> Int? {
+        timetableData?.routes?[direction.rawValue]?.nightFare
+    }
+
+    func getNightFareStartTime(for direction: RouteDirection) -> String? {
+        timetableData?.routes?[direction.rawValue]?.nightFareStartTime
+    }
+
     /// 시간표 데이터 로드
     func loadTimetable(with data: TimetableData) async {
         timetableData = data
