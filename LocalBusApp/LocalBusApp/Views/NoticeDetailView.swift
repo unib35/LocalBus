@@ -1,4 +1,5 @@
 import SwiftUI
+import Kingfisher
 
 // MARK: - 공지사항 데이터 모델
 
@@ -7,8 +8,19 @@ struct NoticeItem: Identifiable {
     let title: String
     let date: String
     let author: String
+    let isNew: Bool
     let body: [String]
     let timetableSummary: NoticeTimetableSummary?
+
+    init(
+        id: String, title: String, date: String, author: String,
+        isNew: Bool = false, body: [String],
+        timetableSummary: NoticeTimetableSummary? = nil
+    ) {
+        self.id = id; self.title = title; self.date = date
+        self.author = author; self.isNew = isNew
+        self.body = body; self.timetableSummary = timetableSummary
+    }
 }
 
 struct NoticeTimetableSummary {
@@ -17,7 +29,7 @@ struct NoticeTimetableSummary {
     let arrivalLabel: String
     let rows: [NoticeTimetableRow]
     let note: String?
-    let hasFullScheduleImage: Bool
+    let fullScheduleImageURL: URL?
 }
 
 struct NoticeTimetableRow: Identifiable {
@@ -31,11 +43,12 @@ struct NoticeTimetableRow: Identifiable {
 
 struct NoticeDetailView: View {
     let notice: NoticeItem
-    let onDismiss: () -> Void
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack(alignment: .bottom) {
             HomeDashboardTheme.screenBackground.ignoresSafeArea()
+
 
             VStack(spacing: 0) {
                 header
@@ -58,6 +71,7 @@ struct NoticeDetailView: View {
 
             footerButton
         }
+        .navigationBarBackButtonHidden(true)
     }
 
     // MARK: - Header
@@ -69,7 +83,7 @@ struct NoticeDetailView: View {
                 .foregroundStyle(.white)
 
             HStack {
-                Button(action: onDismiss) {
+                Button(action: { dismiss() }) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
@@ -142,8 +156,8 @@ struct NoticeDetailView: View {
         VStack(spacing: 16) {
             cardHeader(summary)
             scheduleTable(summary)
-            if summary.hasFullScheduleImage {
-                fullSchedulePlaceholder
+            if let url = summary.fullScheduleImageURL {
+                fullScheduleImage(url: url)
             }
         }
         .padding(17)
@@ -271,61 +285,31 @@ struct NoticeDetailView: View {
         }
     }
 
-    // MARK: - Full Schedule Placeholder
+    // MARK: - Full Schedule Image
 
-    private var fullSchedulePlaceholder: some View {
-        ZStack(alignment: .bottom) {
-            // Grid table placeholder
-            VStack(spacing: 0) {
-                ForEach(0..<7) { row in
-                    HStack(spacing: 0) {
-                        ForEach(0..<3) { col in
-                            Rectangle()
-                                .fill(col == 0
-                                      ? Color.white.opacity(0.05)
-                                      : Color.white.opacity(0.02))
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            if col < 2 {
-                                Rectangle()
-                                    .fill(HomeDashboardTheme.border.opacity(0.5))
-                                    .frame(width: 1)
-                            }
-                        }
-                    }
-                    if row < 6 {
-                        Rectangle()
-                            .fill(HomeDashboardTheme.border.opacity(0.4))
-                            .frame(height: 1)
-                    }
+    private func fullScheduleImage(url: URL) -> some View {
+        KFImage(url)
+            .placeholder {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(HomeDashboardTheme.cardBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(HomeDashboardTheme.border, lineWidth: 1)
+                        )
+                    ProgressView()
+                        .tint(.white)
                 }
+                .frame(height: 200)
             }
-            .frame(height: 200)
+            .fade(duration: 0.3)
+            .resizable()
+            .scaledToFit()
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(HomeDashboardTheme.border, lineWidth: 1)
             )
-
-            // Gradient overlay
-            LinearGradient(
-                colors: [.black.opacity(0.6), .clear],
-                startPoint: .bottom,
-                endPoint: .center
-            )
-            .frame(height: 200)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-            // Action label
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.white)
-                Text("전체 시간표 크게 보기")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white)
-            }
-            .padding(.bottom, 12)
-        }
     }
 
     // MARK: - Footer
@@ -336,7 +320,7 @@ struct NoticeDetailView: View {
                 .fill(HomeDashboardTheme.border)
                 .frame(height: 1)
 
-            Button(action: onDismiss) {
+            Button(action: { dismiss() }) {
                 HStack(spacing: 8) {
                     Image(systemName: "list.bullet")
                         .font(.system(size: 14, weight: .medium))
@@ -389,10 +373,10 @@ struct NoticeDetailView: View {
                 NoticeTimetableRow(departure: "07:35", arrival: "08:01", isNew: false)
             ],
             note: "* 도로 사정에 따라 도착 시간이 지연될 수 있습니다.",
-            hasFullScheduleImage: true
+            fullScheduleImageURL: nil
         )
     )
 
-    NoticeDetailView(notice: sample, onDismiss: {})
+    NoticeDetailView(notice: sample)
         .preferredColorScheme(.dark)
 }
