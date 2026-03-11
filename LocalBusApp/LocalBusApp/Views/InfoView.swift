@@ -31,9 +31,6 @@ struct InfoView: View {
     @AppStorage("delayAlertEnabled") private var delayAlertEnabled = false
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
 
-    @State private var showingPrivacyPolicy = false
-    @State private var showingNotice = false
-
     private let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
 
     private var colorScheme: AppColorScheme {
@@ -65,9 +62,6 @@ struct InfoView: View {
         .toolbarBackground(Color.black.opacity(0.95), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .sheet(isPresented: $showingNotice) {
-            noticeSheet
-        }
     }
 
     // MARK: - 알림 설정
@@ -173,7 +167,7 @@ struct InfoView: View {
                 rowDivider
 
                 // 공지사항
-                Button { showingNotice = true } label: {
+                NavigationLink(destination: NoticeListView(notices: sampleNotices)) {
                     infoNavigationRow("공지사항")
                 }
                 .buttonStyle(.plain)
@@ -189,7 +183,7 @@ struct InfoView: View {
                 rowDivider
 
                 // 문의하기
-                Button { sendFeedbackEmail() } label: {
+                NavigationLink(destination: ContactView()) {
                     infoNavigationRow("문의하기")
                 }
                 .buttonStyle(.plain)
@@ -197,7 +191,7 @@ struct InfoView: View {
                 rowDivider
 
                 // 이용약관 및 개인정보처리방침
-                Button { openPrivacyPolicy() } label: {
+                NavigationLink(destination: PrivacyPolicyView()) {
                     infoNavigationRow("이용약관 및 개인정보처리방침")
                 }
                 .buttonStyle(.plain)
@@ -206,41 +200,53 @@ struct InfoView: View {
         }
     }
 
-    // MARK: - 공지사항 시트
+    // MARK: - 공지사항 데이터
 
-    private var noticeSheet: some View {
-        NoticeDetailView(
-            notice: latestNotice,
-            onDismiss: { showingNotice = false }
-        )
-    }
-
-    private var latestNotice: NoticeItem {
-        NoticeItem(
-            id: "notice-001",
-            title: "2025년 8월 25일부\n운행 시간표 변경 안내",
-            date: "2025.08.14",
-            author: "관리자",
-            body: [
-                "안녕하세요. 장유-사상 시외버스 운행 시간표가 2025년 8월 25일부로 일부 변경됩니다.",
-                "이번 변경은 최근 출퇴근 시간대의 교통 혼잡도 증가와 이용객 수요 변화를 반영하여 더 효율적인 배차 간격을 제공하기 위함입니다. 이용에 착오 없으시길 바랍니다.",
-                "자세한 변경 시간표는 아래를 참고해 주시기 바랍니다."
-            ],
-            timetableSummary: NoticeTimetableSummary(
-                effectiveDate: "2025.08.25",
-                departureLabel: "장유 출발",
-                arrivalLabel: "사상 도착",
-                rows: [
-                    NoticeTimetableRow(departure: "06:20", arrival: "06:46", isNew: false),
-                    NoticeTimetableRow(departure: "06:40", arrival: "07:06", isNew: true),
-                    NoticeTimetableRow(departure: "07:00", arrival: "07:26", isNew: false),
-                    NoticeTimetableRow(departure: "07:20", arrival: "07:46", isNew: true),
-                    NoticeTimetableRow(departure: "07:35", arrival: "08:01", isNew: false)
+    private var sampleNotices: [NoticeItem] {
+        [
+            NoticeItem(
+                id: "notice-001",
+                title: "2025년 8월 25일부\n운행 시간표 변경 안내",
+                date: "2025.08.14",
+                author: "관리자",
+                isNew: true,
+                body: [
+                    "안녕하세요. 장유-사상 시외버스 운행 시간표가 2025년 8월 25일부로 일부 변경됩니다.",
+                    "이번 변경은 최근 출퇴근 시간대의 교통 혼잡도 증가와 이용객 수요 변화를 반영하여 더 효율적인 배차 간격을 제공하기 위함입니다. 이용에 착오 없으시길 바랍니다.",
+                    "자세한 변경 시간표는 아래를 참고해 주시기 바랍니다."
                 ],
-                note: "* 도로 사정에 따라 도착 시간이 지연될 수 있습니다.",
-                hasFullScheduleImage: true
+                timetableSummary: NoticeTimetableSummary(
+                    effectiveDate: "2025.08.25",
+                    departureLabel: "장유 출발",
+                    arrivalLabel: "사상 도착",
+                    rows: [
+                        NoticeTimetableRow(departure: "06:20", arrival: "06:46", isNew: false),
+                        NoticeTimetableRow(departure: "06:40", arrival: "07:06", isNew: true),
+                        NoticeTimetableRow(departure: "07:00", arrival: "07:26", isNew: false),
+                        NoticeTimetableRow(departure: "07:20", arrival: "07:46", isNew: true),
+                        NoticeTimetableRow(departure: "07:35", arrival: "08:01", isNew: false)
+                    ],
+                    note: "* 도로 사정에 따라 도착 시간이 지연될 수 있습니다.",
+                    fullScheduleImageURL: nil
+                )
+            ),
+            NoticeItem(
+                id: "notice-002",
+                title: "[안내] 시스템 정기 점검에 따른 서비스 일시 중단",
+                date: "2023.10.20",
+                author: "관리자",
+                body: ["정기 서버 점검으로 인해 일부 기능이 일시 중단될 수 있습니다."],
+                timetableSummary: nil
+            ),
+            NoticeItem(
+                id: "notice-003",
+                title: "추석 연휴 기간 셔틀버스 운행 안내",
+                date: "2023.09.25",
+                author: "관리자",
+                body: ["추석 연휴 기간 동안 주말 시간표로 운행됩니다."],
+                timetableSummary: nil
             )
-        )
+        ]
     }
 
     // MARK: - 헬퍼 뷰
@@ -283,23 +289,6 @@ struct InfoView: View {
             .padding(.leading, 16)
     }
 
-    // MARK: - 액션
-
-    private func sendFeedbackEmail() {
-        let email = "help@localbus.com"
-        let subject = "[LocalBus] 시간표 오류 제보"
-        let body = "\n\n---\n앱 버전: \(appVersion)\n기기: \(UIDevice.current.model)\niOS: \(UIDevice.current.systemVersion)"
-        let encoded = "mailto:\(email)?subject=\(subject.urlEncoded)&body=\(body.urlEncoded)"
-        if let url = URL(string: encoded) {
-            UIApplication.shared.open(url)
-        }
-    }
-
-    private func openPrivacyPolicy() {
-        if let url = URL(string: "https://jongmini.github.io/LocalBus/privacy") {
-            UIApplication.shared.open(url)
-        }
-    }
 }
 
 // MARK: - View Modifier
@@ -315,14 +304,6 @@ private struct SettingsCardModifier: ViewModifier {
 private extension View {
     func settingsCard() -> some View {
         modifier(SettingsCardModifier())
-    }
-}
-
-// MARK: - String Extension
-
-private extension String {
-    var urlEncoded: String {
-        addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? self
     }
 }
 
