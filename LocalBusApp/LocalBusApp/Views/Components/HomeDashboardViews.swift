@@ -14,6 +14,8 @@ enum HomeDashboardTheme {
     static let iconBackground = Color(red: 30.0 / 255.0, green: 41.0 / 255.0, blue: 59.0 / 255.0)
     static let chipBackground = Color(red: 31.0 / 255.0, green: 41.0 / 255.0, blue: 55.0 / 255.0)
     static let success = Color(red: 16.0 / 255.0, green: 185.0 / 255.0, blue: 129.0 / 255.0)
+    static let primaryBlue = Color(red: 59.0 / 255.0, green: 130.0 / 255.0, blue: 246.0 / 255.0)
+    static let departureGreen = Color(red: 74.0 / 255.0, green: 222.0 / 255.0, blue: 128.0 / 255.0)
     // 시간표 전용 (Zinc 팔레트)
     static let timetablePickerBackground = Color(red: 24.0 / 255.0, green: 24.0 / 255.0, blue: 27.0 / 255.0)
     static let timetablePickerBorder = Color(red: 39.0 / 255.0, green: 39.0 / 255.0, blue: 42.0 / 255.0)
