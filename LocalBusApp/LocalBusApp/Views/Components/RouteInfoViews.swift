@@ -93,7 +93,7 @@ struct StopsScreenView: View {
             ZStack(alignment: .top) {
                 Color.black.ignoresSafeArea()
 
-                // 지도
+                // 지도 — 전체 화면. 시트가 위에 오버레이되며, 시트가 내려가면 지도가 드러남
                 RouteMapView(
                     pins: mapPins,
                     selectedCoordinate: selectedCoordinate,
@@ -106,13 +106,15 @@ struct StopsScreenView: View {
                         }
                     }
                 )
-                .frame(height: geo.size.height * 0.44 + geo.safeAreaInsets.top)
-                .ignoresSafeArea(edges: .top)
+                .ignoresSafeArea()
 
-                // 현재위치 버튼
+                // 현재위치 버튼 — 시트 상단을 따라 이동
                 VStack {
                     Spacer()
-                        .frame(height: geo.size.height * 0.40 + geo.safeAreaInsets.top - 52)
+                        .frame(height: max(
+                            geo.safeAreaInsets.top + 16,
+                            geo.size.height * 0.40 + geo.safeAreaInsets.top + sheetY - 52
+                        ))
                     HStack {
                         Spacer()
                         Button {
