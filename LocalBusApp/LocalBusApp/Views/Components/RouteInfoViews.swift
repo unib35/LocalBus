@@ -168,6 +168,11 @@ struct StopsScreenView: View {
             }
             .padding(.horizontal, 24)
 
+            if let platformNum = platform {
+                platformBanner(platformNum)
+                    .padding(.horizontal, 24)
+            }
+
             stopListSection(currentStops)
 
             if let stop = selectedStop {
@@ -181,6 +186,35 @@ struct StopsScreenView: View {
         }
         .padding(.top, 8)
         .padding(.bottom, 8)
+    }
+
+    // MARK: - 탑승홈 배너
+
+    private func platformBanner(_ platformNum: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "signpost.right.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(HomeDashboardTheme.primaryBlue)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("탑승홈")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+                Text(platformNum)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(HomeDashboardTheme.primaryBlue.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(HomeDashboardTheme.primaryBlue.opacity(0.3), lineWidth: 1)
+        )
     }
 
     // MARK: - 정류장 목록 섹션
