@@ -63,6 +63,48 @@ final class NotificationService {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
 
+    /// 막차 30분 전 매일 반복 알림 예약
+    func scheduleLastBusNotification(lastBusTime: String, direction: String) {
+        let components = lastBusTime.split(separator: ":")
+        guard components.count == 2,
+              let hour = Int(components[0]),
+              let minute = Int(components[1]) else { return }
+
+        var notifyMinute = minute - 30
+        var notifyHour = hour
+        if notifyMinute < 0 {
+            notifyHour -= 1
+            notifyMinute += 60
+        }
+
+        var dateComponents = DateComponents()
+        dateComponents.hour = notifyHour
+        dateComponents.minute = notifyMinute
+
+        let content = UNMutableNotificationContent()
+        content.title = "막차 알림"
+        content.body = "\(direction) 막차(\(lastBusTime))가 30분 후 출발합니다"
+        content.sound = .default
+
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+        let request = UNNotificationRequest(
+            identifier: lastBusNotificationIdentifier,
+            content: content,
+            trigger: trigger
+        )
+
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    /// 막차 알림 취소
+    func cancelLastBusNotification() {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(
+            withIdentifiers: [lastBusNotificationIdentifier]
+        )
+    }
+
+    private let lastBusNotificationIdentifier = "last_bus_daily_notification"
+
     /// 예약된 알림이 있는지 확인
     func hasScheduledNotification(busTime: String, minutesBefore: Int) async -> Bool {
         let identifier = "bus_\(busTime)_\(minutesBefore)"
