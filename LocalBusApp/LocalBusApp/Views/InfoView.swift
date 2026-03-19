@@ -202,14 +202,6 @@ struct InfoView: View {
 
                 rowDivider
 
-                // 공지사항
-                NavigationLink(destination: NoticeListView(notices: sampleNotices)) {
-                    infoNavigationRow("공지사항")
-                }
-                .buttonStyle(.plain)
-
-                rowDivider
-
                 // 시간표 제보
                 NavigationLink(destination: ReportView()) {
                     infoNavigationRow("시간표 제보")
