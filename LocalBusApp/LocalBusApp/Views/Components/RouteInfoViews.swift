@@ -91,7 +91,7 @@ struct StopsScreenView: View {
             let sheetY = min(collapsedOffset, max(0, sheetOffset + dragTranslation))
 
             ZStack(alignment: .top) {
-                Color.black.ignoresSafeArea()
+                HomeDashboardTheme.screenBackground.ignoresSafeArea()
 
                 // 지도 — 전체 화면. 시트가 위에 오버레이되며, 시트가 내려가면 지도가 드러남
                 RouteMapView(
@@ -141,7 +141,7 @@ struct StopsScreenView: View {
 
                     ZStack(alignment: .top) {
                         // 배경 (하단까지 채우기)
-                        Color(red: 30/255, green: 30/255, blue: 30/255)
+                        HomeDashboardTheme.sheetBackground
                             .clipShape(TopRoundedShape(radius: 32))
                             .ignoresSafeArea(edges: .bottom)
                             .shadow(color: .black.opacity(0.5), radius: 40, x: 0, y: -10)
@@ -171,7 +171,7 @@ struct StopsScreenView: View {
     private func dragHandleArea(collapsedOffset: CGFloat) -> some View {
         VStack(spacing: 0) {
             Capsule()
-                .fill(Color(red: 82/255, green: 82/255, blue: 82/255))
+                .fill(HomeDashboardTheme.border)
                 .frame(width: 48, height: 4)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
@@ -238,7 +238,7 @@ struct StopsScreenView: View {
                     .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                 Text(platformNum)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
             }
 
             Spacer()
@@ -278,7 +278,7 @@ struct StopsScreenView: View {
             HStack(spacing: 8) {
                 Text(stop.name)
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
 
                 StopBadge(isDeparture: stop.isDeparture, isDestination: isLast)
 
@@ -332,7 +332,7 @@ struct StopsScreenView: View {
             }
         }
         .padding(16)
-        .background(Color(red: 20/255, green: 20/255, blue: 30/255))
+        .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -350,7 +350,7 @@ struct StopsScreenView: View {
                     .scaledToFill()
             } else {
                 Rectangle()
-                    .fill(Color(red: 38/255, green: 38/255, blue: 38/255))
+                    .fill(HomeDashboardTheme.iconBackground)
             }
 
             LinearGradient(
@@ -372,7 +372,7 @@ struct StopsScreenView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color(red: 64/255, green: 64/255, blue: 64/255), lineWidth: 1)
+                .stroke(HomeDashboardTheme.border, lineWidth: 1)
         )
     }
 
@@ -383,16 +383,16 @@ struct StopsScreenView: View {
             HStack(spacing: 8) {
                 Image(systemName: "creditcard")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
                 Text("요금 정보")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 4)
             .overlay(alignment: .bottom) {
                 Rectangle()
-                    .fill(Color(red: 31/255, green: 41/255, blue: 55/255))
+                    .fill(HomeDashboardTheme.border)
                     .frame(height: 1)
             }
 
@@ -418,7 +418,7 @@ struct StopsScreenView: View {
                         HStack(alignment: .lastTextBaseline, spacing: 2) {
                             Text(formattedFare(nFare))
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(HomeDashboardTheme.primaryText)
                             Text("원")
                                 .font(.system(size: 12))
                                 .foregroundStyle(HomeDashboardTheme.timetableMutedText)
@@ -428,11 +428,11 @@ struct StopsScreenView: View {
             }
         }
         .padding(21)
-        .background(Color.black.opacity(0.3))
+        .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color(red: 51/255, green: 51/255, blue: 51/255), lineWidth: 1)
+                .stroke(HomeDashboardTheme.border, lineWidth: 1)
         )
     }
 
@@ -445,7 +445,7 @@ struct StopsScreenView: View {
             HStack(alignment: .lastTextBaseline, spacing: 2) {
                 Text(formattedFare(amount))
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
                 Text("원")
                     .font(.system(size: 12))
                     .foregroundStyle(HomeDashboardTheme.timetableMutedText)

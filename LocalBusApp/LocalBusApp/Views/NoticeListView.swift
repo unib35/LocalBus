@@ -7,7 +7,7 @@ struct NoticeListView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            HomeDashboardTheme.screenBackground.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
@@ -22,7 +22,7 @@ struct NoticeListView: View {
                         }
                     }
                 }
-                .background(Color(red: 28/255, green: 28/255, blue: 30/255))
+                .background(HomeDashboardTheme.listCardBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -31,9 +31,8 @@ struct NoticeListView: View {
         }
         .navigationTitle("공지사항")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color.black.opacity(0.95), for: .navigationBar)
+        .toolbarBackground(HomeDashboardTheme.screenBackground, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
     }
 
@@ -45,7 +44,7 @@ struct NoticeListView: View {
                 HStack(spacing: 8) {
                     Text(notice.title)
                         .font(.system(size: 16))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HomeDashboardTheme.primaryText)
                         .lineLimit(1)
 
                     if notice.isNew {
@@ -55,14 +54,14 @@ struct NoticeListView: View {
 
                 Text(notice.date)
                     .font(.system(size: 13))
-                    .foregroundStyle(Color(red: 142/255, green: 142/255, blue: 147/255))
+                    .foregroundStyle(HomeDashboardTheme.secondaryText)
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color(red: 99/255, green: 99/255, blue: 102/255))
+                .foregroundStyle(HomeDashboardTheme.tertiaryText)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -82,7 +81,7 @@ struct NoticeListView: View {
 
     private var rowDivider: some View {
         Rectangle()
-            .fill(Color(red: 56/255, green: 56/255, blue: 58/255))
+            .fill(HomeDashboardTheme.listDivider)
             .frame(height: 0.5)
             .padding(.leading, 16)
     }
