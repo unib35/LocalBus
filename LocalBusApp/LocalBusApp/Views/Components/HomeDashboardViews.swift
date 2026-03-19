@@ -95,22 +95,29 @@ struct NextBusHeroCard: View {
                 .foregroundStyle(HomeDashboardTheme.secondaryText)
                 .padding(.bottom, 14)
 
-            HStack(alignment: .lastTextBaseline, spacing: 6) {
-                Text(minuteText)
+            if minuteText.isEmpty {
+                Text(descriptionText)
                     .font(HomeDashboardTypography.heroValue)
-                    .monospacedDigit()
                     .foregroundStyle(.white)
+                    .padding(.bottom, 6)
+            } else {
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    Text(minuteText)
+                        .font(HomeDashboardTypography.heroValue)
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
 
-                Text(unitText)
-                    .font(HomeDashboardTypography.heroUnit)
-                    .foregroundStyle(Color.white.opacity(0.88))
-                    .padding(.bottom, 10)
+                    Text(unitText)
+                        .font(HomeDashboardTypography.heroUnit)
+                        .foregroundStyle(Color.white.opacity(0.88))
+                        .padding(.bottom, 10)
+                }
+
+                Text(descriptionText)
+                    .font(HomeDashboardTypography.heroDescription)
+                    .foregroundStyle(HomeDashboardTheme.secondaryText)
+                    .padding(.top, 6)
             }
-
-            Text(descriptionText)
-                .font(HomeDashboardTypography.heroDescription)
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
-                .padding(.top, 6)
 
             progressBar
                 .padding(.top, 28)
