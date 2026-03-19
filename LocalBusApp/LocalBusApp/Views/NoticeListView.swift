@@ -34,6 +34,7 @@ struct NoticeListView: View {
         .toolbarBackground(Color.black.opacity(0.95), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
     }
 
     // MARK: - Notice Row
