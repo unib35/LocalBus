@@ -27,13 +27,13 @@ struct ContactView: View {
             .padding(.top, 24)
             .padding(.bottom, 24)
         }
-        .background(Color(red: 16/255, green: 25/255, blue: 34/255).ignoresSafeArea())
+        .background(HomeDashboardTheme.screenBackground.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             bottomButton
         }
         .navigationTitle("문의하기")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color(red: 16/255, green: 25/255, blue: 34/255).opacity(0.8), for: .navigationBar)
+        .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
     }
@@ -44,7 +44,7 @@ struct ContactView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("문의 유형")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color(red: 203/255, green: 213/255, blue: 225/255))
+                .foregroundStyle(HomeDashboardTheme.secondaryText)
 
             Picker("문의 유형", selection: $selectedType) {
                 ForEach(ContactType.allCases, id: \.self) { type in
@@ -52,7 +52,7 @@ struct ContactView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .colorMultiply(Color(red: 148/255, green: 163/255, blue: 184/255))
+            .colorMultiply(HomeDashboardTheme.secondaryText)
         }
     }
 
@@ -62,7 +62,7 @@ struct ContactView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("내용")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color(red: 203/255, green: 213/255, blue: 225/255))
+                .foregroundStyle(HomeDashboardTheme.secondaryText)
 
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $content)
@@ -73,11 +73,11 @@ struct ContactView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 40)
                     .frame(minHeight: 180)
-                    .background(Color(red: 15/255, green: 23/255, blue: 42/255))
+                    .background(HomeDashboardTheme.segmentBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color(red: 51/255, green: 65/255, blue: 85/255), lineWidth: 1)
+                            .stroke(HomeDashboardTheme.border, lineWidth: 1)
                     )
                     .onChange(of: content) { newValue in
                         if newValue.count > maxCharacters {
@@ -88,7 +88,7 @@ struct ContactView: View {
                 if content.isEmpty {
                     Text("문의 내용을 입력해주세요.")
                         .font(.system(size: 16))
-                        .foregroundStyle(Color(red: 148/255, green: 163/255, blue: 184/255))
+                        .foregroundStyle(HomeDashboardTheme.secondaryText)
                         .padding(.horizontal, 16)
                         .padding(.top, 16)
                         .allowsHitTesting(false)
@@ -100,7 +100,7 @@ struct ContactView: View {
                         Spacer()
                         Text("\(content.count)/\(maxCharacters)")
                             .font(.system(size: 12))
-                            .foregroundStyle(Color(red: 148/255, green: 163/255, blue: 184/255))
+                            .foregroundStyle(HomeDashboardTheme.secondaryText)
                             .padding(.trailing, 12)
                             .padding(.bottom, 12)
                     }
@@ -116,19 +116,23 @@ struct ContactView: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "info.circle")
                 .font(.system(size: 14))
-                .foregroundStyle(Color(red: 148/255, green: 163/255, blue: 184/255))
+                .foregroundStyle(HomeDashboardTheme.secondaryText)
                 .padding(.top, 2)
 
             Text("문의 내용은 검토 후 이메일로 답변 드립니다. 빠른 답변을 위해 문의 유형을 정확히 선택해 주세요.")
                 .font(.system(size: 14))
-                .foregroundStyle(Color(red: 148/255, green: 163/255, blue: 184/255))
+                .foregroundStyle(HomeDashboardTheme.secondaryText)
                 .lineSpacing(3)
         }
         .padding(.horizontal, 17)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(red: 30/255, green: 41/255, blue: 59/255).opacity(0.5))
+        .background(HomeDashboardTheme.noteBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(HomeDashboardTheme.border, lineWidth: 0.5)
+        )
     }
 
     // MARK: - 하단 버튼
@@ -136,8 +140,8 @@ struct ContactView: View {
     private var bottomButton: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(Color(red: 30/255, green: 41/255, blue: 59/255))
-                .frame(height: 1)
+                .fill(HomeDashboardTheme.border)
+                .frame(height: 0.5)
 
             Button {
                 sendContact()
@@ -156,7 +160,7 @@ struct ContactView: View {
             .padding(.top, 17)
             .padding(.bottom, 32)
         }
-        .background(Color(red: 16/255, green: 25/255, blue: 34/255))
+        .background(HomeDashboardTheme.screenBackground)
     }
 
     // MARK: - 액션
