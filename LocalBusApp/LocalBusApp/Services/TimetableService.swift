@@ -43,6 +43,11 @@ struct TimetableService {
         return try? JSONDecoder().decode(TimetableData.self, from: data)
     }
 
+    /// UserDefaults 캐시 삭제
+    func clearCache() {
+        UserDefaults.standard.removeObject(forKey: cacheKey)
+    }
+
     /// UserDefaults 캐시에 데이터 저장
     /// - Parameter data: 저장할 TimetableData
     func saveToCache(_ data: TimetableData) {
