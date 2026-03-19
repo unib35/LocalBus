@@ -27,11 +27,17 @@ enum AppColorScheme: Int, CaseIterable {
 // MARK: - 설정 화면
 
 struct InfoView: View {
+    @ObservedObject var viewModel: MainViewModel
+
     @AppStorage("lastMileAlertEnabled") private var lastMileAlertEnabled = true
     @AppStorage("delayAlertEnabled") private var delayAlertEnabled = false
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
 
+    @State private var showClearCacheConfirm = false
+    @State private var isRefreshing = false
+
     private let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    private let shareMessage = "장유-사상 시외버스 시간표 앱 LocalBus를 사용해보세요!"
 
     private var colorScheme: AppColorScheme {
         AppColorScheme(rawValue: colorSchemeRaw) ?? .dark
@@ -39,17 +45,18 @@ struct InfoView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            HomeDashboardTheme.screenBackground.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 32) {
                     notificationSection
                     displaySection
                     infoSection
+                    dataSection
 
                     Text("Bus Schedule App © 2024")
                         .font(.system(size: 11))
-                        .foregroundStyle(Color(red: 99/255, green: 99/255, blue: 102/255))
+                        .foregroundStyle(HomeDashboardTheme.tertiaryText)
                         .padding(.top, 8)
                 }
                 .padding(.horizontal, 16)
@@ -59,9 +66,19 @@ struct InfoView: View {
         }
         .navigationTitle("설정")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color.black.opacity(0.95), for: .navigationBar)
+        .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .confirmationDialog("캐시를 삭제하면 최신 데이터를 다시 불러옵니다.", isPresented: $showClearCacheConfirm, titleVisibility: .visible) {
+            Button("캐시 삭제 및 새로고침", role: .destructive) {
+                Task {
+                    isRefreshing = true
+                    await viewModel.clearCacheAndRefresh()
+                    isRefreshing = false
+                }
+            }
+            Button("취소", role: .cancel) {}
+        }
     }
 
     // MARK: - 알림 설정
@@ -83,6 +100,15 @@ struct InfoView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
+                .onChange(of: lastMileAlertEnabled) { enabled in
+                    Task {
+                        if enabled {
+                            await viewModel.scheduleLastBusNotification()
+                        } else {
+                            viewModel.cancelLastBusNotification()
+                        }
+                    }
+                }
 
                 rowDivider
 
@@ -90,20 +116,21 @@ struct InfoView: View {
                     iconBox(systemName: "clock.badge.exclamationmark")
                     Text("지연 정보 실시간 알림")
                         .font(.system(size: 16))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HomeDashboardTheme.tertiaryText)
                     Spacer()
                     Toggle("", isOn: $delayAlertEnabled)
                         .labelsHidden()
                         .tint(.white)
+                        .disabled(true)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
             }
             .settingsCard()
 
-            Text("운행 상황에 따라 알림이 지연될 수 있습니다.")
+            Text("막차 알림은 매일 반복됩니다. 지연 정보 알림은 준비 중입니다.")
                 .font(.system(size: 13))
-                .foregroundStyle(Color(red: 142/255, green: 142/255, blue: 147/255))
+                .foregroundStyle(HomeDashboardTheme.secondaryText)
                 .padding(.horizontal, 12)
         }
     }
@@ -159,10 +186,18 @@ struct InfoView: View {
                     Spacer()
                     Text("v\(appVersion)")
                         .font(.system(size: 15))
-                        .foregroundStyle(Color(red: 142/255, green: 142/255, blue: 147/255))
+                        .foregroundStyle(HomeDashboardTheme.secondaryText)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
+
+                rowDivider
+
+                // 이용 안내
+                NavigationLink(destination: BusTipsView()) {
+                    infoNavigationRow("이용 안내")
+                }
+                .buttonStyle(.plain)
 
                 rowDivider
 
@@ -195,8 +230,79 @@ struct InfoView: View {
                     infoNavigationRow("이용약관 및 개인정보처리방침")
                 }
                 .buttonStyle(.plain)
+
+                rowDivider
+
+                // 앱 공유
+                ShareLink(item: shareMessage) {
+                    infoNavigationRow("앱 공유")
+                }
+                .buttonStyle(.plain)
             }
             .settingsCard()
+        }
+    }
+
+    // MARK: - 데이터 관리
+
+    private var dataSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("데이터")
+
+            VStack(spacing: 0) {
+                // 시간표 기준일
+                HStack {
+                    Text("시간표 기준일")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.white)
+                    Spacer()
+                    Text(viewModel.updatedAtText)
+                        .font(.system(size: 15))
+                        .foregroundStyle(HomeDashboardTheme.secondaryText)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+
+                rowDivider
+
+                // 캐시 초기화
+                Button {
+                    showClearCacheConfirm = true
+                } label: {
+                    HStack {
+                        if isRefreshing {
+                            ProgressView()
+                                .tint(HomeDashboardTheme.secondaryText)
+                                .frame(width: 16, height: 16)
+                        }
+                        Text(isRefreshing ? "새로고침 중..." : "최신 데이터로 새로고침")
+                            .font(.system(size: 16))
+                            .foregroundStyle(isRefreshing ? HomeDashboardTheme.secondaryText : .white)
+                        Spacer()
+                        if viewModel.isOffline {
+                            Text("오프라인")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(HomeDashboardTheme.tertiaryText)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(HomeDashboardTheme.border)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
+                .disabled(isRefreshing)
+            }
+            .settingsCard()
+
+            if viewModel.isOffline {
+                Text("네트워크 연결이 없어 저장된 데이터를 사용 중입니다.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(HomeDashboardTheme.secondaryText)
+                    .padding(.horizontal, 12)
+            }
         }
     }
 
@@ -255,7 +361,7 @@ struct InfoView: View {
         Text(title)
             .font(.system(size: 12, weight: .medium))
             .tracking(0.3)
-            .foregroundStyle(Color(red: 142/255, green: 142/255, blue: 147/255))
+            .foregroundStyle(HomeDashboardTheme.secondaryText)
             .padding(.horizontal, 12)
     }
 
@@ -264,7 +370,7 @@ struct InfoView: View {
             .font(.system(size: 14, weight: .medium))
             .foregroundStyle(.white)
             .frame(width: 28, height: 28)
-            .background(Color(red: 44/255, green: 44/255, blue: 46/255))
+            .background(HomeDashboardTheme.iconBackground)
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 
@@ -276,7 +382,7 @@ struct InfoView: View {
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color(red: 99/255, green: 99/255, blue: 102/255))
+                .foregroundStyle(HomeDashboardTheme.tertiaryText)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -284,11 +390,10 @@ struct InfoView: View {
 
     private var rowDivider: some View {
         Rectangle()
-            .fill(Color(red: 56/255, green: 56/255, blue: 58/255))
+            .fill(HomeDashboardTheme.border)
             .frame(height: 0.5)
             .padding(.leading, 16)
     }
-
 }
 
 // MARK: - View Modifier
@@ -296,8 +401,12 @@ struct InfoView: View {
 private struct SettingsCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(Color(red: 28/255, green: 28/255, blue: 30/255))
+            .background(HomeDashboardTheme.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(HomeDashboardTheme.border, lineWidth: 0.5)
+            )
     }
 }
 
@@ -311,7 +420,7 @@ private extension View {
 
 #Preview {
     NavigationStack {
-        InfoView()
+        InfoView(viewModel: MainViewModel())
     }
     .preferredColorScheme(.dark)
 }

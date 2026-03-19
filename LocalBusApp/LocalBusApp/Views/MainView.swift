@@ -21,7 +21,7 @@ struct MainView: View {
                 .tabItem { Label("정류장 위치", systemImage: "map") }
 
             NavigationStack {
-                InfoView()
+                InfoView(viewModel: viewModel)
             }
             .tabItem { Label("설정", systemImage: "gearshape") }
         }
@@ -115,11 +115,12 @@ struct MainView: View {
         } else if let nextBusTime = viewModel.nextBusTime {
             NextBusHeroCard(
                 minuteText: viewModel.nextBusMinuteDisplay,
-                unitText: "분",
+                unitText: viewModel.nextBusUnitDisplay,
                 descriptionText: viewModel.nextBusCountdownDescription,
                 progress: viewModel.nextBusProgress,
                 departureTime: nextBusTime,
-                seatCountText: viewModel.nextBusSeatCountText
+                arrivalTime: viewModel.nextBusArrivalTime,
+                nextBusTime: viewModel.followingBusTime
             )
         } else {
             DashboardNoticeCard(
