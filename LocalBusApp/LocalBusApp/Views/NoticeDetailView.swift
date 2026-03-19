@@ -72,6 +72,7 @@ struct NoticeDetailView: View {
             footerButton
         }
         .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .tabBar)
     }
 
     // MARK: - Header
