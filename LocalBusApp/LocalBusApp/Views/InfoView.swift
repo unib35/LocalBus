@@ -159,6 +159,7 @@ struct InfoView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
 
@@ -291,6 +292,7 @@ struct InfoView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(isRefreshing)
@@ -386,6 +388,7 @@ struct InfoView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
+        .contentShape(Rectangle())
     }
 
     private var rowDivider: some View {
