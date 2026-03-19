@@ -84,7 +84,8 @@ struct NextBusHeroCard: View {
     let descriptionText: String
     let progress: Double
     let departureTime: String
-    let seatCountText: String
+    let arrivalTime: String
+    let nextBusTime: String
 
     var body: some View {
         VStack(spacing: 0) {
@@ -121,7 +122,13 @@ struct NextBusHeroCard: View {
                     .fill(HomeDashboardTheme.border)
                     .frame(width: 1, height: 36)
 
-                dashboardMetaBlock(title: "잔여 좌석", value: seatCountText, alignment: .trailing, suffix: "석")
+                dashboardMetaBlock(title: "도착 예정", value: arrivalTime, alignment: .center)
+
+                Rectangle()
+                    .fill(HomeDashboardTheme.border)
+                    .frame(width: 1, height: 36)
+
+                dashboardMetaBlock(title: "다음 배차", value: nextBusTime, alignment: .trailing)
             }
             .padding(.top, 24)
         }
@@ -194,7 +201,7 @@ struct NextBusHeroCard: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
+        .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : alignment == .center ? .center : .trailing)
     }
 }
 
