@@ -50,3 +50,6 @@ fastlane/test_output
 .env
 .env.local
 *.xcconfig.local
+
+# API Keys
+Configurations/Secrets.xcconfig

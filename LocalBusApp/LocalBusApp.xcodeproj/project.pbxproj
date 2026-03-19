@@ -10,6 +10,8 @@
 		9B44DB102F1FAF4700F7AC27 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B44DB0F2F1FAF4700F7AC27 /* WidgetKit.framework */; };
 		9B44DB122F1FAF4700F7AC27 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B44DB112F1FAF4700F7AC27 /* SwiftUI.framework */; };
 		9B44DB212F1FAF4900F7AC27 /* LocalBusWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9B44DB0D2F1FAF4700F7AC27 /* LocalBusWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		9B9E29D92F6BE3190049E89C /* Secrets.xcconfig.example in Resources */ = {isa = PBXBuildFile; fileRef = 9B9E29D72F6BE3190049E89C /* Secrets.xcconfig.example */; };
+		9B9E29DA2F6BE3190049E89C /* Secrets.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 9B9E29D62F6BE3190049E89C /* Secrets.xcconfig */; };
 		AA51D19430A64FDA9D1624D9 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 036FCB026FEF4DA88E776FF8 /* Kingfisher */; };
 /* End PBXBuildFile section */
 
@@ -57,6 +59,8 @@
 		9B44DB112F1FAF4700F7AC27 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		9B6B77442F171CDC00F06192 /* LocalBusAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalBusAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9B86056D2F125AD00021EC15 /* LocalBusApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LocalBusApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9B9E29D62F6BE3190049E89C /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		9B9E29D72F6BE3190049E89C /* Secrets.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text; path = Secrets.xcconfig.example; sourceTree = "<group>"; };
 		9BC0DE512F20010000000002 /* LocalBusAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalBusAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -153,6 +157,7 @@
 		9B8605642F125AD00021EC15 = {
 			isa = PBXGroup;
 			children = (
+				9B9E29D82F6BE3190049E89C /* Configurations */,
 				9B86056F2F125AD00021EC15 /* LocalBusApp */,
 				9B6B77452F171CDC00F06192 /* LocalBusAppTests */,
 				9BC0DE522F20010000000003 /* LocalBusAppUITests */,
@@ -171,6 +176,15 @@
 				9B44DB0D2F1FAF4700F7AC27 /* LocalBusWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		9B9E29D82F6BE3190049E89C /* Configurations */ = {
+			isa = PBXGroup;
+			children = (
+				9B9E29D62F6BE3190049E89C /* Secrets.xcconfig */,
+				9B9E29D72F6BE3190049E89C /* Secrets.xcconfig.example */,
+			);
+			path = Configurations;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -339,6 +353,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9B9E29D92F6BE3190049E89C /* Secrets.xcconfig.example in Resources */,
+				9B9E29DA2F6BE3190049E89C /* Secrets.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -497,6 +513,7 @@
 		};
 		9B8605762F125AD20021EC15 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9B9E29D62F6BE3190049E89C /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -561,6 +578,7 @@
 		};
 		9B8605772F125AD20021EC15 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9B9E29D62F6BE3190049E89C /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -626,6 +644,7 @@
 				DEVELOPMENT_TEAM = AMNS6W2AA9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_KakaoRestAPIKey = "$(KAKAO_REST_API_KEY)";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치를 지도에 표시하기 위해 위치 정보를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -655,6 +674,7 @@
 				DEVELOPMENT_TEAM = AMNS6W2AA9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_KakaoRestAPIKey = "$(KAKAO_REST_API_KEY)";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치를 지도에 표시하기 위해 위치 정보를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
