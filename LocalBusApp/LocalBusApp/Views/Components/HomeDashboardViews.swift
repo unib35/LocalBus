@@ -1,28 +1,129 @@
 import SwiftUI
+import UIKit
 
 enum HomeDashboardTheme {
-    static let screenBackground = Color(red: 2.0 / 255.0, green: 6.0 / 255.0, blue: 15.0 / 255.0)
-    static let border = Color(red: 31.0 / 255.0, green: 41.0 / 255.0, blue: 55.0 / 255.0)
-    static let secondaryText = Color(red: 156.0 / 255.0, green: 163.0 / 255.0, blue: 175.0 / 255.0)
-    static let tertiaryText = Color(red: 107.0 / 255.0, green: 114.0 / 255.0, blue: 128.0 / 255.0)
-    static let segmentBackground = Color(red: 15.0 / 255.0, green: 23.0 / 255.0, blue: 42.0 / 255.0)
-    static let heroStart = Color(red: 6.0 / 255.0, green: 18.0 / 255.0, blue: 46.0 / 255.0)
-    static let heroEnd = Color(red: 12.0 / 255.0, green: 24.0 / 255.0, blue: 52.0 / 255.0)
+    static let screenBackground = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 2/255,   green: 6/255,   blue: 15/255,  alpha: 1)
+            : UIColor(red: 240/255, green: 246/255, blue: 255/255, alpha: 1)
+    })
+    static let border = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 31/255,  green: 41/255,  blue: 55/255,  alpha: 1)
+            : UIColor(red: 191/255, green: 219/255, blue: 254/255, alpha: 1)
+    })
+    static let primaryText = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? .white
+            : UIColor(red: 15/255, green: 23/255, blue: 42/255, alpha: 1)
+    })
+    static let secondaryText = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 156/255, green: 163/255, blue: 175/255, alpha: 1)
+            : UIColor(red: 55/255,  green: 65/255,  blue: 81/255,  alpha: 1)
+    })
+    static let tertiaryText = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 107/255, green: 114/255, blue: 128/255, alpha: 1)
+            : UIColor(red: 100/255, green: 116/255, blue: 139/255, alpha: 1)
+    })
+    static let segmentBackground = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 15/255,  green: 23/255,  blue: 42/255,  alpha: 1)
+            : UIColor(red: 219/255, green: 234/255, blue: 254/255, alpha: 1)
+    })
+    static let heroStart = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 6/255,   green: 18/255,  blue: 46/255,  alpha: 1)
+            : UIColor(red: 30/255,  green: 64/255,  blue: 175/255, alpha: 1)
+    })
+    static let heroEnd = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 12/255,  green: 24/255,  blue: 52/255,  alpha: 1)
+            : UIColor(red: 29/255,  green: 78/255,  blue: 216/255, alpha: 1)
+    })
     static let heroOverlay = Color.white.opacity(0.06)
-    static let cardBackground = Color(red: 11.0 / 255.0, green: 15.0 / 255.0, blue: 24.0 / 255.0)
-    static let noteBackground = Color(red: 10.0 / 255.0, green: 22.0 / 255.0, blue: 48.0 / 255.0)
-    static let iconBackground = Color(red: 30.0 / 255.0, green: 41.0 / 255.0, blue: 59.0 / 255.0)
-    static let chipBackground = Color(red: 31.0 / 255.0, green: 41.0 / 255.0, blue: 55.0 / 255.0)
-    static let success = Color(red: 16.0 / 255.0, green: 185.0 / 255.0, blue: 129.0 / 255.0)
-    static let primaryBlue = Color(red: 59.0 / 255.0, green: 130.0 / 255.0, blue: 246.0 / 255.0)
-    static let departureGreen = Color(red: 74.0 / 255.0, green: 222.0 / 255.0, blue: 128.0 / 255.0)
+    static let cardBackground = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 11/255,  green: 15/255,  blue: 24/255,  alpha: 1)
+            : UIColor(red: 255/255, green: 255/255, blue: 255/255, alpha: 1)
+    })
+    static let noteBackground = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 10/255,  green: 22/255,  blue: 48/255,  alpha: 1)
+            : UIColor(red: 239/255, green: 246/255, blue: 255/255, alpha: 1)
+    })
+    static let iconBackground = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 30/255,  green: 41/255,  blue: 59/255,  alpha: 1)
+            : UIColor(red: 219/255, green: 234/255, blue: 254/255, alpha: 1)
+    })
+    static let chipBackground = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 31/255,  green: 41/255,  blue: 55/255,  alpha: 1)
+            : UIColor(red: 219/255, green: 234/255, blue: 254/255, alpha: 1)
+    })
+    static let sheetBackground = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 30/255,  green: 30/255,  blue: 30/255,  alpha: 1)
+            : UIColor(red: 248/255, green: 250/255, blue: 252/255, alpha: 1)
+    })
+    static let listCardBackground = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 28/255,  green: 28/255,  blue: 30/255,  alpha: 1)
+            : UIColor(red: 255/255, green: 255/255, blue: 255/255, alpha: 1)
+    })
+    static let listDivider = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 56/255,  green: 56/255,  blue: 58/255,  alpha: 1)
+            : UIColor(red: 229/255, green: 231/255, blue: 235/255, alpha: 1)
+    })
+    static let success = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 16/255,  green: 185/255, blue: 129/255, alpha: 1)
+            : UIColor(red: 5/255,   green: 150/255, blue: 105/255, alpha: 1)
+    })
+    static let primaryBlue = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 59/255,  green: 130/255, blue: 246/255, alpha: 1)
+            : UIColor(red: 37/255,  green: 99/255,  blue: 235/255, alpha: 1)
+    })
+    static let departureGreen = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 74/255,  green: 222/255, blue: 128/255, alpha: 1)
+            : UIColor(red: 22/255,  green: 163/255, blue: 74/255,  alpha: 1)
+    })
     // 시간표 전용 (Zinc 팔레트)
-    static let timetablePickerBackground = Color(red: 24.0 / 255.0, green: 24.0 / 255.0, blue: 27.0 / 255.0)
-    static let timetablePickerBorder = Color(red: 39.0 / 255.0, green: 39.0 / 255.0, blue: 42.0 / 255.0)
-    static let timetablePickerSelected = Color(red: 63.0 / 255.0, green: 63.0 / 255.0, blue: 70.0 / 255.0)
-    static let timetableMutedText = Color(red: 113.0 / 255.0, green: 113.0 / 255.0, blue: 122.0 / 255.0)
-    static let timetableSecondaryText = Color(red: 161.0 / 255.0, green: 161.0 / 255.0, blue: 170.0 / 255.0)
-    static let timetableNextBadge = Color(red: 191.0 / 255.0, green: 219.0 / 255.0, blue: 254.0 / 255.0)
+    static let timetablePickerBackground = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 24/255,  green: 24/255,  blue: 27/255,  alpha: 1)
+            : UIColor(red: 241/255, green: 245/255, blue: 249/255, alpha: 1)
+    })
+    static let timetablePickerBorder = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 39/255,  green: 39/255,  blue: 42/255,  alpha: 1)
+            : UIColor(red: 203/255, green: 213/255, blue: 225/255, alpha: 1)
+    })
+    static let timetablePickerSelected = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 63/255,  green: 63/255,  blue: 70/255,  alpha: 1)
+            : UIColor(red: 186/255, green: 230/255, blue: 253/255, alpha: 1)
+    })
+    static let timetableMutedText = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 113/255, green: 113/255, blue: 122/255, alpha: 1)
+            : UIColor(red: 100/255, green: 116/255, blue: 139/255, alpha: 1)
+    })
+    static let timetableSecondaryText = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 161/255, green: 161/255, blue: 170/255, alpha: 1)
+            : UIColor(red: 71/255,  green: 85/255,  blue: 105/255, alpha: 1)
+    })
+    static let timetableNextBadge = Color(UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 191/255, green: 219/255, blue: 254/255, alpha: 1)
+            : UIColor(red: 29/255,  green: 78/255,  blue: 216/255, alpha: 1)
+    })
 }
 
 enum HomeDashboardTypography {
@@ -57,7 +158,7 @@ struct DashboardHeaderView: View {
             HStack(spacing: 8) {
                 Image(systemName: "location.north.line.fill")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
 
                 Text(locationText)
                     .font(HomeDashboardTypography.headerLabel)
@@ -70,7 +171,7 @@ struct DashboardHeaderView: View {
             Button(action: onNotificationTap) {
                 Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
                     .frame(width: 36, height: 36)
             }
             .buttonStyle(.plain)
@@ -99,6 +200,8 @@ struct NextBusHeroCard: View {
                 Text(descriptionText)
                     .font(HomeDashboardTypography.heroValue)
                     .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                     .padding(.bottom, 6)
             } else {
                 HStack(alignment: .lastTextBaseline, spacing: 6) {
@@ -216,7 +319,7 @@ struct DashboardLoadingCard: View {
     var body: some View {
         VStack(spacing: 14) {
             ProgressView()
-                .tint(.white)
+                .tint(HomeDashboardTheme.primaryText)
                 .scaleEffect(1.15)
 
             Text("시간표를 불러오는 중")
@@ -291,16 +394,16 @@ struct UpcomingBusesSectionView: View {
             HStack {
                 Text(title)
                     .font(HomeDashboardTypography.sectionTitle)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
 
                 Spacer()
 
                 Text(badgeText)
                     .font(HomeDashboardTypography.sectionBadge)
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(.white)
+                    .background(HomeDashboardTheme.primaryBlue)
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
 
@@ -335,11 +438,11 @@ struct UpcomingBusCardView: View {
                     .fill(HomeDashboardTheme.iconBackground)
 
                 Circle()
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(HomeDashboardTheme.border, lineWidth: 1)
 
                 Image(systemName: "bus.fill")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryBlue)
             }
             .frame(width: 50, height: 50)
 
@@ -347,7 +450,7 @@ struct UpcomingBusCardView: View {
                 Text(bus.departureTime)
                     .font(HomeDashboardTypography.busTime)
                     .monospacedDigit()
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
 
                 Text("\(destinationName) 도착 예정 ~\(bus.arrivalTime)")
                     .font(HomeDashboardTypography.busArrival)
@@ -359,7 +462,7 @@ struct UpcomingBusCardView: View {
             VStack(alignment: .trailing, spacing: 10) {
                 Text(bus.relativeText)
                     .font(bus.statusKind == .onTime ? HomeDashboardTypography.busRelativeStrong : HomeDashboardTypography.busRelativeMuted)
-                    .foregroundStyle(bus.statusKind == .onTime ? .white : HomeDashboardTheme.secondaryText)
+                    .foregroundStyle(bus.statusKind == .onTime ? HomeDashboardTheme.primaryText : HomeDashboardTheme.secondaryText)
 
                 statusChip
             }
@@ -381,7 +484,7 @@ struct UpcomingBusCardView: View {
             if bus.statusKind == .delayed {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
             } else {
                 Circle()
                     .fill(bus.statusKind == .nextDay ? HomeDashboardTheme.secondaryText : HomeDashboardTheme.success)
@@ -390,7 +493,7 @@ struct UpcomingBusCardView: View {
 
             Text(bus.statusText)
                 .font(HomeDashboardTypography.statusChip)
-                .foregroundStyle(.white)
+                .foregroundStyle(HomeDashboardTheme.primaryText)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -408,13 +511,13 @@ struct DashboardNoticeCard: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: systemImage)
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(HomeDashboardTheme.primaryText)
                 .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
                     .font(HomeDashboardTypography.noticeTitle)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
 
                 Text(message)
                     .font(HomeDashboardTypography.noticeBody)
