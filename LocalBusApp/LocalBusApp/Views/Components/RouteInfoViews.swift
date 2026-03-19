@@ -98,6 +98,7 @@ struct StopsScreenView: View {
                     pins: mapPins,
                     selectedCoordinate: selectedCoordinate,
                     centerOnUser: $centerOnUser,
+                    sheetTopY: geo.size.height * 0.40 + geo.safeAreaInsets.top,
                     onPinTap: { stopID in
                         guard let stop = stops.first(where: { $0.id == stopID }) else { return }
                         withAnimation(.easeInOut(duration: 0.3)) {
@@ -140,14 +141,10 @@ struct StopsScreenView: View {
 
                     ZStack(alignment: .top) {
                         // 배경 (하단까지 채우기)
-                        VStack(spacing: 0) {
-                            Color(red: 30/255, green: 30/255, blue: 30/255)
-                                .frame(height: 200)
-                                .clipShape(TopRoundedShape(radius: 32))
-                            Color(red: 30/255, green: 30/255, blue: 30/255)
-                        }
-                        .ignoresSafeArea(edges: .bottom)
-                        .shadow(color: .black.opacity(0.5), radius: 40, x: 0, y: -10)
+                        Color(red: 30/255, green: 30/255, blue: 30/255)
+                            .clipShape(TopRoundedShape(radius: 32))
+                            .ignoresSafeArea(edges: .bottom)
+                            .shadow(color: .black.opacity(0.5), radius: 40, x: 0, y: -10)
 
                         VStack(spacing: 0) {
                             // 드래그 핸들 (제스처 영역)
@@ -564,6 +561,7 @@ private struct StopRowView: View {
                           ? HomeDashboardTheme.primaryBlue.opacity(0.12)
                           : Color.clear)
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -599,6 +597,7 @@ private struct RouteMapView: UIViewRepresentable {
     let pins: [StopPin]
     let selectedCoordinate: CLLocationCoordinate2D?
     @Binding var centerOnUser: Bool
+    let sheetTopY: CGFloat           // 시트 상단 Y (시트 위 visible 영역 높이)
     var onPinTap: (String) -> Void   // stop ID 전달
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -626,11 +625,20 @@ private struct RouteMapView: UIViewRepresentable {
         }
 
         if let coord = selectedCoordinate {
-            let region = MKCoordinateRegion(
-                center: coord,
-                span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
-            )
-            uiView.setRegion(region, animated: true)
+            let span = MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+            let mapHeight = uiView.frame.height
+            var center = coord
+            if mapHeight > 0 && sheetTopY > 0 {
+                // 시트가 가리는 만큼 위도를 내려서, 핀이 visible 영역 중앙에 오도록 보정
+                let visibleCenterY = sheetTopY / 2
+                let pixelOffset = mapHeight / 2 - visibleCenterY
+                let latOffset = pixelOffset * span.latitudeDelta / mapHeight
+                center = CLLocationCoordinate2D(
+                    latitude: coord.latitude - latOffset,
+                    longitude: coord.longitude
+                )
+            }
+            uiView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
         }
 
         let existing = uiView.annotations.compactMap { $0 as? StopPin }
