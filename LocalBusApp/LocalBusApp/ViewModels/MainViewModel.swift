@@ -65,7 +65,7 @@ final class MainViewModel: ObservableObject {
 
     // MARK: - Constants
 
-    private let remoteURL = URL(string: "https://raw.githubusercontent.com/JongMini/LocalBus-Data/main/timetable.json")
+    private let remoteURL = URL(string: "https://raw.githubusercontent.com/unib35/LocalBus/main/LocalBusApp/LocalBusApp/Resources/timetable.json")
 
     // MARK: - Computed Properties
 
@@ -213,16 +213,23 @@ final class MainViewModel: ObservableObject {
         return String(format: "%02d:%02d", mins, secs)
     }
 
-    /// 다음 버스까지 남은 분 표시값
+    /// 다음 버스까지 남은 분 표시값 (초 기준 올림, 60초 이하면 빈 문자열)
     var nextBusMinuteDisplay: String {
-        guard let minutes = minutesUntilNextBus else { return "--" }
-        return String(max(minutes, 0))
+        guard let seconds = secondsUntilNextBus else { return "--" }
+        if seconds <= 60 { return "" }
+        return String(Int(ceil(Double(seconds) / 60.0)))
+    }
+
+    /// 다음 버스 단위 텍스트 (60초 이하면 빈 문자열)
+    var nextBusUnitDisplay: String {
+        guard let seconds = secondsUntilNextBus else { return "분" }
+        return seconds <= 60 ? "" : "분"
     }
 
     /// 다음 버스 카운트다운 보조 텍스트
     var nextBusCountdownDescription: String {
-        guard let minutes = minutesUntilNextBus else { return "후 출발" }
-        return minutes == 0 ? "곧 출발" : "후 출발"
+        guard let seconds = secondsUntilNextBus else { return "후 출발" }
+        return seconds <= 60 ? "곧 도착" : "후 출발"
     }
 
     /// 현재 방향의 소요시간 (분)
@@ -260,10 +267,12 @@ final class MainViewModel: ObservableObject {
 
     /// 남은 시간 표시 문자열
     var remainingTimeText: String {
-        guard let minutes = minutesUntilNextBus else { return "" }
-        if minutes == 0 {
+        guard let seconds = secondsUntilNextBus else { return "" }
+        if seconds <= 60 {
             return "곧 도착"
-        } else if minutes < 60 {
+        }
+        let minutes = Int(ceil(Double(seconds) / 60.0))
+        if minutes < 60 {
             return "\(minutes)분 후"
         } else {
             let hours = minutes / 60
@@ -296,16 +305,26 @@ final class MainViewModel: ObservableObject {
         return totalMinutes % 60
     }
 
+    /// 실시간 교통 기반 소요시간 (nil이면 고정값 사용)
+    @Published var trafficDurationMinutes: Int? = nil
+
+    /// 실제 사용할 소요시간 (실시간 > 고정)
+    private var effectiveDurationMinutes: Int {
+        trafficDurationMinutes ?? durationMinutes
+    }
+
     /// 다음 버스 예상 도착 시간
     var nextBusArrivalTime: String {
         guard let nextBusTime else { return "--:--" }
-        return DateService.timeByAdding(minutes: durationMinutes, to: nextBusTime) ?? "--:--"
+        return DateService.timeByAdding(minutes: effectiveDurationMinutes, to: nextBusTime) ?? "--:--"
     }
 
-    /// 다음 버스 잔여 좌석 표시값
-    var nextBusSeatCountText: String {
-        guard let nextBusTime else { return "--" }
-        return "\(estimatedSeatCount(for: nextBusTime))"
+    /// 다음 버스 이후 버스 출발 시간 (배차 참고용)
+    var followingBusTime: String {
+        guard let nextBusTime,
+              let nextIndex = currentTimes.firstIndex(of: nextBusTime),
+              nextIndex + 1 < currentTimes.count else { return "--:--" }
+        return currentTimes[nextIndex + 1]
     }
 
     /// 다음 버스 진행률
@@ -386,6 +405,8 @@ final class MainViewModel: ObservableObject {
         selectedScheduleType = shouldUseWeekday ? .weekday : .weekend
 
         isLoading = false
+
+        await refreshTrafficDuration()
     }
 
     /// 방향 변경
@@ -394,6 +415,36 @@ final class MainViewModel: ObservableObject {
         if let data = timetableData {
             loadTimesForCurrentDirection(from: data)
         }
+        Task { await refreshTrafficDuration() }
+    }
+
+    /// 실시간 교통 소요시간 갱신
+    func refreshTrafficDuration() async {
+        guard let origin = currentRouteOrigin,
+              let destination = currentRouteDestination else { return }
+        let minutes = await TrafficService.shared.fetchDuration(
+            origin: origin,
+            destination: destination
+        )
+        trafficDurationMinutes = minutes
+    }
+
+    /// 현재 노선 출발지 좌표
+    private var currentRouteOrigin: Coordinate? {
+        currentStops.first(where: { $0.isDeparture })
+            .flatMap { stop in
+                guard let lat = stop.latitude, let lon = stop.longitude else { return nil }
+                return Coordinate(latitude: lat, longitude: lon)
+            }
+    }
+
+    /// 현재 노선 도착지 좌표
+    private var currentRouteDestination: Coordinate? {
+        currentStops.last
+            .flatMap { stop in
+                guard let lat = stop.latitude, let lon = stop.longitude else { return nil }
+                return Coordinate(latitude: lat, longitude: lon)
+            }
     }
 
     /// 실시간 타이머 시작
@@ -403,6 +454,27 @@ final class MainViewModel: ObservableObject {
                 self?.currentTime = Date()
             }
         }
+    }
+
+    /// 막차 30분 전 알림 예약
+    func scheduleLastBusNotification() async {
+        let granted = await NotificationService.shared.requestAuthorization()
+        guard granted else { return }
+        NotificationService.shared.scheduleLastBusNotification(
+            lastBusTime: lastBusTime,
+            direction: currentDirectionName
+        )
+    }
+
+    /// 막차 알림 취소
+    func cancelLastBusNotification() {
+        NotificationService.shared.cancelLastBusNotification()
+    }
+
+    /// 캐시 초기화 후 데이터 재로드
+    func clearCacheAndRefresh() async {
+        TimetableService().clearCache()
+        await refresh()
     }
 
     /// 알림 토글
@@ -525,13 +597,6 @@ final class MainViewModel: ObservableObject {
         return ("정시 운행", .onTime)
     }
 
-    private func estimatedSeatCount(for time: String) -> Int {
-        let digitSum = time.compactMap { $0.wholeNumberValue }.reduce(0, +)
-        let directionOffset = selectedDirection == .jangyuToSasang ? 2 : 4
-        let rawValue = 12 - ((digitSum + directionOffset) % 7)
-        return max(rawValue, 3)
-    }
-
     /// 앱 시작 시 데이터 로드
     func onAppear() async {
         startTimer()
@@ -549,6 +614,7 @@ final class MainViewModel: ObservableObject {
                 return
             } catch {
                 // 네트워크 실패 - 오프라인 모드로 전환
+                print("⚠️ [MainViewModel] fetch 실패: \(error)")
                 isOffline = true
             }
         }
