@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MapKit
 import CoreLocation
 
@@ -27,6 +28,7 @@ struct StopsScreenView: View {
     @State private var stopsDirection: RouteDirection = .jangyuToSasang
     @State private var selectedStop: BusStop? = nil
     @State private var centerOnUser = false
+    @State private var userLocation: CLLocation? = nil
 
     // 시트 드래그
     @GestureState private var dragTranslation: CGFloat = 0
@@ -88,7 +90,8 @@ struct StopsScreenView: View {
     var body: some View {
         GeometryReader { geo in
             let collapsedOffset = geo.size.height * 0.52
-            let sheetY = min(collapsedOffset, max(0, sheetOffset + dragTranslation))
+            let hiddenOffset = geo.size.height * 0.88
+            let sheetY = min(hiddenOffset, max(0, sheetOffset + dragTranslation))
 
             ZStack(alignment: .top) {
                 HomeDashboardTheme.screenBackground.ignoresSafeArea()
@@ -98,13 +101,16 @@ struct StopsScreenView: View {
                     pins: mapPins,
                     selectedCoordinate: selectedCoordinate,
                     centerOnUser: $centerOnUser,
-                    sheetTopY: geo.size.height * 0.40 + geo.safeAreaInsets.top,
+                    sheetTopY: geo.size.height * 0.40 + geo.safeAreaInsets.top + sheetY,
                     onPinTap: { stopID in
                         guard let stop = stops.first(where: { $0.id == stopID }) else { return }
                         withAnimation(.easeInOut(duration: 0.3)) {
                             selectedStop = selectedStop?.id == stop.id ? nil : stop
                             if sheetOffset > 0 { sheetOffset = 0 }
                         }
+                    },
+                    onLocationUpdate: { location in
+                        userLocation = location
                     }
                 )
                 .ignoresSafeArea()
@@ -148,7 +154,7 @@ struct StopsScreenView: View {
 
                         VStack(spacing: 0) {
                             // 드래그 핸들 (제스처 영역)
-                            dragHandleArea(collapsedOffset: collapsedOffset)
+                            dragHandleArea(collapsedOffset: collapsedOffset, hiddenOffset: hiddenOffset)
 
                             ScrollView(showsIndicators: false) {
                                 sheetContent
@@ -168,7 +174,7 @@ struct StopsScreenView: View {
 
     // MARK: - 드래그 핸들
 
-    private func dragHandleArea(collapsedOffset: CGFloat) -> some View {
+    private func dragHandleArea(collapsedOffset: CGFloat, hiddenOffset: CGFloat) -> some View {
         VStack(spacing: 0) {
             Capsule()
                 .fill(HomeDashboardTheme.border)
@@ -184,9 +190,20 @@ struct StopsScreenView: View {
                     state = value.translation.height
                 }
                 .onEnded { value in
+                    let velocity = value.velocity.height
                     let projected = sheetOffset + value.predictedEndTranslation.height
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        sheetOffset = projected > collapsedOffset / 2 ? collapsedOffset : 0
+                        if velocity > 800 {
+                            // 빠른 다운스와이프: 현재 위치에서 다음 단계로
+                            sheetOffset = sheetOffset < collapsedOffset / 2 ? collapsedOffset : hiddenOffset
+                        } else if velocity < -800 {
+                            // 빠른 업스와이프: 현재 위치에서 이전 단계로
+                            sheetOffset = sheetOffset > collapsedOffset * 1.3 ? collapsedOffset : 0
+                        } else {
+                            // 위치 기반 스냅: 가장 가까운 단계
+                            let snapPoints: [CGFloat] = [0, collapsedOffset, hiddenOffset]
+                            sheetOffset = snapPoints.min(by: { abs($0 - projected) < abs($1 - projected) }) ?? collapsedOffset
+                        }
                     }
                 }
         )
@@ -287,14 +304,31 @@ struct StopsScreenView: View {
 
             stopImageView(for: stop)
 
-            if let address = stop.description {
-                HStack(spacing: 4) {
-                    Image(systemName: "location.fill")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-                    Text(address)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+            HStack(spacing: 12) {
+                if let address = stop.description {
+                    HStack(spacing: 4) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+                        Text(address)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+                    }
+                }
+
+                if let userLoc = userLocation, let coord = coordinate(for: stop) {
+                    let stopLoc = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+                    let meters = userLoc.distance(from: stopLoc)
+                    Spacer()
+                    HStack(spacing: 3) {
+                        Image(systemName: "figure.walk")
+                            .font(.system(size: 10, weight: .medium))
+                        Text(meters < 1000
+                             ? "\(Int(meters))m"
+                             : String(format: "%.1fkm", meters / 1000))
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(HomeDashboardTheme.primaryBlue)
                 }
             }
 
@@ -343,30 +377,43 @@ struct StopsScreenView: View {
     // MARK: - 정류장 이미지
 
     private func stopImageView(for stop: BusStop) -> some View {
-        ZStack(alignment: .bottomLeading) {
-            if let uiImage = UIImage(named: stop.id) {
+        let uiImage = UIImage(named: stop.id)
+        return ZStack(alignment: .bottomLeading) {
+            if let uiImage {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
             } else {
-                Rectangle()
-                    .fill(HomeDashboardTheme.iconBackground)
+                ZStack {
+                    Rectangle()
+                        .fill(HomeDashboardTheme.iconBackground)
+                    VStack(spacing: 6) {
+                        Image(systemName: "camera.slash")
+                            .font(.system(size: 22, weight: .light))
+                            .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+                        Text("사진 준비 중")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(HomeDashboardTheme.timetableMutedText)
+                    }
+                }
             }
 
-            LinearGradient(
-                colors: [.black.opacity(0.8), .clear],
-                startPoint: .bottom,
-                endPoint: .center
-            )
+            if uiImage != nil {
+                LinearGradient(
+                    colors: [.black.opacity(0.8), .clear],
+                    startPoint: .bottom,
+                    endPoint: .center
+                )
 
-            Text("정류장 전경")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                .padding(12)
+                Text("정류장 전경")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .padding(12)
+            }
         }
         .frame(height: 140)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -457,7 +504,7 @@ struct StopsScreenView: View {
         guard let coord = coordinate(for: stop) else { return }
         let item = MKMapItem(placemark: MKPlacemark(coordinate: coord))
         item.name = stop.name
-        item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeTransit])
+        item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDefault])
     }
 }
 
@@ -599,6 +646,7 @@ private struct RouteMapView: UIViewRepresentable {
     @Binding var centerOnUser: Bool
     let sheetTopY: CGFloat           // 시트 상단 Y (시트 위 visible 영역 높이)
     var onPinTap: (String) -> Void   // stop ID 전달
+    var onLocationUpdate: ((CLLocation) -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -618,6 +666,7 @@ private struct RouteMapView: UIViewRepresentable {
 
     func updateUIView(_ uiView: MKMapView, context: Context) {
         context.coordinator.onPinTap = onPinTap
+        context.coordinator.onLocationUpdate = onLocationUpdate
 
         if centerOnUser {
             uiView.setUserTrackingMode(.follow, animated: true)
@@ -678,7 +727,7 @@ private struct RouteMapView: UIViewRepresentable {
                 latitudeDelta:  (maxLat - minLat) * 1.4,
                 longitudeDelta: (maxLng - minLng) * 1.4
             )
-            mv.setRegion(MKCoordinateRegion(center: center, span: span), animated: false)
+            mv.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
         }
     }
 
@@ -687,12 +736,19 @@ private struct RouteMapView: UIViewRepresentable {
     class Coordinator: NSObject, MKMapViewDelegate, CLLocationManagerDelegate {
         private let locationManager = CLLocationManager()
         var onPinTap: ((String) -> Void)?
+        var onLocationUpdate: ((CLLocation) -> Void)?
 
         func requestLocationIfNeeded() {
             locationManager.delegate = self
             if locationManager.authorizationStatus == .notDetermined {
                 locationManager.requestWhenInUseAuthorization()
             }
+            locationManager.startUpdatingLocation()
+        }
+
+        func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+            guard let loc = locations.last else { return }
+            DispatchQueue.main.async { self.onLocationUpdate?(loc) }
         }
 
         func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
@@ -718,8 +774,44 @@ private struct RouteMapView: UIViewRepresentable {
             v.annotation = annotation
             v.canShowCallout = false
             v.subviews.forEach { $0.removeFromSuperview() }
+            v.isAccessibilityElement = true
+            v.accessibilityLabel = pin.stopName
+            v.accessibilityHint = pin.isDeparture ? "출발 정류장" : (pin.isDestination ? "종점 정류장" : "중간 정류장, 탭하면 상세 정보를 볼 수 있습니다")
 
-            if pin.isSelected {
+            if pin.isDeparture {
+                let size: CGFloat = pin.isSelected ? 28 : 20
+                let circle = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
+                circle.backgroundColor = MapTheme.departureGreen
+                circle.layer.cornerRadius = size / 2
+                circle.layer.borderColor = UIColor.white.cgColor
+                circle.layer.borderWidth = pin.isSelected ? 2.5 : 2
+                if pin.isSelected {
+                    circle.layer.shadowColor = MapTheme.departureGreen.withAlphaComponent(0.8).cgColor
+                    circle.layer.shadowRadius = 10
+                    circle.layer.shadowOpacity = 1
+                    circle.layer.shadowOffset = .zero
+                }
+                v.addSubview(circle)
+                v.frame = CGRect(x: 0, y: 0, width: size, height: size)
+            } else if pin.isDestination {
+                let size: CGFloat = pin.isSelected ? 36 : 32
+                let outer = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
+                outer.backgroundColor = MapTheme.primaryBlue
+                outer.layer.cornerRadius = size / 2
+                outer.layer.borderColor = UIColor.white.cgColor
+                outer.layer.borderWidth = pin.isSelected ? 2.5 : 2
+                outer.layer.shadowColor = MapTheme.primaryBlue.withAlphaComponent(pin.isSelected ? 0.8 : 0.5).cgColor
+                outer.layer.shadowRadius = pin.isSelected ? 10 : 8
+                outer.layer.shadowOpacity = 1
+                outer.layer.shadowOffset = .zero
+                let dotSize: CGFloat = size / 3
+                let dot = UIView(frame: CGRect(x: (size - dotSize) / 2, y: (size - dotSize) / 2, width: dotSize, height: dotSize))
+                dot.backgroundColor = .white
+                dot.layer.cornerRadius = dotSize / 2
+                outer.addSubview(dot)
+                v.addSubview(outer)
+                v.frame = CGRect(x: 0, y: 0, width: size, height: size)
+            } else if pin.isSelected {
                 let size: CGFloat = 28
                 let outer = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
                 outer.backgroundColor = MapTheme.primaryBlue
@@ -730,32 +822,6 @@ private struct RouteMapView: UIViewRepresentable {
                 outer.layer.shadowRadius = 10
                 outer.layer.shadowOpacity = 1
                 outer.layer.shadowOffset = .zero
-                v.addSubview(outer)
-                v.frame = CGRect(x: 0, y: 0, width: size, height: size)
-            } else if pin.isDeparture {
-                let size: CGFloat = 20
-                let circle = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
-                circle.backgroundColor = MapTheme.departureGreen
-                circle.layer.cornerRadius = size / 2
-                circle.layer.borderColor = UIColor.white.cgColor
-                circle.layer.borderWidth = 2
-                v.addSubview(circle)
-                v.frame = CGRect(x: 0, y: 0, width: size, height: size)
-            } else if pin.isDestination {
-                let size: CGFloat = 32
-                let outer = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
-                outer.backgroundColor = MapTheme.primaryBlue
-                outer.layer.cornerRadius = size / 2
-                outer.layer.borderColor = UIColor.white.cgColor
-                outer.layer.borderWidth = 2
-                outer.layer.shadowColor = MapTheme.primaryBlue.withAlphaComponent(0.5).cgColor
-                outer.layer.shadowRadius = 8
-                outer.layer.shadowOpacity = 1
-                outer.layer.shadowOffset = .zero
-                let dot = UIView(frame: CGRect(x: 11, y: 11, width: 10, height: 10))
-                dot.backgroundColor = .white
-                dot.layer.cornerRadius = 5
-                outer.addSubview(dot)
                 v.addSubview(outer)
                 v.frame = CGRect(x: 0, y: 0, width: size, height: size)
             } else {
@@ -783,9 +849,10 @@ private struct RouteMapView: UIViewRepresentable {
             let lw = label.intrinsicContentSize.width + 16
             let lh: CGFloat = 20
             let pinSize = v.frame.width
-            label.frame = CGRect(x: (pinSize - lw) / 2, y: pinSize + 6, width: lw, height: lh)
+            let totalWidth = max(pinSize, lw)
+            label.frame = CGRect(x: (totalWidth - lw) / 2, y: pinSize + 6, width: lw, height: lh)
             v.addSubview(label)
-            v.frame = CGRect(x: 0, y: 0, width: max(pinSize, lw), height: pinSize + 6 + lh)
+            v.frame = CGRect(x: 0, y: 0, width: totalWidth, height: pinSize + 6 + lh)
 
             return v
         }
