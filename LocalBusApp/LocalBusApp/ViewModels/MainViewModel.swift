@@ -546,8 +546,7 @@ final class MainViewModel: ObservableObject {
                 isNextDay: isNextDay,
                 isFirstNextDay: index == firstNextDayIndex,
                 isLastToday: !isNextDay && time == actualLastTodayTime,
-                isNightBus: !isNextDay && isNightFare(for: time),
-                displayIndex: index
+                isNightBus: !isNextDay && isNightFare(for: time)
             )
             let totalMinutes = durationMinutes + (status.kind == .delayed ? 5 : 0)
 
@@ -590,8 +589,7 @@ final class MainViewModel: ObservableObject {
         isNextDay: Bool,
         isFirstNextDay: Bool,
         isLastToday: Bool,
-        isNightBus: Bool,
-        displayIndex: Int
+        isNightBus: Bool
     ) -> (text: String, kind: UpcomingBusStatusKind) {
         if isNextDay {
             return (isFirstNextDay ? "내일 첫차" : "내일 운행", .nextDay)
@@ -607,10 +605,6 @@ final class MainViewModel: ObservableObject {
 
         if minutes <= 5 {
             return ("곧 출발", .onTime)
-        }
-
-        if displayIndex == 2 {
-            return ("5분 지연", .delayed)
         }
 
         return ("정시 운행", .onTime)
