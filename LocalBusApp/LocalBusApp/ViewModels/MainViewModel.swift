@@ -5,6 +5,8 @@ enum UpcomingBusStatusKind: Equatable {
     case onTime
     case delayed
     case nextDay
+    case lastBus
+    case nightBus
 }
 
 struct UpcomingBusSnapshot: Identifiable, Equatable {
@@ -516,7 +518,7 @@ final class MainViewModel: ObservableObject {
         }
     }
 
-    private func buildUpcomingBuses(limit: Int) -> [UpcomingBusSnapshot] {
+    func buildUpcomingBuses(limit: Int) -> [UpcomingBusSnapshot] {
         guard !currentTimes.isEmpty else { return [] }
 
         let futureTimes = currentTimes.filter {
@@ -531,6 +533,9 @@ final class MainViewModel: ObservableObject {
             selectedTimes.append(contentsOf: nextDayTimes)
         }
 
+        let actualLastTodayTime   = futureTimes.last
+        let firstNextDayIndex = selectedTimes.firstIndex { $0.1 }
+
         return Array(selectedTimes.enumerated()).map { index, item in
             let (time, isNextDay) = item
             let minutesUntilDeparture = isNextDay
@@ -539,6 +544,9 @@ final class MainViewModel: ObservableObject {
             let status = statusDescriptor(
                 for: minutesUntilDeparture,
                 isNextDay: isNextDay,
+                isFirstNextDay: index == firstNextDayIndex,
+                isLastToday: !isNextDay && time == actualLastTodayTime,
+                isNightBus: !isNextDay && isNightFare(for: time),
                 displayIndex: index
             )
             let totalMinutes = durationMinutes + (status.kind == .delayed ? 5 : 0)
@@ -580,10 +588,21 @@ final class MainViewModel: ObservableObject {
     private func statusDescriptor(
         for minutes: Int,
         isNextDay: Bool,
+        isFirstNextDay: Bool,
+        isLastToday: Bool,
+        isNightBus: Bool,
         displayIndex: Int
     ) -> (text: String, kind: UpcomingBusStatusKind) {
         if isNextDay {
-            return ("내일 첫차", .nextDay)
+            return (isFirstNextDay ? "내일 첫차" : "내일 운행", .nextDay)
+        }
+
+        if isLastToday {
+            return ("막차", .lastBus)
+        }
+
+        if isNightBus {
+            return ("심야", .nightBus)
         }
 
         if minutes <= 5 {

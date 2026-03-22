@@ -400,10 +400,10 @@ struct UpcomingBusesSectionView: View {
 
                 Text(badgeText)
                     .font(HomeDashboardTypography.sectionBadge)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.black)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(HomeDashboardTheme.primaryBlue)
+                    .background(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
 
@@ -481,13 +481,26 @@ struct UpcomingBusCardView: View {
     @ViewBuilder
     private var statusChip: some View {
         HStack(spacing: 6) {
-            if bus.statusKind == .delayed {
+            switch bus.statusKind {
+            case .delayed:
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-            } else {
+                    .foregroundStyle(.orange)
+            case .lastBus:
+                Image(systemName: "flag.checkered")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.orange)
+            case .nightBus:
+                Image(systemName: "moon.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.purple)
+            case .nextDay:
                 Circle()
-                    .fill(bus.statusKind == .nextDay ? HomeDashboardTheme.secondaryText : HomeDashboardTheme.success)
+                    .fill(HomeDashboardTheme.secondaryText)
+                    .frame(width: 7, height: 7)
+            case .onTime:
+                Circle()
+                    .fill(HomeDashboardTheme.success)
                     .frame(width: 7, height: 7)
             }
 
