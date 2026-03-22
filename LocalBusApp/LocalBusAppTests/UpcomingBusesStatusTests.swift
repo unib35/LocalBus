@@ -8,8 +8,6 @@ struct UpcomingBusesStatusTests {
 
     // MARK: - Helper: ViewModel 생성
 
-    /// 주어진 시간표와 현재 시각으로 ViewModel을 구성한다.
-    /// nightFareStartTime 이 있으면 routes 기반, 없으면 timetable 기반으로 데이터를 만든다.
     private func makeViewModel(
         times: [String],
         currentTime: Date,
@@ -71,14 +69,14 @@ struct UpcomingBusesStatusTests {
 
     // MARK: - 막차 관련
 
-    @Test func 오늘버스3개_limit5_세번째만_막차() async {
-        // Given: 현재 시각 09:00, 오늘 버스 10:00 11:00 12:00 (3개)
+    @Test func 오늘버스3개_limit3_세번째만_막차() async {
+        // Given: 현재 09:00, 오늘 버스 10:00 11:00 12:00 (3개), limit=3 → 패딩 없음
         let times = ["10:00", "11:00", "12:00"]
         let now = makeTime(hhmm: "09:00")
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 3)
 
         // Then: 3개 반환, 마지막만 막차
         #expect(result.count == 3)
@@ -91,7 +89,7 @@ struct UpcomingBusesStatusTests {
     }
 
     @Test func 오늘버스10개_limit3_모두_정시운행() async {
-        // Given: 버스 10개, 현재 시각 첫차 이전 → limit 3 안에 막차 없음
+        // Given: 버스 10개, 현재 07:00 → limit 3 안에 막차(17:00) 없음
         let times = (0..<10).map { String(format: "%02d:00", $0 + 8) }  // 08:00 ~ 17:00
         let now = makeTime(hhmm: "07:00")
         let vm = await makeViewModel(times: times, currentTime: now)
@@ -99,7 +97,7 @@ struct UpcomingBusesStatusTests {
         // When
         let result = vm.buildUpcomingBuses(limit: 3)
 
-        // Then
+        // Then: 3개, 모두 정시 운행 (막차는 17:00 = limit 범위 밖)
         #expect(result.count == 3)
         #expect(result[0].statusKind == .onTime)
         #expect(result[1].statusKind == .onTime)
@@ -108,13 +106,13 @@ struct UpcomingBusesStatusTests {
     }
 
     @Test func 오늘버스1개_그버스가_막차() async {
-        // Given
+        // Given: 버스 1개, limit=1 → 패딩 없음
         let times = ["10:00"]
         let now = makeTime(hhmm: "09:00")
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 1)
 
         // Then
         #expect(result.count == 1)
@@ -123,7 +121,7 @@ struct UpcomingBusesStatusTests {
     }
 
     @Test func 오늘버스5개_limit5_다섯번째만_막차() async {
-        // Given
+        // Given: 버스 5개 = limit → 패딩 없음
         let times = ["10:00", "11:00", "12:00", "13:00", "14:00"]
         let now = makeTime(hhmm: "09:00")
         let vm = await makeViewModel(times: times, currentTime: now)
@@ -131,7 +129,7 @@ struct UpcomingBusesStatusTests {
         // When
         let result = vm.buildUpcomingBuses(limit: 5)
 
-        // Then
+        // Then: 5개, 마지막만 막차
         #expect(result.count == 5)
         #expect(result[4].statusText == "막차")
         #expect(result[4].statusKind == .lastBus)
@@ -142,7 +140,7 @@ struct UpcomingBusesStatusTests {
     }
 
     @Test func 오늘버스5개_limit3_막차없음() async {
-        // Given
+        // Given: 버스 5개, limit=3 → 막차(14:00)는 보이지 않음
         let times = ["10:00", "11:00", "12:00", "13:00", "14:00"]
         let now = makeTime(hhmm: "09:00")
         let vm = await makeViewModel(times: times, currentTime: now)
@@ -150,7 +148,7 @@ struct UpcomingBusesStatusTests {
         // When
         let result = vm.buildUpcomingBuses(limit: 3)
 
-        // Then: 3개 모두 막차 아님 (14:00이 실제 막차지만 limit 안에 없음)
+        // Then: 3개, 막차 없음
         #expect(result.count == 3)
         #expect(result.allSatisfy { $0.statusKind != .lastBus })
     }
@@ -158,7 +156,7 @@ struct UpcomingBusesStatusTests {
     // MARK: - 내일 첫차/운행 관련
 
     @Test func 오늘버스0개_내일버스3개_첫번째만_내일첫차() async {
-        // Given: 현재 시각 23:00, 오늘 버스 없음 (모두 과거)
+        // Given: 현재 23:00 → 오늘 버스 모두 과거, 내일 버스로 채움
         let times = ["06:00", "07:00", "08:00"]
         let now = makeTime(hhmm: "23:00")
         let vm = await makeViewModel(times: times, currentTime: now)
@@ -176,21 +174,19 @@ struct UpcomingBusesStatusTests {
         #expect(result[2].statusKind == .nextDay)
     }
 
-    @Test func 오늘버스2개_limit5_내일첫번째만_내일첫차() async {
-        // Given: 오늘 버스 2개, 내일 버스 3개로 채움
+    @Test func 오늘버스2개남고_limit5_내일첫번째만_내일첫차() async {
+        // Given: 현재 12:30 → 13:00, 14:00 만 오늘 미래 (2개), 나머지 3개는 내일
         let times = ["10:00", "11:00", "12:00", "13:00", "14:00"]
-        let now = makeTime(hhmm: "09:30")
+        let now = makeTime(hhmm: "12:30")
         let vm = await makeViewModel(times: times, currentTime: now)
 
-        // When: 오늘 미래 버스 = 10:00, 11:00 (2개) → 나머지 3개는 내일
+        // When: futureTimes = [13:00, 14:00] → 2개 today + 3개 nextDay
         let result = vm.buildUpcomingBuses(limit: 5)
 
         // Then
         #expect(result.count == 5)
-        // 오늘 버스
-        #expect(result[0].statusKind != .nextDay)
-        #expect(result[1].statusKind != .nextDay)
-        // 내일 버스
+        #expect(result[0].statusKind != .nextDay)  // 13:00 오늘
+        #expect(result[1].statusKind != .nextDay)  // 14:00 오늘 (막차)
         #expect(result[2].statusText == "내일 첫차")
         #expect(result[2].statusKind == .nextDay)
         #expect(result[3].statusText == "내일 운행")
@@ -200,7 +196,7 @@ struct UpcomingBusesStatusTests {
     }
 
     @Test func 오늘버스5개_limit5_내일첫차없음() async {
-        // Given: 오늘 버스 5개 모두 미래, limit=5 → 내일 버스 없음
+        // Given: 버스 5개 모두 미래, limit=5 → 내일 버스 없음
         let times = ["10:00", "11:00", "12:00", "13:00", "14:00"]
         let now = makeTime(hhmm: "09:00")
         let vm = await makeViewModel(times: times, currentTime: now)
@@ -216,43 +212,43 @@ struct UpcomingBusesStatusTests {
     // MARK: - 심야 관련 (nightFareStartTime = "22:10")
 
     @Test func 야간시작시각이후_버스_심야() async {
-        // Given: nightFareStartTime = "22:10", 버스 22:10 (막차 아님)
+        // Given: 22:10은 심야지만 막차 아님 (22:30이 막차)
         let times = ["22:10", "22:30"]
         let now = makeTime(hhmm: "21:00")
         let vm = await makeViewModel(times: times, currentTime: now, nightFareStartTime: "22:10")
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 2)
 
-        // Then: 22:10은 심야지만 막차 아님, 22:30은 막차
+        // Then: 22:10 → 심야
         #expect(result[0].statusText == "심야")
         #expect(result[0].statusKind == .nightBus)
     }
 
     @Test func 야간시작시각직전_버스_심야아님() async {
-        // Given
+        // Given: 22:09는 야간 시작 전
         let times = ["22:09", "22:30"]
         let now = makeTime(hhmm: "21:00")
         let vm = await makeViewModel(times: times, currentTime: now, nightFareStartTime: "22:10")
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 2)
 
-        // Then: 22:09은 심야 아님
+        // Then: 22:09 → 정시 운행
         #expect(result[0].statusText == "정시 운행")
         #expect(result[0].statusKind == .onTime)
     }
 
     @Test func 심야버스가_마지막이면_막차우선() async {
-        // Given: 마지막 버스가 심야 시간 → 막차가 심야보다 우선순위 높음
+        // Given: 유일한 버스 22:10, 심야 시간 = 막차도 됨 → 막차 우선
         let times = ["22:10"]
         let now = makeTime(hhmm: "21:00")
         let vm = await makeViewModel(times: times, currentTime: now, nightFareStartTime: "22:10")
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 1)
 
-        // Then
+        // Then: 막차 > 심야 우선순위
         #expect(result.count == 1)
         #expect(result[0].statusText == "막차")
         #expect(result[0].statusKind == .lastBus)
@@ -265,7 +261,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now, nightFareStartTime: "22:10")
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 3)
 
         // Then
         #expect(result.count == 3)
@@ -280,7 +276,7 @@ struct UpcomingBusesStatusTests {
     // MARK: - 곧 출발 관련
 
     @Test func 출발5분이내_곧출발() async {
-        // Given: 버스 10:05, 현재 10:00 (5분 후) → 5분 이내
+        // Given: 10:05 버스, 현재 10:00 (5분 후)
         let times = ["10:05", "11:00", "12:00"]
         let now = makeTime(hhmm: "10:00")
         let vm = await makeViewModel(times: times, currentTime: now)
@@ -294,7 +290,7 @@ struct UpcomingBusesStatusTests {
     }
 
     @Test func 출발6분이후_정시운행() async {
-        // Given: 버스 10:06, 현재 10:00 (6분 후)
+        // Given: 10:06 버스, 현재 10:00 (6분 후)
         let times = ["10:06", "11:00", "12:00"]
         let now = makeTime(hhmm: "10:00")
         let vm = await makeViewModel(times: times, currentTime: now)
@@ -310,13 +306,13 @@ struct UpcomingBusesStatusTests {
     // MARK: - 복합 시나리오
 
     @Test func 심야2개_첫번째_심야_두번째_막차() async {
-        // Given: 오늘 버스 22:10, 22:30 / nightFareStartTime="22:10" / limit=5
+        // Given: 22:10(심야), 22:30(막차), limit=2
         let times = ["22:10", "22:30"]
         let now = makeTime(hhmm: "21:00")
         let vm = await makeViewModel(times: times, currentTime: now, nightFareStartTime: "22:10")
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 2)
 
         // Then
         #expect(result.count == 2)
