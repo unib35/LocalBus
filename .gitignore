@@ -52,4 +52,4 @@ fastlane/test_output
 *.xcconfig.local
 
 # API Keys
-Configurations/Secrets.xcconfig
+**/Configurations/Secrets.xcconfig
