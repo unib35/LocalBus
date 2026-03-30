@@ -33,6 +33,7 @@ struct StopsScreenView: View {
     // 시트 드래그
     @GestureState private var dragTranslation: CGFloat = 0
     @State private var sheetOffset: CGFloat = 0
+    @Environment(\.colorScheme) private var colorScheme
 
     private var stops: [BusStop]            { viewModel.getStops(for: stopsDirection) }
     private var adultFare: Int              { viewModel.getFare(for: stopsDirection) }
@@ -80,6 +81,7 @@ struct StopsScreenView: View {
     }
 
     private func handleStopSelection(_ stop: BusStop) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         withAnimation(.easeInOut(duration: 0.3)) {
             selectedStop = selectedStop?.id == stop.id ? nil : stop
         }
@@ -101,6 +103,7 @@ struct StopsScreenView: View {
                     pins: mapPins,
                     selectedCoordinate: selectedCoordinate,
                     centerOnUser: $centerOnUser,
+                    colorScheme: colorScheme,
                     sheetTopY: geo.size.height * 0.40 + geo.safeAreaInsets.top + sheetY,
                     onPinTap: { stopID in
                         guard let stop = stops.first(where: { $0.id == stopID }) else { return }
@@ -125,17 +128,19 @@ struct StopsScreenView: View {
                     HStack {
                         Spacer()
                         Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             centerOnUser = true
                         } label: {
                             Image(systemName: "location.fill")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.system(.subheadline, weight: .medium))
                                 .foregroundStyle(.white)
-                                .frame(width: 40, height: 40)
+                                .frame(width: 44, height: 44)
                                 .background(.ultraThinMaterial)
                                 .clipShape(Circle())
                                 .shadow(color: .black.opacity(0.4), radius: 8)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("현재 위치로 이동")
                         .padding(.trailing, 16)
                     }
                 }
@@ -183,7 +188,11 @@ struct StopsScreenView: View {
                 .padding(.bottom, 8)
         }
         .frame(maxWidth: .infinity)
+        .frame(minHeight: 44)
         .contentShape(Rectangle())
+        .accessibilityLabel("시트 핸들")
+        .accessibilityHint("위아래로 드래그해서 시트 크기를 조절합니다")
+        .accessibilityAddTraits(.isButton)
         .gesture(
             DragGesture()
                 .updating($dragTranslation) { value, state, _ in
@@ -246,15 +255,15 @@ struct StopsScreenView: View {
     private func platformBanner(_ platformNum: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "signpost.right.fill")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(HomeDashboardTheme.primaryBlue)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("탑승홈")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(.caption2, weight: .medium))
                     .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                 Text(platformNum)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(HomeDashboardTheme.primaryText)
             }
 
@@ -273,18 +282,43 @@ struct StopsScreenView: View {
     // MARK: - 정류장 목록 섹션
 
     private func stopListSection(_ currentStops: [BusStop]) -> some View {
-        VStack(spacing: 0) {
-            ForEach(Array(currentStops.enumerated()), id: \.element.id) { index, stop in
-                StopRowView(
-                    stop: stop,
-                    isFirst: index == 0,
-                    isLast: index == currentStops.count - 1,
-                    isSelected: stop.id == selectedStop?.id,
-                    onTap: { handleStopSelection(stop) }
-                )
+        Group {
+            if currentStops.isEmpty {
+                emptyStopsView
+                    .padding(.horizontal, 24)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(currentStops.enumerated()), id: \.element.id) { index, stop in
+                        StopRowView(
+                            stop: stop,
+                            isFirst: index == 0,
+                            isLast: index == currentStops.count - 1,
+                            isSelected: stop.id == selectedStop?.id,
+                            onTap: { handleStopSelection(stop) }
+                        )
+                    }
+                }
+                .padding(.horizontal, 24)
             }
         }
-        .padding(.horizontal, 24)
+    }
+
+    private var emptyStopsView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "bus.fill")
+                .font(.system(.title3, weight: .light))
+                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+            Text("정류장 정보를 불러올 수 없습니다")
+                .font(.system(.subheadline, weight: .medium))
+                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+            Text("네트워크 연결을 확인하고 다시 시도해 주세요")
+                .font(.system(.caption, weight: .regular))
+                .foregroundStyle(HomeDashboardTheme.timetableMutedText)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - 선택된 정류장 상세 카드
@@ -294,7 +328,7 @@ struct StopsScreenView: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Text(stop.name)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.system(.title3, weight: .bold))
                     .foregroundStyle(HomeDashboardTheme.primaryText)
 
                 StopBadge(isDeparture: stop.isDeparture, isDestination: isLast)
@@ -308,10 +342,10 @@ struct StopsScreenView: View {
                 if let address = stop.description {
                     HStack(spacing: 4) {
                         Image(systemName: "location.fill")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(.caption2, weight: .medium))
                             .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                         Text(address)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(.footnote, weight: .medium))
                             .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                     }
                 }
@@ -319,25 +353,28 @@ struct StopsScreenView: View {
                 if let userLoc = userLocation, let coord = coordinate(for: stop) {
                     let stopLoc = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
                     let meters = userLoc.distance(from: stopLoc)
+                    let distanceText = meters < 1000
+                        ? "\(Int(meters))m"
+                        : String(format: "%.1fkm", meters / 1000)
                     Spacer()
                     HStack(spacing: 3) {
                         Image(systemName: "figure.walk")
-                            .font(.system(size: 10, weight: .medium))
-                        Text(meters < 1000
-                             ? "\(Int(meters))m"
-                             : String(format: "%.1fkm", meters / 1000))
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(.caption2, weight: .medium))
+                        Text(distanceText)
+                            .font(.system(.caption, weight: .semibold))
                     }
                     .foregroundStyle(HomeDashboardTheme.primaryBlue)
+                    .accessibilityLabel("도보 \(distanceText)")
+                    .accessibilityElement(children: .ignore)
                 }
             }
 
             if (stop.isDeparture || isLast), let platformNum = platform {
                 HStack(spacing: 6) {
                     Image(systemName: "signpost.right.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(.caption2, weight: .semibold))
                     Text(platformNum)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(.caption, weight: .bold))
                 }
                 .foregroundStyle(.black)
                 .padding(.horizontal, 10)
@@ -352,9 +389,9 @@ struct StopsScreenView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "map.fill")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(.subheadline, weight: .medium))
                         Text("길 찾기")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(.subheadline, weight: .bold))
                     }
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
@@ -389,10 +426,10 @@ struct StopsScreenView: View {
                         .fill(HomeDashboardTheme.iconBackground)
                     VStack(spacing: 6) {
                         Image(systemName: "camera.slash")
-                            .font(.system(size: 22, weight: .light))
+                            .font(.system(.title3, weight: .light))
                             .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                         Text("사진 준비 중")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(.caption, weight: .medium))
                             .foregroundStyle(HomeDashboardTheme.timetableMutedText)
                     }
                 }
@@ -406,7 +443,7 @@ struct StopsScreenView: View {
                 )
 
                 Text("정류장 전경")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(.caption2, weight: .medium))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
@@ -429,10 +466,10 @@ struct StopsScreenView: View {
         VStack(spacing: 16) {
             HStack(spacing: 8) {
                 Image(systemName: "creditcard")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(.caption, weight: .bold))
                     .foregroundStyle(HomeDashboardTheme.primaryText)
                 Text("요금 정보")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(HomeDashboardTheme.primaryText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -455,21 +492,23 @@ struct StopsScreenView: View {
                     HStack {
                         HStack(spacing: 4) {
                             Text("심야")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.system(.caption2, weight: .bold))
                                 .foregroundStyle(.orange)
                             Text("(\(startTime) 이후 성인 기준)")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(.caption, weight: .medium))
                                 .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                         }
                         Spacer()
                         HStack(alignment: .lastTextBaseline, spacing: 2) {
                             Text(formattedFare(nFare))
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.system(.callout, weight: .bold))
                                 .foregroundStyle(HomeDashboardTheme.primaryText)
                             Text("원")
-                                .font(.system(size: 12))
+                                .font(.system(.caption))
                                 .foregroundStyle(HomeDashboardTheme.timetableMutedText)
                         }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("심야 성인 \(nFare)원 (\(startTime) 이후)")
                     }
                 }
             }
@@ -497,6 +536,8 @@ struct StopsScreenView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(HomeDashboardTheme.timetableMutedText)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(label) \(amount)원")
         }
     }
 
@@ -589,7 +630,7 @@ private struct StopRowView: View {
 
                 Text(stop.name)
                     .font(.system(size: 14, weight: isFirst || isLast ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? HomeDashboardTheme.primaryBlue : .white)
+                    .foregroundStyle(isSelected ? HomeDashboardTheme.primaryBlue : HomeDashboardTheme.primaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 StopBadge(isDeparture: isFirst, isDestination: isLast)
@@ -600,8 +641,9 @@ private struct StopRowView: View {
                         .foregroundStyle(HomeDashboardTheme.primaryBlue)
                 }
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .padding(.horizontal, 12)
+            .frame(minHeight: 44)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(isSelected
@@ -611,6 +653,16 @@ private struct StopRowView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(isSelected ? "탭하면 선택이 해제됩니다" : "탭하면 지도에서 정류장 위치를 확인합니다")
+    }
+
+    private var accessibilityLabel: String {
+        var parts = [stop.name]
+        if isFirst { parts.append("출발 정류장") }
+        else if isLast { parts.append("종점 정류장") }
+        if isSelected { parts.append("선택됨") }
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -644,6 +696,7 @@ private struct RouteMapView: UIViewRepresentable {
     let pins: [StopPin]
     let selectedCoordinate: CLLocationCoordinate2D?
     @Binding var centerOnUser: Bool
+    let colorScheme: ColorScheme
     let sheetTopY: CGFloat           // 시트 상단 Y (시트 위 visible 영역 높이)
     var onPinTap: (String) -> Void   // stop ID 전달
     var onLocationUpdate: ((CLLocation) -> Void)?
@@ -653,13 +706,12 @@ private struct RouteMapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mv = MKMapView()
         mv.delegate = context.coordinator
-        mv.overrideUserInterfaceStyle = .dark
         mv.showsCompass = false
         mv.showsScale = false
         mv.showsUserLocation = true
         mv.pointOfInterestFilter = .excludingAll
 
-        context.coordinator.requestLocationIfNeeded()
+        context.coordinator.startTrackingIfAuthorized()
         refresh(mv)
         return mv
     }
@@ -668,26 +720,38 @@ private struct RouteMapView: UIViewRepresentable {
         context.coordinator.onPinTap = onPinTap
         context.coordinator.onLocationUpdate = onLocationUpdate
 
+        uiView.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+
         if centerOnUser {
+            context.coordinator.requestLocationAndTrack()
             uiView.setUserTrackingMode(.follow, animated: true)
             DispatchQueue.main.async { centerOnUser = false }
         }
 
         if let coord = selectedCoordinate {
-            let span = MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
-            let mapHeight = uiView.frame.height
-            var center = coord
-            if mapHeight > 0 && sheetTopY > 0 {
-                // 시트가 가리는 만큼 위도를 내려서, 핀이 visible 영역 중앙에 오도록 보정
-                let visibleCenterY = sheetTopY / 2
-                let pixelOffset = mapHeight / 2 - visibleCenterY
-                let latOffset = pixelOffset * span.latitudeDelta / mapHeight
-                center = CLLocationCoordinate2D(
-                    latitude: coord.latitude - latOffset,
-                    longitude: coord.longitude
-                )
+            let last = context.coordinator.lastCenteredCoordinate
+            let isSame = last.map {
+                abs($0.latitude - coord.latitude) < 0.000001 &&
+                abs($0.longitude - coord.longitude) < 0.000001
+            } ?? false
+            if !isSame {
+                context.coordinator.lastCenteredCoordinate = coord
+                let span = MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+                let mapHeight = uiView.frame.height
+                var center = coord
+                if mapHeight > 0 && sheetTopY > 0 {
+                    let visibleCenterY = sheetTopY / 2
+                    let pixelOffset = mapHeight / 2 - visibleCenterY
+                    let latOffset = pixelOffset * span.latitudeDelta / mapHeight
+                    center = CLLocationCoordinate2D(
+                        latitude: coord.latitude - latOffset,
+                        longitude: coord.longitude
+                    )
+                }
+                uiView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
             }
-            uiView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
+        } else {
+            context.coordinator.lastCenteredCoordinate = nil
         }
 
         let existing = uiView.annotations.compactMap { $0 as? StopPin }
@@ -737,13 +801,35 @@ private struct RouteMapView: UIViewRepresentable {
         private let locationManager = CLLocationManager()
         var onPinTap: ((String) -> Void)?
         var onLocationUpdate: ((CLLocation) -> Void)?
+        var lastCenteredCoordinate: CLLocationCoordinate2D?
 
-        func requestLocationIfNeeded() {
+        /// 앱 시작 시: 이미 권한이 있는 경우에만 추적 시작 (권한 요청 없음)
+        func startTrackingIfAuthorized() {
             locationManager.delegate = self
-            if locationManager.authorizationStatus == .notDetermined {
-                locationManager.requestWhenInUseAuthorization()
+            let status = locationManager.authorizationStatus
+            if status == .authorizedWhenInUse || status == .authorizedAlways {
+                locationManager.startUpdatingLocation()
             }
-            locationManager.startUpdatingLocation()
+        }
+
+        /// 사용자가 현재 위치 버튼을 탭했을 때: 권한 요청 후 추적 시작
+        func requestLocationAndTrack() {
+            locationManager.delegate = self
+            switch locationManager.authorizationStatus {
+            case .notDetermined:
+                locationManager.requestWhenInUseAuthorization()
+            case .authorizedWhenInUse, .authorizedAlways:
+                locationManager.startUpdatingLocation()
+            default:
+                break
+            }
+        }
+
+        func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+            if manager.authorizationStatus == .authorizedWhenInUse ||
+               manager.authorizationStatus == .authorizedAlways {
+                manager.startUpdatingLocation()
+            }
         }
 
         func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
