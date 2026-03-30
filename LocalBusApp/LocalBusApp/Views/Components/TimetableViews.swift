@@ -12,7 +12,7 @@ struct TimetableScreenView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            HomeDashboardTheme.screenBackground.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 directionSelector
@@ -106,12 +106,13 @@ struct TimetableScreenView: View {
                             .font(HomeDashboardTypography.segmentSelected)
                             .foregroundStyle(
                                 viewModel.selectedScheduleType == type
-                                    ? .white
+                                    ? HomeDashboardTheme.primaryText
                                     : HomeDashboardTheme.timetableMutedText
                             )
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 38)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -151,7 +152,7 @@ struct TimetableScreenView: View {
         .padding(.vertical, 8)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.white.opacity(0.1))
+                .fill(HomeDashboardTheme.timetablePickerBorder)
                 .frame(height: 1)
         }
     }
@@ -181,7 +182,7 @@ struct TimetableRow: View {
                     Text(time)
                         .font(.system(size: 24, weight: .bold, design: .monospaced))
                         .tracking(-0.6)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HomeDashboardTheme.primaryText)
 
                     if isNextBus {
                         Text("NEXT")
@@ -199,7 +200,7 @@ struct TimetableRow: View {
 
                 // 수직 구분선
                 Rectangle()
-                    .fill(isNextBus ? Color.white.opacity(0.2) : HomeDashboardTheme.timetablePickerBorder)
+                    .fill(isNextBus ? HomeDashboardTheme.border : HomeDashboardTheme.timetablePickerBorder)
                     .frame(width: 1, height: 44)
                     .padding(.horizontal, 24)
 
@@ -209,7 +210,7 @@ struct TimetableRow: View {
                     Text(destinationName)
                         .font(HomeDashboardTypography.headerLabel)
                         .foregroundStyle(
-                            isNextBus ? Color.white.opacity(0.9) : HomeDashboardTheme.timetableSecondaryText
+                            isNextBus ? HomeDashboardTheme.primaryText : HomeDashboardTheme.timetableSecondaryText
                         )
                 }
 
@@ -227,7 +228,7 @@ struct TimetableRow: View {
                         Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(
-                                isNextBus ? .white : HomeDashboardTheme.timetableSecondaryText
+                                isNextBus ? HomeDashboardTheme.primaryText : HomeDashboardTheme.timetableSecondaryText
                             )
                     }
                     .frame(width: 40, height: 40)
@@ -241,7 +242,7 @@ struct TimetableRow: View {
         .overlay(alignment: .top) {
             if !isNextBus {
                 Rectangle()
-                    .fill(Color.white.opacity(0.1))
+                    .fill(HomeDashboardTheme.timetablePickerBorder)
                     .frame(height: 1)
             }
         }
@@ -276,7 +277,7 @@ struct TimetableRow: View {
         } else {
             Text("직행")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color(red: 212/255, green: 212/255, blue: 216/255))
+                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 3)
                 .background(HomeDashboardTheme.timetablePickerBorder)

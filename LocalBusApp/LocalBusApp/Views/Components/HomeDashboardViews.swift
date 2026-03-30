@@ -43,6 +43,9 @@ enum HomeDashboardTheme {
             : UIColor(red: 29/255,  green: 78/255,  blue: 216/255, alpha: 1)
     })
     static let heroOverlay = Color.white.opacity(0.06)
+    /// 항상 흰색 — heroStart/heroEnd 파란 그라디언트 배경 위 텍스트 전용.
+    /// 라이트/다크 모드 모두 히어로 카드 배경은 파란색이므로 흰색 글자가 올바름.
+    static let heroText = Color.white
     static let cardBackground = Color(UIColor { t in
         t.userInterfaceStyle == .dark
             ? UIColor(red: 11/255,  green: 15/255,  blue: 24/255,  alpha: 1)
@@ -172,9 +175,11 @@ struct DashboardHeaderView: View {
                 Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
                     .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(HomeDashboardTheme.primaryText)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(isNotificationEnabled ? "알림 켜짐" : "알림 꺼짐")
+            .accessibilityHint(isNotificationEnabled ? "탭하여 알림을 끕니다" : "탭하여 다음 버스 5분 전 알림을 설정합니다")
         }
     }
 }
@@ -199,7 +204,7 @@ struct NextBusHeroCard: View {
             if minuteText.isEmpty {
                 Text(descriptionText)
                     .font(HomeDashboardTypography.heroValue)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.heroText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .padding(.bottom, 6)
@@ -208,11 +213,11 @@ struct NextBusHeroCard: View {
                     Text(minuteText)
                         .font(HomeDashboardTypography.heroValue)
                         .monospacedDigit()
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HomeDashboardTheme.heroText)
 
                     Text(unitText)
                         .font(HomeDashboardTypography.heroUnit)
-                        .foregroundStyle(Color.white.opacity(0.88))
+                        .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.88))
                         .padding(.bottom, 10)
                 }
 
@@ -261,11 +266,12 @@ struct NextBusHeroCard: View {
                     .fill(HomeDashboardTheme.border)
 
                 Capsule()
-                    .fill(.white)
+                    .fill(HomeDashboardTheme.heroText)
                     .frame(width: max(proxy.size.width * progress, 24))
             }
         }
         .frame(height: 4)
+        .accessibilityHidden(true)
     }
 
     private var heroBackground: some View {
@@ -302,7 +308,7 @@ struct NextBusHeroCard: View {
                 Text(value)
                     .font(HomeDashboardTypography.heroMetaValue)
                     .monospacedDigit()
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.heroText)
 
                 if let suffix {
                     Text(suffix)
@@ -347,21 +353,21 @@ struct DashboardServiceEndedCard: View {
         VStack(spacing: 12) {
             Text("오늘 운행 종료")
                 .font(HomeDashboardTypography.heroDescription)
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
+                .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.7))
 
             Text(firstBusTime)
                 .font(HomeDashboardTypography.heroValue)
                 .monospacedDigit()
-                .foregroundStyle(.white)
+                .foregroundStyle(HomeDashboardTheme.heroText)
                 .minimumScaleFactor(0.8)
 
             Text("다음 첫차")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(HomeDashboardTheme.heroText)
 
             Text(remainingText)
                 .font(HomeDashboardTypography.heroDescription)
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
+                .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.7))
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 34)
@@ -370,7 +376,7 @@ struct DashboardServiceEndedCard: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [HomeDashboardTheme.heroStart, HomeDashboardTheme.cardBackground],
+                        colors: [HomeDashboardTheme.heroStart, HomeDashboardTheme.heroEnd],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -476,6 +482,8 @@ struct UpcomingBusCardView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(bus.departureTime) 출발, \(destinationName) 도착 예정 \(bus.arrivalTime), \(bus.statusText)")
     }
 
     @ViewBuilder

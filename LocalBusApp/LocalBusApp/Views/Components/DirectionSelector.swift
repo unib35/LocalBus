@@ -51,8 +51,10 @@ struct DirectionSelector: View {
                         .foregroundStyle(
                             selectedID == item ? Color.black : HomeDashboardTheme.secondaryText
                         )
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(selectedID == item ? [.isSelected] : [])
             }
         }
         .padding(4)

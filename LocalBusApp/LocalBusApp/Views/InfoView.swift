@@ -68,7 +68,7 @@ struct InfoView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarColorScheme(nil, for: .navigationBar)
         .confirmationDialog("캐시를 삭제하면 최신 데이터를 다시 불러옵니다.", isPresented: $showClearCacheConfirm, titleVisibility: .visible) {
             Button("캐시 삭제 및 새로고침", role: .destructive) {
                 Task {
@@ -92,11 +92,11 @@ struct InfoView: View {
                     iconBox(systemName: "bell.fill")
                     Text("막차 30분 전 알림")
                         .font(.system(size: 16))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HomeDashboardTheme.primaryText)
                     Spacer()
                     Toggle("", isOn: $lastMileAlertEnabled)
                         .labelsHidden()
-                        .tint(.white)
+                        .tint(HomeDashboardTheme.primaryBlue)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
@@ -120,7 +120,7 @@ struct InfoView: View {
                     Spacer()
                     Toggle("", isOn: $delayAlertEnabled)
                         .labelsHidden()
-                        .tint(.white)
+                        .tint(HomeDashboardTheme.primaryBlue)
                         .disabled(true)
                 }
                 .padding(.horizontal, 16)
@@ -149,12 +149,12 @@ struct InfoView: View {
                         HStack {
                             Text(scheme.label)
                                 .font(.system(size: 16))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(HomeDashboardTheme.primaryText)
                             Spacer()
                             if colorScheme == scheme {
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(HomeDashboardTheme.primaryBlue)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -183,7 +183,7 @@ struct InfoView: View {
                 HStack {
                     Text("버전 정보")
                         .font(.system(size: 16))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HomeDashboardTheme.primaryText)
                     Spacer()
                     Text("v\(appVersion)")
                         .font(.system(size: 15))
@@ -247,7 +247,7 @@ struct InfoView: View {
                 HStack {
                     Text("시간표 기준일")
                         .font(.system(size: 16))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HomeDashboardTheme.primaryText)
                     Spacer()
                     Text(viewModel.updatedAtText)
                         .font(.system(size: 15))
@@ -270,7 +270,7 @@ struct InfoView: View {
                         }
                         Text(isRefreshing ? "새로고침 중..." : "최신 데이터로 새로고침")
                             .font(.system(size: 16))
-                            .foregroundStyle(isRefreshing ? HomeDashboardTheme.secondaryText : .white)
+                            .foregroundStyle(isRefreshing ? HomeDashboardTheme.secondaryText : HomeDashboardTheme.primaryText)
                         Spacer()
                         if viewModel.isOffline {
                             Text("오프라인")
@@ -362,7 +362,7 @@ struct InfoView: View {
     private func iconBox(systemName: String) -> some View {
         Image(systemName: systemName)
             .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(.white)
+            .foregroundStyle(HomeDashboardTheme.primaryText)
             .frame(width: 28, height: 28)
             .background(HomeDashboardTheme.iconBackground)
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
@@ -372,7 +372,7 @@ struct InfoView: View {
         HStack {
             Text(title)
                 .font(.system(size: 16))
-                .foregroundStyle(.white)
+                .foregroundStyle(HomeDashboardTheme.primaryText)
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))

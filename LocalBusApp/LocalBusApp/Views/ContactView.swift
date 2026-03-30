@@ -35,7 +35,6 @@ struct ContactView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
     }
 
@@ -68,7 +67,7 @@ struct ContactView: View {
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $content)
                     .font(.system(size: 16))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal, 11)
                     .padding(.top, 8)
@@ -168,7 +167,7 @@ struct ContactView: View {
 
     private func sendContact() {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let email = "help@localbus.com"
+        let email = "jm.jongminlee@mgmail.com"
         let subject = "[LocalBus] \(selectedType.rawValue)"
         let bodyContent = content.isEmpty ? "" : "\(content)\n\n"
         let body = "\(bodyContent)---\n앱 버전: \(appVersion)\n기기: \(UIDevice.current.model)\niOS: \(UIDevice.current.systemVersion)"

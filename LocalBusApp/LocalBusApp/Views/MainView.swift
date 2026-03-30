@@ -137,9 +137,8 @@ struct MainView: View {
         NavigationStack {
             TimetableScreenView(viewModel: viewModel)
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbarBackground(Color.black, for: .navigationBar)
+                .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
                 .toolbarBackground(.visible, for: .navigationBar)
-                .toolbarColorScheme(.dark, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .principal) {
                         directionTitle(viewModel.selectedDirection)
@@ -153,13 +152,13 @@ struct MainView: View {
         return HStack(spacing: 0) {
             Text(parts.first ?? "")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(HomeDashboardTheme.primaryText)
             Text(" → ")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Color(red: 100/255, green: 116/255, blue: 139/255))
+                .foregroundStyle(HomeDashboardTheme.tertiaryText)
             Text(parts.last ?? "")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(HomeDashboardTheme.primaryText)
         }
     }
 

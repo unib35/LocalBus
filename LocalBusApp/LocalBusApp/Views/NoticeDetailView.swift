@@ -81,13 +81,13 @@ struct NoticeDetailView: View {
         ZStack {
             Text("공지사항")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(HomeDashboardTheme.primaryText)
 
             HStack {
                 Button(action: { dismiss() }) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HomeDashboardTheme.primaryText)
                         .frame(width: 36, height: 36)
                 }
                 .buttonStyle(.plain)
@@ -109,7 +109,7 @@ struct NoticeDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(notice.title)
                 .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(HomeDashboardTheme.primaryText)
                 .lineSpacing(5)
 
             HStack(spacing: 8) {
@@ -143,7 +143,7 @@ struct NoticeDetailView: View {
             ForEach(Array(notice.body.enumerated()), id: \.offset) { _, paragraph in
                 Text(paragraph)
                     .font(.system(size: 16))
-                    .foregroundStyle(Color(red: 209/255, green: 213/255, blue: 219/255))
+                    .foregroundStyle(HomeDashboardTheme.secondaryText)
                     .lineSpacing(6)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -180,7 +180,7 @@ struct NoticeDetailView: View {
                     .foregroundStyle(HomeDashboardTheme.secondaryText)
                 Text("변경 시간표 요약")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
             }
 
             Spacer()
@@ -259,7 +259,7 @@ struct NoticeDetailView: View {
             ZStack {
                 Text(row.departure)
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundStyle(row.isNew ? accentBlue : .white)
+                    .foregroundStyle(row.isNew ? accentBlue : HomeDashboardTheme.primaryText)
 
                 if row.isNew {
                     Circle()
@@ -299,7 +299,7 @@ struct NoticeDetailView: View {
                                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
                         )
                     ProgressView()
-                        .tint(.white)
+                        .tint(HomeDashboardTheme.secondaryText)
                 }
                 .frame(height: 200)
             }

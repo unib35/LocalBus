@@ -29,7 +29,6 @@ struct ReportView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
     }
 
@@ -53,12 +52,12 @@ struct ReportView: View {
                                 .frame(width: 60, height: 60)
                             Image(systemName: "camera.badge.plus")
                                 .font(.system(size: 22))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(HomeDashboardTheme.primaryText)
                         }
                         VStack(spacing: 4) {
                             Text("사진 업로드")
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(HomeDashboardTheme.primaryText)
                             Text("변경된 시간표 사진을 찍어주세요")
                                 .font(.system(size: 13))
                                 .foregroundStyle(HomeDashboardTheme.secondaryText)
@@ -101,7 +100,7 @@ struct ReportView: View {
                 ZStack(alignment: .topLeading) {
                     TextEditor(text: $description)
                         .font(.system(size: 15))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(HomeDashboardTheme.primaryText)
                         .scrollContentBackground(.hidden)
                         .padding(.horizontal, 12)
                         .padding(.top, 10)
@@ -199,7 +198,7 @@ struct ReportView: View {
 
     private func sendReport() {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let email = "help@localbus.com"
+        let email = "jm.jongminlee@mgmail.com"
         let subject = "[LocalBus] 시간표 변경 제보"
         let body: String
         if description.isEmpty {
