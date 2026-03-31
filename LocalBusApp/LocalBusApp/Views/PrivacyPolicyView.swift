@@ -48,7 +48,7 @@ private struct WebViewWrapper: UIViewRepresentable {
 struct PrivacyPolicyView: View {
     @State private var isLoading = true
 
-    private let privacyURL = URL(string: "https://jongmini.github.io/LocalBus/privacy")!
+    private let privacyURL = URL(string: "https://unib35.github.io/LocalBus/terms")!
 
     var body: some View {
         ZStack {
