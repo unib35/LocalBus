@@ -149,7 +149,7 @@ struct Provider: TimelineProvider {
         completion(WidgetDataHelper.createEntry(for: Date()))
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<BusEntry>) -> ()) {
         let currentDate = Date()
         var entries: [BusEntry] = []
 
@@ -666,14 +666,10 @@ struct LocalBusWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
-            if #available(iOS 17.0, *) {
-                LocalBusWidgetEntryView(entry: entry)
-                    .containerBackground(.clear, for: .widget)
-            } else {
-                LocalBusWidgetEntryView(entry: entry)
-            }
+            LocalBusWidgetEntryView(entry: entry)
+                .containerBackground(.clear, for: .widget)
         }
-        .configurationDisplayName("다음 버스")
+        .configurationDisplayName("다음 버스 (고정)")
         .description("장유-사상 시외버스 다음 출발 시간을 확인하세요")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
