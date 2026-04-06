@@ -1,34 +1,66 @@
 import SwiftUI
 
+private enum MainTab: Hashable {
+    case home
+    case timetable
+    case stops
+    case settings
+}
+
+private enum AppDeepLink {
+    static let scheme = "localbus"
+    static let host = "route"
+    static let directionQueryItem = "direction"
+
+    static func routeDirection(from url: URL) -> RouteDirection? {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == scheme,
+              components.host == host,
+              let directionValue = components.queryItems?
+                .first(where: { $0.name == directionQueryItem })?
+                .value else {
+            return nil
+        }
+
+        return RouteDirection(rawValue: directionValue)
+    }
+}
+
 /// 메인 화면
 struct MainView: View {
     @StateObject private var viewModel = MainViewModel()
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
+    @State private var selectedTab: MainTab = .home
 
     private var preferredColorScheme: ColorScheme? {
         AppColorScheme(rawValue: colorSchemeRaw)?.colorScheme
     }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             homeTab
                 .tabItem { Label("홈", systemImage: "house") }
+                .tag(MainTab.home)
 
             timetableTab
                 .tabItem { Label("전체 시간표", systemImage: "calendar") }
+                .tag(MainTab.timetable)
 
             stopsTab
                 .tabItem { Label("정류장 위치", systemImage: "map") }
+                .tag(MainTab.stops)
 
             NavigationStack {
                 InfoView(viewModel: viewModel)
             }
             .tabItem { Label("설정", systemImage: "gearshape") }
+            .tag(MainTab.settings)
         }
         .preferredColorScheme(preferredColorScheme)
         .task {
             await viewModel.onAppear()
         }
+        .onOpenURL(perform: handleDeepLink)
     }
 
     // MARK: - 홈 탭
@@ -195,6 +227,15 @@ struct MainView: View {
         guard let nextBusTime else { return }
         Task {
             await viewModel.toggleNotification(for: nextBusTime)
+        }
+    }
+
+    private func handleDeepLink(_ url: URL) {
+        guard let direction = AppDeepLink.routeDirection(from: url) else { return }
+
+        selectedTab = .home
+        withAnimation(.easeInOut(duration: 0.25)) {
+            viewModel.changeDirection(to: direction)
         }
     }
 }
