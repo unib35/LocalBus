@@ -104,17 +104,23 @@
           "id": "gimhae_foreign",
           "name": "김해외고",
           "description": "경남 김해시 율하2로 72",
-          "is_departure": true
+          "is_departure": true,
+          "latitude": 35.2257,
+          "longitude": 128.8928
         },
         {
           "id": "yulha_central",
           "name": "율하2지구입구",
-          "description": "경남 김해시 율하로"
+          "description": "경남 김해시 율하로",
+          "latitude": 35.2207,
+          "longitude": 128.8994
         },
         {
           "id": "sasang_terminal",
           "name": "사상터미널",
-          "description": "부산광역시 사상구 괘법동"
+          "description": "부산광역시 사상구 괘법동",
+          "latitude": 35.163329,
+          "longitude": 128.981845
         }
       ],
       "timetable": {
@@ -137,17 +143,23 @@
           "id": "sasang_terminal",
           "name": "사상터미널",
           "description": "부산광역시 사상구 괘법동",
-          "is_departure": true
+          "is_departure": true,
+          "latitude": 35.163329,
+          "longitude": 128.981845
         },
         {
           "id": "yulha_central",
           "name": "율하2지구입구",
-          "description": "경남 김해시 율하로"
+          "description": "경남 김해시 율하로",
+          "latitude": 35.2207,
+          "longitude": 128.8994
         },
         {
           "id": "gimhae_foreign",
           "name": "김해외고",
-          "description": "경남 김해시 율하2로 72"
+          "description": "경남 김해시 율하2로 72",
+          "latitude": 35.2257,
+          "longitude": 128.8928
         }
       ],
       "timetable": {
