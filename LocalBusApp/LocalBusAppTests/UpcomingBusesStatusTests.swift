@@ -45,7 +45,6 @@ struct UpcomingBusesStatusTests {
 
         await vm.loadTimetable(with: data)
         vm.selectedScheduleType = .weekday
-        vm.currentTime = currentTime
         return vm
     }
 
@@ -76,7 +75,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 3)
+        let result = vm.buildUpcomingBuses(limit: 3, at: now)
 
         // Then: 3개 반환, 마지막만 막차
         #expect(result.count == 3)
@@ -95,7 +94,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 3)
+        let result = vm.buildUpcomingBuses(limit: 3, at: now)
 
         // Then: 3개, 모두 정시 운행 (막차는 17:00 = limit 범위 밖)
         #expect(result.count == 3)
@@ -112,7 +111,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 1)
+        let result = vm.buildUpcomingBuses(limit: 1, at: now)
 
         // Then
         #expect(result.count == 1)
@@ -127,7 +126,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 5, at: now)
 
         // Then: 5개, 마지막만 막차
         #expect(result.count == 5)
@@ -146,7 +145,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 3)
+        let result = vm.buildUpcomingBuses(limit: 3, at: now)
 
         // Then: 3개, 막차 없음
         #expect(result.count == 3)
@@ -162,7 +161,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 3)
+        let result = vm.buildUpcomingBuses(limit: 3, at: now)
 
         // Then: 전부 내일 버스, 첫번째만 "내일 첫차"
         #expect(result.count == 3)
@@ -181,7 +180,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When: futureTimes = [13:00, 14:00] → 2개 today + 3개 nextDay
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 5, at: now)
 
         // Then
         #expect(result.count == 5)
@@ -202,7 +201,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 5, at: now)
 
         // Then
         #expect(result.count == 5)
@@ -218,7 +217,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now, nightFareStartTime: "22:10")
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 2)
+        let result = vm.buildUpcomingBuses(limit: 2, at: now)
 
         // Then: 22:10 → 심야
         #expect(result[0].statusText == "심야")
@@ -232,7 +231,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now, nightFareStartTime: "22:10")
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 2)
+        let result = vm.buildUpcomingBuses(limit: 2, at: now)
 
         // Then: 22:09 → 정시 운행
         #expect(result[0].statusText == "정시 운행")
@@ -246,7 +245,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now, nightFareStartTime: "22:10")
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 1)
+        let result = vm.buildUpcomingBuses(limit: 1, at: now)
 
         // Then: 막차 > 심야 우선순위
         #expect(result.count == 1)
@@ -261,7 +260,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now, nightFareStartTime: "22:10")
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 3)
+        let result = vm.buildUpcomingBuses(limit: 3, at: now)
 
         // Then
         #expect(result.count == 3)
@@ -282,7 +281,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 5, at: now)
 
         // Then
         #expect(result[0].statusText == "곧 출발")
@@ -296,7 +295,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now)
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 5)
+        let result = vm.buildUpcomingBuses(limit: 5, at: now)
 
         // Then
         #expect(result[0].statusText == "정시 운행")
@@ -312,7 +311,7 @@ struct UpcomingBusesStatusTests {
         let vm = await makeViewModel(times: times, currentTime: now, nightFareStartTime: "22:10")
 
         // When
-        let result = vm.buildUpcomingBuses(limit: 2)
+        let result = vm.buildUpcomingBuses(limit: 2, at: now)
 
         // Then
         #expect(result.count == 2)

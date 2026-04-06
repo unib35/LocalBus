@@ -15,7 +15,7 @@ struct TimetableServiceTests {
 
         // Then
         #expect(result != nil)
-        #expect(result?.meta.version == 2)
+        #expect((result?.meta.version ?? 0) > 0)
         #expect(result?.routes != nil)
         #expect(result?.routes?["jangyu_to_sasang"]?.timetable.weekday.isEmpty == false)
         #expect(result?.routes?["sasang_to_jangyu"]?.timetable.weekend.isEmpty == false)

@@ -95,10 +95,8 @@ struct QualityVerificationTests {
         let minutes = DateService.minutesUntilNextDay(timeString: firstBusTime, from: currentTime)
 
         // Then
-        // 00:30 → 24:00 (23시간 30분) + 00:00 → 06:00 (6시간) = 29시간 30분 = 1770분
-        // 실제로는 다음날 06:00까지이므로 5시간 30분 = 330분이어야 함
-        // 하지만 현재 로직은 다음날 기준으로 계산하므로 1770분
-        #expect(minutes == 1770)
+        // 같은 날 06:00까지 남은 시간은 5시간 30분 = 330분
+        #expect(minutes == 330)
     }
 
     @Test func 막차_직후_첫차까지_남은시간_계산() {
