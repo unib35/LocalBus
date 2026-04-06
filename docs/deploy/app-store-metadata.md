@@ -150,7 +150,9 @@ bus,timetable,jangyu,sasang,intercity,gimhae,busan,commute,transit,korea
 - 시간표 데이터는 GitHub Raw에서 JSON 형식으로 제공됩니다.
 - 오프라인 시에는 번들에 포함된 기본 시간표를 사용합니다.
 - 로그인 없이 모든 기능을 사용할 수 있습니다.
-- 개인정보를 수집하지 않습니다.
+- 개발자가 직접 개인정보를 수집하거나 저장하지 않습니다.
+- 현재 위치와 알림 기능은 사용자가 허용한 경우에만 기기 기능으로 사용됩니다.
+- GitHub Raw, Apple MapKit, Kakao Mobility API 사용 과정에서 네트워크 정보 또는 위치 관련 정보가 각 서비스 제공자에 의해 처리될 수 있습니다.
 ```
 
 ---
