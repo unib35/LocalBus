@@ -1,9 +1,13 @@
 import SwiftUI
+import UIKit
 
 // MARK: - 시간표 화면 전체
 
 struct TimetableScreenView: View {
     @ObservedObject var viewModel: MainViewModel
+
+    @State private var showShareSheet = false
+    @State private var shareImage: UIImage?
 
     private func nextBusIndex(at referenceDate: Date) -> Int? {
         guard let nextTime = viewModel.nextBusTime(at: referenceDate) else { return nil }
@@ -15,11 +19,12 @@ struct TimetableScreenView: View {
             HomeDashboardTheme.screenBackground.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                directionSelector
+                directionSelectorWithShare
                 scheduleSegmentPicker
                 columnHeader
 
                 ScrollViewReader { proxy in
+
                     TimelineView(.periodic(from: .now, by: 5)) { context in
                         let nextBusTime = viewModel.nextBusTime(at: context.date)
                         let nextBusIndex = nextBusIndex(at: context.date)
@@ -69,22 +74,61 @@ struct TimetableScreenView: View {
                 }
             }
         }
+        .sheet(isPresented: $showShareSheet) {
+            if let image = shareImage {
+                ShareSheet(activityItems: [
+                    image,
+                    "\(viewModel.selectedDirection.displayName) 시외버스 시간표 | LocalBus 앱으로 확인하세요"
+                ])
+            }
+        }
     }
 
-    // MARK: - 노선/방향 선택
+    // MARK: - 노선/방향 선택 + 공유 버튼
 
-    private var directionSelector: some View {
-        DirectionSelector(
-            selectedDirection: viewModel.selectedDirection,
-            onDirectionChange: { direction in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    viewModel.changeDirection(to: direction)
+    private var directionSelectorWithShare: some View {
+        HStack(spacing: 8) {
+            DirectionSelector(
+                selectedDirection: viewModel.selectedDirection,
+                onDirectionChange: { direction in
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        viewModel.changeDirection(to: direction)
+                    }
                 }
+            )
+
+            Button {
+                Task { await prepareAndShare() }
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(HomeDashboardTheme.secondaryText)
+                    .frame(width: 40, height: 40)
+                    .background(HomeDashboardTheme.timetablePickerBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(HomeDashboardTheme.timetablePickerBorder, lineWidth: 1)
+                    )
             }
-        )
+            .buttonStyle(.plain)
+        }
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 4)
+    }
+
+    @MainActor
+    private func prepareAndShare() async {
+        let viaTimes: Set<String> = Set(viewModel.currentTimes.filter { viewModel.isViaBus(for: $0) })
+        shareImage = renderTimetableShareImage(
+            direction: viewModel.selectedDirection,
+            scheduleType: viewModel.selectedScheduleType,
+            times: viewModel.currentTimes,
+            nightFareStartTime: viewModel.nightFareStartTime,
+            viaTimes: viaTimes
+        )
+        showShareSheet = true
     }
 
     // MARK: - 세그먼트 피커
