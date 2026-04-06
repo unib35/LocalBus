@@ -18,6 +18,21 @@ struct UpcomingBusSnapshot: Identifiable, Equatable {
     let statusKind: UpcomingBusStatusKind
 }
 
+struct BusTimingSnapshot {
+    let nextBusTime: String?
+    let isServiceEnded: Bool
+    let nextBusMinuteDisplay: String
+    let nextBusUnitDisplay: String
+    let nextBusCountdownDescription: String
+    let firstBusTime: String
+    let hoursUntilFirstBus: Int
+    let minutesUntilFirstBus: Int
+    let nextBusArrivalTime: String
+    let followingBusTime: String
+    let nextBusProgress: Double
+    let upcomingBuses: [UpcomingBusSnapshot]
+}
+
 /// 메인 화면 ViewModel
 @MainActor
 final class MainViewModel: ObservableObject {
@@ -51,19 +66,13 @@ final class MainViewModel: ObservableObject {
     /// 오프라인 모드 여부
     @Published var isOffline: Bool = false
 
-    /// 현재 시간 (1초마다 업데이트)
-    @Published var currentTime: Date = Date()
-
     /// 알림 예약 상태
-    @Published var scheduledNotifications: Set<String> = []
+    @Published private(set) var scheduledNotifications: Set<String> = []
 
     // MARK: - Private Properties
 
     /// 전체 시간표 데이터 (routes 포함)
     private var timetableData: TimetableData?
-
-    /// 실시간 타이머
-    private var timer: Timer?
 
     // MARK: - Constants
 
@@ -95,16 +104,6 @@ final class MainViewModel: ObservableObject {
         case .weekend:
             return weekendTimes
         }
-    }
-
-    /// 다음 버스 시간
-    var nextBusTime: String? {
-        DateService.findNextBus(times: currentTimes, from: currentTime)
-    }
-
-    /// 운행 종료 여부
-    var isServiceEnded: Bool {
-        nextBusTime == nil && !currentTimes.isEmpty
     }
 
     /// 현재 방향의 표시 이름
@@ -195,45 +194,6 @@ final class MainViewModel: ObservableObject {
         return viaTimes.contains(time)
     }
 
-    /// 다음 버스까지 남은 시간 (분)
-    var minutesUntilNextBus: Int? {
-        guard let nextTime = nextBusTime else { return nil }
-        return DateService.minutesUntil(timeString: nextTime, from: currentTime)
-    }
-
-    /// 다음 버스까지 남은 초
-    var secondsUntilNextBus: Int? {
-        guard let nextTime = nextBusTime else { return nil }
-        return DateService.secondsUntil(timeString: nextTime, from: currentTime)
-    }
-
-    /// 카운트다운 텍스트 (MM:SS 형식)
-    var countdownText: String {
-        guard let seconds = secondsUntilNextBus, seconds > 0 else { return "--:--" }
-        let mins = seconds / 60
-        let secs = seconds % 60
-        return String(format: "%02d:%02d", mins, secs)
-    }
-
-    /// 다음 버스까지 남은 분 표시값 (초 기준 올림, 60초 이하면 빈 문자열)
-    var nextBusMinuteDisplay: String {
-        guard let seconds = secondsUntilNextBus else { return "--" }
-        if seconds <= 60 { return "" }
-        return String(Int(ceil(Double(seconds) / 60.0)))
-    }
-
-    /// 다음 버스 단위 텍스트 (60초 이하면 빈 문자열)
-    var nextBusUnitDisplay: String {
-        guard let seconds = secondsUntilNextBus else { return "분" }
-        return seconds <= 60 ? "" : "분"
-    }
-
-    /// 다음 버스 카운트다운 보조 텍스트
-    var nextBusCountdownDescription: String {
-        guard let seconds = secondsUntilNextBus else { return "후 출발" }
-        return seconds <= 60 ? "곧 도착" : "후 출발"
-    }
-
     /// 현재 방향의 소요시간 (분)
     var durationMinutes: Int {
         guard let data = timetableData,
@@ -267,22 +227,6 @@ final class MainViewModel: ObservableObject {
         "실시간"
     }
 
-    /// 남은 시간 표시 문자열
-    var remainingTimeText: String {
-        guard let seconds = secondsUntilNextBus else { return "" }
-        if seconds <= 60 {
-            return "곧 도착"
-        }
-        let minutes = Int(ceil(Double(seconds) / 60.0))
-        if minutes < 60 {
-            return "\(minutes)분 후"
-        } else {
-            let hours = minutes / 60
-            let mins = minutes % 60
-            return mins > 0 ? "\(hours)시간 \(mins)분 후" : "\(hours)시간 후"
-        }
-    }
-
     /// 첫차 시간
     var firstBusTime: String {
         currentTimes.first ?? "--:--"
@@ -293,20 +237,6 @@ final class MainViewModel: ObservableObject {
         currentTimes.last ?? "--:--"
     }
 
-    /// 첫차까지 남은 시간 (시)
-    var hoursUntilFirstBus: Int {
-        guard let firstTime = currentTimes.first else { return 0 }
-        let totalMinutes = DateService.minutesUntilNextDay(timeString: firstTime, from: currentTime)
-        return totalMinutes / 60
-    }
-
-    /// 첫차까지 남은 시간 (분)
-    var minutesUntilFirstBus: Int {
-        guard let firstTime = currentTimes.first else { return 0 }
-        let totalMinutes = DateService.minutesUntilNextDay(timeString: firstTime, from: currentTime)
-        return totalMinutes % 60
-    }
-
     /// 실시간 교통 기반 소요시간 (nil이면 고정값 사용)
     @Published var trafficDurationMinutes: Int? = nil
 
@@ -315,60 +245,38 @@ final class MainViewModel: ObservableObject {
         trafficDurationMinutes ?? durationMinutes
     }
 
-    /// 다음 버스 예상 도착 시간
-    var nextBusArrivalTime: String {
-        guard let nextBusTime else { return "--:--" }
-        return DateService.timeByAdding(minutes: effectiveDurationMinutes, to: nextBusTime) ?? "--:--"
-    }
-
-    /// 다음 버스 이후 버스 출발 시간 (배차 참고용)
-    var followingBusTime: String {
-        guard let nextBusTime,
-              let nextIndex = currentTimes.firstIndex(of: nextBusTime),
-              nextIndex + 1 < currentTimes.count else { return "--:--" }
-        return currentTimes[nextIndex + 1]
-    }
-
-    /// 다음 버스 진행률
-    var nextBusProgress: Double {
-        guard let nextBusTime,
-              let nextIndex = currentTimes.firstIndex(of: nextBusTime),
-              let minutesUntilNextBus else {
-            return 0
-        }
-
-        let intervalMinutes: Int
-        if nextIndex > 0,
-           let previousInterval = DateService.minutesBetween(from: currentTimes[nextIndex - 1], to: nextBusTime),
-           previousInterval > 0 {
-            intervalMinutes = previousInterval
-        } else if nextIndex + 1 < currentTimes.count,
-                  let nextInterval = DateService.minutesBetween(from: nextBusTime, to: currentTimes[nextIndex + 1]),
-                  nextInterval > 0 {
-            intervalMinutes = nextInterval
-        } else {
-            intervalMinutes = max(minutesUntilNextBus, 1)
-        }
-
-        let elapsedMinutes = max(intervalMinutes - max(minutesUntilNextBus, 0), 0)
-        let progress = Double(elapsedMinutes) / Double(max(intervalMinutes, 1))
-        return min(max(progress, 0.08), 1.0)
-    }
-
-    /// 홈 화면 예정 버스 목록
-    var upcomingBuses: [UpcomingBusSnapshot] {
-        buildUpcomingBuses(limit: 3)
-    }
 
     // MARK: - Initialization
 
     init() {}
 
-    deinit {
-        timer?.invalidate()
+    // MARK: - Public Methods
+
+    func nextBusTime(at referenceDate: Date) -> String? {
+        DateService.findNextBus(times: currentTimes, from: referenceDate)
     }
 
-    // MARK: - Public Methods
+    func makeTimingSnapshot(at referenceDate: Date) -> BusTimingSnapshot {
+        let nextBusTime = nextBusTime(at: referenceDate)
+        let minutesUntilNextBus = minutesUntilNextBus(at: referenceDate, nextBusTime: nextBusTime)
+        let secondsUntilNextBus = secondsUntilNextBus(at: referenceDate, nextBusTime: nextBusTime)
+        let firstBusLeadTime = firstBusLeadTime(at: referenceDate)
+
+        return BusTimingSnapshot(
+            nextBusTime: nextBusTime,
+            isServiceEnded: nextBusTime == nil && !currentTimes.isEmpty,
+            nextBusMinuteDisplay: nextBusMinuteDisplay(secondsUntilNextBus: secondsUntilNextBus),
+            nextBusUnitDisplay: nextBusUnitDisplay(secondsUntilNextBus: secondsUntilNextBus),
+            nextBusCountdownDescription: nextBusCountdownDescription(secondsUntilNextBus: secondsUntilNextBus),
+            firstBusTime: firstBusTime,
+            hoursUntilFirstBus: firstBusLeadTime.hours,
+            minutesUntilFirstBus: firstBusLeadTime.minutes,
+            nextBusArrivalTime: nextBusArrivalTime(for: nextBusTime),
+            followingBusTime: followingBusTime(after: nextBusTime),
+            nextBusProgress: nextBusProgress(nextBusTime: nextBusTime, minutesUntilNextBus: minutesUntilNextBus),
+            upcomingBuses: buildUpcomingBuses(limit: 3, at: referenceDate)
+        )
+    }
 
     func getStops(for direction: RouteDirection) -> [BusStop] {
         guard let data = timetableData else { return [] }
@@ -409,6 +317,7 @@ final class MainViewModel: ObservableObject {
         isLoading = false
 
         await refreshTrafficDuration()
+        await refreshScheduledNotifications()
     }
 
     /// 방향 변경
@@ -447,15 +356,6 @@ final class MainViewModel: ObservableObject {
                 guard let lat = stop.latitude, let lon = stop.longitude else { return nil }
                 return Coordinate(latitude: lat, longitude: lon)
             }
-    }
-
-    /// 실시간 타이머 시작
-    func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.currentTime = Date()
-            }
-        }
     }
 
     /// 막차 30분 전 알림 예약
@@ -503,7 +403,80 @@ final class MainViewModel: ObservableObject {
         scheduledNotifications.contains("\(busTime)_\(minutesBefore)")
     }
 
+    func refreshScheduledNotifications() async {
+        scheduledNotifications = await NotificationService.shared.scheduledBusNotificationKeys()
+    }
+
     // MARK: - Private Methods
+
+    private func minutesUntilNextBus(at referenceDate: Date, nextBusTime: String?) -> Int? {
+        guard let nextBusTime else { return nil }
+        return DateService.minutesUntil(timeString: nextBusTime, from: referenceDate)
+    }
+
+    private func secondsUntilNextBus(at referenceDate: Date, nextBusTime: String?) -> Int? {
+        guard let nextBusTime else { return nil }
+        return DateService.secondsUntil(timeString: nextBusTime, from: referenceDate)
+    }
+
+    private func nextBusMinuteDisplay(secondsUntilNextBus: Int?) -> String {
+        guard let secondsUntilNextBus else { return "--" }
+        if secondsUntilNextBus <= 60 { return "" }
+        return String(Int(ceil(Double(secondsUntilNextBus) / 60.0)))
+    }
+
+    private func nextBusUnitDisplay(secondsUntilNextBus: Int?) -> String {
+        guard let secondsUntilNextBus else { return "분" }
+        return secondsUntilNextBus <= 60 ? "" : "분"
+    }
+
+    private func nextBusCountdownDescription(secondsUntilNextBus: Int?) -> String {
+        guard let secondsUntilNextBus else { return "후 출발" }
+        return secondsUntilNextBus <= 60 ? "곧 도착" : "후 출발"
+    }
+
+    private func firstBusLeadTime(at referenceDate: Date) -> (hours: Int, minutes: Int) {
+        guard let firstTime = currentTimes.first else { return (0, 0) }
+        let totalMinutes = DateService.minutesUntilNextDay(timeString: firstTime, from: referenceDate)
+        return (totalMinutes / 60, totalMinutes % 60)
+    }
+
+    private func nextBusArrivalTime(for nextBusTime: String?) -> String {
+        guard let nextBusTime else { return "--:--" }
+        return DateService.timeByAdding(minutes: effectiveDurationMinutes, to: nextBusTime) ?? "--:--"
+    }
+
+    private func followingBusTime(after nextBusTime: String?) -> String {
+        guard let nextBusTime,
+              let nextIndex = currentTimes.firstIndex(of: nextBusTime),
+              nextIndex + 1 < currentTimes.count else { return "--:--" }
+        return currentTimes[nextIndex + 1]
+    }
+
+    private func nextBusProgress(nextBusTime: String?, minutesUntilNextBus: Int?) -> Double {
+        guard let nextBusTime,
+              let nextIndex = currentTimes.firstIndex(of: nextBusTime),
+              let minutesUntilNextBus else {
+            return 0
+        }
+
+        let intervalMinutes: Int
+        if nextIndex > 0,
+           let previousInterval = DateService.minutesBetween(from: currentTimes[nextIndex - 1], to: nextBusTime),
+           previousInterval > 0 {
+            intervalMinutes = previousInterval
+        } else if nextIndex + 1 < currentTimes.count,
+                  let nextInterval = DateService.minutesBetween(from: nextBusTime, to: currentTimes[nextIndex + 1]),
+                  nextInterval > 0 {
+            intervalMinutes = nextInterval
+        } else {
+            intervalMinutes = max(minutesUntilNextBus, 1)
+        }
+
+        let elapsedMinutes = max(intervalMinutes - max(minutesUntilNextBus, 0), 0)
+        let progress = Double(elapsedMinutes) / Double(max(intervalMinutes, 1))
+        return min(max(progress, 0.08), 1.0)
+    }
 
     /// 현재 방향에 맞는 시간표 로드
     private func loadTimesForCurrentDirection(from data: TimetableData) {
@@ -518,11 +491,11 @@ final class MainViewModel: ObservableObject {
         }
     }
 
-    func buildUpcomingBuses(limit: Int) -> [UpcomingBusSnapshot] {
+    func buildUpcomingBuses(limit: Int, at referenceDate: Date = Date()) -> [UpcomingBusSnapshot] {
         guard !currentTimes.isEmpty else { return [] }
 
         let futureTimes = currentTimes.filter {
-            (DateService.minutesUntil(timeString: $0, from: currentTime) ?? -1) >= 0
+            (DateService.minutesUntil(timeString: $0, from: referenceDate) ?? -1) >= 0
         }
 
         var selectedTimes = futureTimes.prefix(limit).map { ($0, false) }
@@ -539,8 +512,8 @@ final class MainViewModel: ObservableObject {
         return Array(selectedTimes.enumerated()).map { index, item in
             let (time, isNextDay) = item
             let minutesUntilDeparture = isNextDay
-                ? DateService.minutesUntilNextDay(timeString: time, from: currentTime)
-                : max(DateService.minutesUntil(timeString: time, from: currentTime) ?? 0, 0)
+                ? DateService.minutesUntilNextDay(timeString: time, from: referenceDate)
+                : max(DateService.minutesUntil(timeString: time, from: referenceDate) ?? 0, 0)
             let status = statusDescriptor(
                 for: minutesUntilDeparture,
                 isNextDay: isNextDay,
@@ -548,7 +521,7 @@ final class MainViewModel: ObservableObject {
                 isLastToday: !isNextDay && time == actualLastTodayTime,
                 isNightBus: !isNextDay && isNightFare(for: time)
             )
-            let totalMinutes = durationMinutes + (status.kind == .delayed ? 5 : 0)
+            let totalMinutes = effectiveDurationMinutes + (status.kind == .delayed ? 5 : 0)
 
             return UpcomingBusSnapshot(
                 id: "\(time)_\(isNextDay)",
@@ -612,8 +585,6 @@ final class MainViewModel: ObservableObject {
 
     /// 앱 시작 시 데이터 로드
     func onAppear() async {
-        startTimer()
-
         let timetableService = TimetableService()
         let networkService = NetworkService()
 
