@@ -162,10 +162,8 @@ enum DateService {
 
         let targetTotalMinutes = targetHour * 60 + targetMinute
         let currentTotalMinutes = currentHour * 60 + currentMinute
-
-        // 다음 날 첫차까지 남은 시간 = (24시간 - 현재시간) + 첫차시간
-        let minutesUntilMidnight = 24 * 60 - currentTotalMinutes
-        return minutesUntilMidnight + targetTotalMinutes
+        let remainingMinutes = targetTotalMinutes - currentTotalMinutes
+        return remainingMinutes >= 0 ? remainingMinutes : (24 * 60) + remainingMinutes
     }
 
     // MARK: - Private Helpers
