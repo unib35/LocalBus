@@ -52,11 +52,14 @@ struct MainView: View {
     private var mainContent: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
-                DashboardHeaderView(
-                    locationText: viewModel.dashboardLocationText,
-                    isNotificationEnabled: isNextBusNotificationEnabled,
-                    onNotificationTap: handleNotificationTap
-                )
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let snapshot = viewModel.makeTimingSnapshot(at: context.date)
+                    DashboardHeaderView(
+                        locationText: viewModel.dashboardLocationText,
+                        isNotificationEnabled: isNextBusNotificationEnabled(for: snapshot),
+                        onNotificationTap: { handleNotificationTap(for: snapshot.nextBusTime) }
+                    )
+                }
 
                 if viewModel.hasRoutes {
                     DirectionSelector(
@@ -66,17 +69,23 @@ struct MainView: View {
                                 viewModel.changeDirection(to: direction)
                             }
                         }
-                    )
+                        )
                 }
 
-                heroSection
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let snapshot = viewModel.makeTimingSnapshot(at: context.date)
 
-                UpcomingBusesSectionView(
-                    title: "예정된 버스",
-                    badgeText: viewModel.scheduleBadgeText,
-                    buses: viewModel.upcomingBuses,
-                    destinationName: viewModel.currentArrivalHubName
-                )
+                    VStack(alignment: .leading, spacing: 24) {
+                        heroSection(using: snapshot)
+
+                        UpcomingBusesSectionView(
+                            title: "예정된 버스",
+                            badgeText: viewModel.scheduleBadgeText,
+                            buses: snapshot.upcomingBuses,
+                            destinationName: viewModel.currentArrivalHubName
+                        )
+                    }
+                }
 
                 if viewModel.isOffline {
                     DashboardNoticeCard(
@@ -104,23 +113,23 @@ struct MainView: View {
     }
 
     @ViewBuilder
-    private var heroSection: some View {
+    private func heroSection(using snapshot: BusTimingSnapshot) -> some View {
         if viewModel.isLoading {
             DashboardLoadingCard()
-        } else if viewModel.isServiceEnded {
+        } else if snapshot.isServiceEnded {
             DashboardServiceEndedCard(
-                firstBusTime: viewModel.firstBusTime,
-                remainingText: firstBusRemainingText
+                firstBusTime: snapshot.firstBusTime,
+                remainingText: firstBusRemainingText(for: snapshot)
             )
-        } else if let nextBusTime = viewModel.nextBusTime {
+        } else if let nextBusTime = snapshot.nextBusTime {
             NextBusHeroCard(
-                minuteText: viewModel.nextBusMinuteDisplay,
-                unitText: viewModel.nextBusUnitDisplay,
-                descriptionText: viewModel.nextBusCountdownDescription,
-                progress: viewModel.nextBusProgress,
+                minuteText: snapshot.nextBusMinuteDisplay,
+                unitText: snapshot.nextBusUnitDisplay,
+                descriptionText: snapshot.nextBusCountdownDescription,
+                progress: snapshot.nextBusProgress,
                 departureTime: nextBusTime,
-                arrivalTime: viewModel.nextBusArrivalTime,
-                nextBusTime: viewModel.followingBusTime
+                arrivalTime: snapshot.nextBusArrivalTime,
+                nextBusTime: snapshot.followingBusTime
             )
         } else {
             DashboardNoticeCard(
@@ -170,20 +179,20 @@ struct MainView: View {
 
     // MARK: - 헬퍼
 
-    private var firstBusRemainingText: String {
-        if viewModel.hoursUntilFirstBus > 0 {
-            return "\(viewModel.hoursUntilFirstBus)시간 \(viewModel.minutesUntilFirstBus)분 후 첫차"
+    private func firstBusRemainingText(for snapshot: BusTimingSnapshot) -> String {
+        if snapshot.hoursUntilFirstBus > 0 {
+            return "\(snapshot.hoursUntilFirstBus)시간 \(snapshot.minutesUntilFirstBus)분 후 첫차"
         }
-        return "\(viewModel.minutesUntilFirstBus)분 후 첫차"
+        return "\(snapshot.minutesUntilFirstBus)분 후 첫차"
     }
 
-    private var isNextBusNotificationEnabled: Bool {
-        guard let nextBusTime = viewModel.nextBusTime else { return false }
+    private func isNextBusNotificationEnabled(for snapshot: BusTimingSnapshot) -> Bool {
+        guard let nextBusTime = snapshot.nextBusTime else { return false }
         return viewModel.isNotificationScheduled(for: nextBusTime)
     }
 
-    private func handleNotificationTap() {
-        guard let nextBusTime = viewModel.nextBusTime else { return }
+    private func handleNotificationTap(for nextBusTime: String?) {
+        guard let nextBusTime else { return }
         Task {
             await viewModel.toggleNotification(for: nextBusTime)
         }

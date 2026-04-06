@@ -5,8 +5,8 @@ import SwiftUI
 struct TimetableScreenView: View {
     @ObservedObject var viewModel: MainViewModel
 
-    private var nextBusIndex: Int? {
-        guard let nextTime = viewModel.nextBusTime else { return nil }
+    private func nextBusIndex(at referenceDate: Date) -> Int? {
+        guard let nextTime = viewModel.nextBusTime(at: referenceDate) else { return nil }
         return viewModel.currentTimes.firstIndex(of: nextTime)
     }
 
@@ -20,48 +20,50 @@ struct TimetableScreenView: View {
                 columnHeader
 
                 ScrollViewReader { proxy in
-                    ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(viewModel.currentTimes.enumerated()), id: \.element) { index, time in
-                                TimetableRow(
-                                    time: time,
-                                    destinationName: viewModel.currentArrivalHubName,
-                                    isNextBus: time == viewModel.nextBusTime,
-                                    isPast: nextBusIndex.map { index < $0 } ?? false,
-                                    isNightFare: viewModel.isNightFare(for: time),
-                                    isVia: viewModel.isViaBus(for: time),
-                                    isNotificationEnabled: viewModel.isNotificationScheduled(for: time),
-                                    onNotificationTap: {
-                                        Task { await viewModel.toggleNotification(for: time) }
-                                    }
-                                )
-                                .id(time)
-                            }
-                        }
-                    }
-                    .onAppear {
-                        if let nextTime = viewModel.nextBusTime {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                withAnimation(.easeInOut(duration: 0.4)) {
-                                    proxy.scrollTo(nextTime, anchor: .center)
+                    TimelineView(.periodic(from: .now, by: 5)) { context in
+                        let nextBusTime = viewModel.nextBusTime(at: context.date)
+                        let nextBusIndex = nextBusIndex(at: context.date)
+
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 0) {
+                                ForEach(Array(viewModel.currentTimes.enumerated()), id: \.element) { index, time in
+                                    TimetableRow(
+                                        time: time,
+                                        destinationName: viewModel.currentArrivalHubName,
+                                        isNextBus: time == nextBusTime,
+                                        isPast: nextBusIndex.map { index < $0 } ?? false,
+                                        isNightFare: viewModel.isNightFare(for: time),
+                                        isVia: viewModel.isViaBus(for: time),
+                                        isNotificationEnabled: viewModel.isNotificationScheduled(for: time),
+                                        onNotificationTap: {
+                                            Task { await viewModel.toggleNotification(for: time) }
+                                        }
+                                    )
+                                    .id(time)
                                 }
                             }
                         }
-                    }
-                    .onChange(of: viewModel.nextBusTime) { newValue in
-                        if let time = newValue {
-                            withAnimation(.easeInOut(duration: 0.4)) {
-                                proxy.scrollTo(time, anchor: .center)
-                            }
+                        .onAppear {
+                            scrollToCurrentBus(using: nextBusTime, proxy: proxy, delay: 0.1, duration: 0.4)
                         }
-                    }
-                    .onChange(of: viewModel.selectedScheduleType) { _ in
-                        if let nextTime = viewModel.nextBusTime {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    proxy.scrollTo(nextTime, anchor: .center)
-                                }
-                            }
+                        .onChange(of: nextBusTime) { newValue in
+                            scrollToCurrentBus(using: newValue, proxy: proxy, duration: 0.4)
+                        }
+                        .onChange(of: viewModel.selectedScheduleType) { _ in
+                            scrollToCurrentBus(
+                                using: viewModel.nextBusTime(at: Date()),
+                                proxy: proxy,
+                                delay: 0.05,
+                                duration: 0.3
+                            )
+                        }
+                        .onChange(of: viewModel.selectedDirection) { _ in
+                            scrollToCurrentBus(
+                                using: viewModel.nextBusTime(at: Date()),
+                                proxy: proxy,
+                                delay: 0.05,
+                                duration: 0.3
+                            )
                         }
                     }
                 }
@@ -154,6 +156,27 @@ struct TimetableScreenView: View {
             Rectangle()
                 .fill(HomeDashboardTheme.timetablePickerBorder)
                 .frame(height: 1)
+        }
+    }
+
+    private func scrollToCurrentBus(
+        using nextBusTime: String?,
+        proxy: ScrollViewProxy,
+        delay: Double = 0,
+        duration: Double
+    ) {
+        guard let nextBusTime else { return }
+
+        let scrollAction = {
+            withAnimation(.easeInOut(duration: duration)) {
+                proxy.scrollTo(nextBusTime, anchor: .center)
+            }
+        }
+
+        if delay > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: scrollAction)
+        } else {
+            scrollAction()
         }
     }
 }
