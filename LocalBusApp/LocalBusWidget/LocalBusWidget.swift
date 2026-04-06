@@ -11,6 +11,19 @@ import SwiftUI
 struct WidgetDataHelper {
     static let defaultRouteKey = "jangyu_to_sasang"
     static let defaultDirection = "장유 → 사상"
+    static let koreaTimeZone = TimeZone(identifier: "Asia/Seoul")!
+    static let koreaDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = koreaTimeZone
+        return formatter
+    }()
+
+    static var koreaCalendar: Calendar {
+        var calendar = Calendar.current
+        calendar.timeZone = koreaTimeZone
+        return calendar
+    }
 
     static func createEntry(for date: Date, routeKey: String = defaultRouteKey, direction: String = defaultDirection) -> BusEntry {
         let times = loadTimetable(for: date, routeKey: routeKey)
@@ -77,15 +90,12 @@ struct WidgetDataHelper {
     }
 
     static func isWeekdayDate(_ date: Date) -> Bool {
-        let weekday = Calendar.current.component(.weekday, from: date)
+        let weekday = koreaCalendar.component(.weekday, from: date)
         return weekday >= 2 && weekday <= 6
     }
 
     static func isHoliday(_ date: Date, holidays: [String]) -> Bool {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
-        let dateString = formatter.string(from: date)
+        let dateString = koreaDateFormatter.string(from: date)
         return holidays.contains(dateString)
     }
 
@@ -219,6 +229,12 @@ private enum WidgetTheme {
     }
 }
 
+private extension View {
+    func widgetCanvas(alignment: Alignment = .center) -> some View {
+        frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+    }
+}
+
 // MARK: - Widget Entry View
 
 struct LocalBusWidgetEntryView: View {
@@ -283,6 +299,7 @@ struct SmallWidgetView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
         }
+        .widgetCanvas()
     }
 
     private var serviceEndedContent: some View {
@@ -378,6 +395,7 @@ struct MediumWidgetView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
         }
+        .widgetCanvas()
     }
 
     private var leftPanel: some View {
@@ -535,6 +553,7 @@ struct LargeWidgetView: View {
             // 이후 버스 목록
             upcomingList
         }
+        .widgetCanvas()
     }
 
     private var largeServiceEnded: some View {
@@ -672,6 +691,7 @@ struct LocalBusWidget: Widget {
         .configurationDisplayName("다음 버스 (고정)")
         .description("장유-사상 시외버스 다음 출발 시간을 확인하세요")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .contentMarginsDisabled()
     }
 }
 

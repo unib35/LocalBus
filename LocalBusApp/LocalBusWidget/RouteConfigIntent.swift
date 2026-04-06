@@ -109,5 +109,6 @@ struct LocalBusConfigurableWidget: Widget {
         .configurationDisplayName("다음 버스")
         .description("장유·율하 시외버스 다음 출발 시간을 확인하세요")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .contentMarginsDisabled()
     }
 }
