@@ -523,6 +523,46 @@ struct UpcomingBusCardView: View {
     }
 }
 
+struct FirstLastBusSectionView: View {
+    let firstBusTime: String
+    let lastBusTime: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            chip(icon: "sunrise.fill", label: "첫차", time: firstBusTime)
+            chip(icon: "sunset.fill", label: "막차", time: lastBusTime)
+        }
+    }
+
+    private func chip(icon: String, label: String, time: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(HomeDashboardTheme.tertiaryText)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(HomeDashboardTheme.tertiaryText)
+                Text(time)
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(HomeDashboardTheme.cardBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(HomeDashboardTheme.border, lineWidth: 1)
+        )
+    }
+}
+
 struct DashboardNoticeCard: View {
     let title: String
     let message: String
