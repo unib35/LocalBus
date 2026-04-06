@@ -32,6 +32,7 @@ struct StopsScreenView: View {
     private var nightFare: Int? { viewModel.getNightFare(for: stopsDirection) }
     private var nightFareStartTime: String? { viewModel.getNightFareStartTime(for: stopsDirection) }
     private var selectedStopID: String? { selectedStop?.id }
+    private var defaultStop: BusStop? { stops.first(where: \.isDeparture) ?? stops.first }
 
     private var selectedCoordinate: CLLocationCoordinate2D? {
         selectedStop.flatMap { coordinate(for: $0) }
@@ -73,8 +74,22 @@ struct StopsScreenView: View {
     private func handleStopSelection(_ stop: BusStop) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         withAnimation(.easeInOut(duration: 0.3)) {
-            selectedStop = selectedStop?.id == stop.id ? nil : stop
+            selectedStop = stop
         }
+    }
+
+    private func selectDefaultStopIfNeeded(force: Bool = false) {
+        guard let defaultStop else {
+            selectedStop = nil
+            return
+        }
+
+        let currentSelectionIsValid = selectedStop.map { selected in
+            stops.contains(where: { $0.id == selected.id })
+        } ?? false
+
+        guard force || !currentSelectionIsValid else { return }
+        selectedStop = defaultStop
     }
 
     // MARK: - Body
@@ -98,7 +113,7 @@ struct StopsScreenView: View {
                     onPinTap: { stopID in
                         guard let stop = stops.first(where: { $0.id == stopID }) else { return }
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            selectedStop = selectedStop?.id == stop.id ? nil : stop
+                            selectedStop = stop
                             if sheetOffset > 0 { sheetOffset = 0 }
                         }
                     },
@@ -162,11 +177,15 @@ struct StopsScreenView: View {
             }
         }
         .ignoresSafeArea(edges: .top)
+        .onAppear {
+            selectDefaultStopIfNeeded()
+        }
         .onChange(of: viewModel.selectedDirection) { _ in
-            selectedStop = nil
+            selectDefaultStopIfNeeded(force: true)
         }
         .onChange(of: presentationToken) { _ in
             presentSheet()
+            selectDefaultStopIfNeeded()
         }
     }
 
@@ -184,7 +203,7 @@ struct StopsScreenView: View {
         .frame(minHeight: 44)
         .contentShape(Rectangle())
         .accessibilityLabel("시트 핸들")
-        .accessibilityHint("위아래로 드래그해서 시트 크기를 조절합니다")
+        .accessibilityHint("위아래로 드래그해서 시트를 표시하거나 숨깁니다")
         .accessibilityAddTraits(.isButton)
         .gesture(
             DragGesture()
@@ -222,7 +241,6 @@ struct StopsScreenView: View {
         return VStack(spacing: 20) {
             DirectionSelector(selectedDirection: stopsDirection) { newDirection in
                 viewModel.changeDirection(to: newDirection)
-                selectedStop = nil
             }
             .padding(.horizontal, 24)
 
