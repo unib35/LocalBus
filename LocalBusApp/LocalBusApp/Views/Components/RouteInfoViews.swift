@@ -7,25 +7,14 @@ import CoreLocation
 
 // 좌표 없는 노선의 임시 폴백 (율하 노선 등)
 private let fallbackCoordinates: [String: CLLocationCoordinate2D] = [
-    "사상터미널":   CLLocationCoordinate2D(latitude: 35.163329, longitude: 128.981845),
-    "김해외고":     CLLocationCoordinate2D(latitude: 35.2257,   longitude: 128.8928),
-    "율하2지구입구": CLLocationCoordinate2D(latitude: 35.2207,  longitude: 128.8994),
+    "sasang_terminal": CLLocationCoordinate2D(latitude: 35.163329, longitude: 128.981845),
+    "gimhae_foreign":  CLLocationCoordinate2D(latitude: 35.2257, longitude: 128.8928),
+    "yulha_central":   CLLocationCoordinate2D(latitude: 35.2207, longitude: 128.8994),
 ]
-
-// MARK: - MapKit UIColor 상수
-
-private enum MapTheme {
-    static let primaryBlue    = UIColor(red: 59/255,  green: 130/255, blue: 246/255, alpha: 1)
-    static let departureGreen = UIColor(red: 74/255,  green: 222/255, blue: 128/255, alpha: 1)
-    static let stopBg         = UIColor(red: 51/255,  green: 65/255,  blue: 85/255,  alpha: 1)
-    static let labelBg        = UIColor(red: 30/255,  green: 41/255,  blue: 59/255,  alpha: 0.9)
-    static let selectedLabelBg = UIColor(red: 30/255, green: 50/255,  blue: 100/255, alpha: 0.95)
-}
 
 struct StopsScreenView: View {
     @ObservedObject var viewModel: MainViewModel
 
-    @State private var stopsDirection: RouteDirection = .jangyuToSasang
     @State private var selectedStop: BusStop? = nil
     @State private var centerOnUser = false
     @State private var userLocation: CLLocation? = nil
@@ -35,11 +24,13 @@ struct StopsScreenView: View {
     @State private var sheetOffset: CGFloat = 0
     @Environment(\.colorScheme) private var colorScheme
 
-    private var stops: [BusStop]            { viewModel.getStops(for: stopsDirection) }
-    private var adultFare: Int              { viewModel.getFare(for: stopsDirection) }
-    private var platform: String?           { viewModel.getPlatformNumber(for: stopsDirection) }
-    private var nightFare: Int?             { viewModel.getNightFare(for: stopsDirection) }
+    private var stopsDirection: RouteDirection { viewModel.selectedDirection }
+    private var stops: [BusStop] { viewModel.getStops(for: stopsDirection) }
+    private var adultFare: Int { viewModel.getFare(for: stopsDirection) }
+    private var platform: String? { viewModel.getPlatformNumber(for: stopsDirection) }
+    private var nightFare: Int? { viewModel.getNightFare(for: stopsDirection) }
     private var nightFareStartTime: String? { viewModel.getNightFareStartTime(for: stopsDirection) }
+    private var selectedStopID: String? { selectedStop?.id }
 
     private var selectedCoordinate: CLLocationCoordinate2D? {
         selectedStop.flatMap { coordinate(for: $0) }
@@ -56,22 +47,20 @@ struct StopsScreenView: View {
         if let lat = stop.latitude, let lng = stop.longitude {
             return CLLocationCoordinate2D(latitude: lat, longitude: lng)
         }
-        return fallbackCoordinates[stop.name]
+        return fallbackCoordinates[stop.id]
     }
 
-    private var mapPins: [StopPin] {
+    private var mapPins: [RouteMapPin] {
         let currentStops = stops
         let count = currentStops.count
-        let selectedID = selectedStop?.id
         return currentStops.enumerated().compactMap { index, stop in
             guard let coord = coordinate(for: stop) else { return nil }
-            return StopPin(
+            return RouteMapPin(
                 coordinate: coord,
                 stopID: stop.id,
                 stopName: stop.name,
                 isDeparture: stop.isDeparture,
-                isDestination: index == count - 1,
-                isSelected: stop.id == selectedID
+                isDestination: index == count - 1
             )
         }
     }
@@ -101,6 +90,7 @@ struct StopsScreenView: View {
                 // 지도 — 전체 화면. 시트가 위에 오버레이되며, 시트가 내려가면 지도가 드러남
                 RouteMapView(
                     pins: mapPins,
+                    selectedStopID: selectedStopID,
                     selectedCoordinate: selectedCoordinate,
                     centerOnUser: $centerOnUser,
                     colorScheme: colorScheme,
@@ -172,8 +162,8 @@ struct StopsScreenView: View {
             }
         }
         .ignoresSafeArea(edges: .top)
-        .onAppear {
-            stopsDirection = viewModel.selectedDirection
+        .onChange(of: viewModel.selectedDirection) { _ in
+            selectedStop = nil
         }
     }
 
@@ -225,7 +215,7 @@ struct StopsScreenView: View {
         let adult = adultFare
         return VStack(spacing: 20) {
             DirectionSelector(selectedDirection: stopsDirection) { newDirection in
-                stopsDirection = newDirection
+                viewModel.changeDirection(to: newDirection)
                 selectedStop = nil
             }
             .padding(.horizontal, 24)
@@ -687,283 +677,6 @@ private struct TopRoundedShape: Shape {
         p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
         p.closeSubpath()
         return p
-    }
-}
-
-// MARK: - MapKit UIViewRepresentable
-
-private struct RouteMapView: UIViewRepresentable {
-    let pins: [StopPin]
-    let selectedCoordinate: CLLocationCoordinate2D?
-    @Binding var centerOnUser: Bool
-    let colorScheme: ColorScheme
-    let sheetTopY: CGFloat           // 시트 상단 Y (시트 위 visible 영역 높이)
-    var onPinTap: (String) -> Void   // stop ID 전달
-    var onLocationUpdate: ((CLLocation) -> Void)?
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    func makeUIView(context: Context) -> MKMapView {
-        let mv = MKMapView()
-        mv.delegate = context.coordinator
-        mv.showsCompass = false
-        mv.showsScale = false
-        mv.showsUserLocation = true
-        mv.pointOfInterestFilter = .excludingAll
-
-        context.coordinator.startTrackingIfAuthorized()
-        refresh(mv)
-        return mv
-    }
-
-    func updateUIView(_ uiView: MKMapView, context: Context) {
-        context.coordinator.onPinTap = onPinTap
-        context.coordinator.onLocationUpdate = onLocationUpdate
-
-        uiView.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
-
-        if centerOnUser {
-            context.coordinator.requestLocationAndTrack()
-            uiView.setUserTrackingMode(.follow, animated: true)
-            DispatchQueue.main.async { centerOnUser = false }
-        }
-
-        if let coord = selectedCoordinate {
-            let last = context.coordinator.lastCenteredCoordinate
-            let isSame = last.map {
-                abs($0.latitude - coord.latitude) < 0.000001 &&
-                abs($0.longitude - coord.longitude) < 0.000001
-            } ?? false
-            if !isSame {
-                context.coordinator.lastCenteredCoordinate = coord
-                let span = MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
-                let mapHeight = uiView.frame.height
-                var center = coord
-                if mapHeight > 0 && sheetTopY > 0 {
-                    let visibleCenterY = sheetTopY / 2
-                    let pixelOffset = mapHeight / 2 - visibleCenterY
-                    let latOffset = pixelOffset * span.latitudeDelta / mapHeight
-                    center = CLLocationCoordinate2D(
-                        latitude: coord.latitude - latOffset,
-                        longitude: coord.longitude
-                    )
-                }
-                uiView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
-            }
-        } else {
-            context.coordinator.lastCenteredCoordinate = nil
-        }
-
-        let existing = uiView.annotations.compactMap { $0 as? StopPin }
-        let pinsChanged = existing.count != pins.count ||
-            !zip(existing, pins).allSatisfy {
-                $0.stopName == $1.stopName &&
-                $0.coordinate.latitude == $1.coordinate.latitude &&
-                $0.coordinate.longitude == $1.coordinate.longitude &&
-                $0.isSelected == $1.isSelected
-            }
-
-        if pinsChanged {
-            let customAnnotations = uiView.annotations.filter { !($0 is MKUserLocation) }
-            uiView.removeAnnotations(customAnnotations)
-            uiView.removeOverlays(uiView.overlays)
-            refresh(uiView)
-        }
-    }
-
-    private func refresh(_ mv: MKMapView) {
-        guard !pins.isEmpty else { return }
-
-        let coords = pins.map(\.coordinate)
-        mv.addOverlay(MKPolyline(coordinates: coords, count: coords.count))
-        mv.addAnnotations(pins)
-
-        if selectedCoordinate == nil {
-            let lats = coords.map(\.latitude)
-            let lngs = coords.map(\.longitude)
-            guard let minLat = lats.min(), let maxLat = lats.max(),
-                  let minLng = lngs.min(), let maxLng = lngs.max() else { return }
-            let center = CLLocationCoordinate2D(
-                latitude:  (minLat + maxLat) / 2,
-                longitude: (minLng + maxLng) / 2
-            )
-            let span = MKCoordinateSpan(
-                latitudeDelta:  (maxLat - minLat) * 1.4,
-                longitudeDelta: (maxLng - minLng) * 1.4
-            )
-            mv.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
-        }
-    }
-
-    // MARK: Coordinator
-
-    class Coordinator: NSObject, MKMapViewDelegate, CLLocationManagerDelegate {
-        private let locationManager = CLLocationManager()
-        var onPinTap: ((String) -> Void)?
-        var onLocationUpdate: ((CLLocation) -> Void)?
-        var lastCenteredCoordinate: CLLocationCoordinate2D?
-
-        /// 앱 시작 시: 이미 권한이 있는 경우에만 추적 시작 (권한 요청 없음)
-        func startTrackingIfAuthorized() {
-            locationManager.delegate = self
-            let status = locationManager.authorizationStatus
-            if status == .authorizedWhenInUse || status == .authorizedAlways {
-                locationManager.startUpdatingLocation()
-            }
-        }
-
-        /// 사용자가 현재 위치 버튼을 탭했을 때: 권한 요청 후 추적 시작
-        func requestLocationAndTrack() {
-            locationManager.delegate = self
-            switch locationManager.authorizationStatus {
-            case .notDetermined:
-                locationManager.requestWhenInUseAuthorization()
-            case .authorizedWhenInUse, .authorizedAlways:
-                locationManager.startUpdatingLocation()
-            default:
-                break
-            }
-        }
-
-        func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-            if manager.authorizationStatus == .authorizedWhenInUse ||
-               manager.authorizationStatus == .authorizedAlways {
-                manager.startUpdatingLocation()
-            }
-        }
-
-        func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-            guard let loc = locations.last else { return }
-            DispatchQueue.main.async { self.onLocationUpdate?(loc) }
-        }
-
-        func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
-            guard let pin = view.annotation as? StopPin else { return }
-            // MapKit 기본 선택 상태 즉시 해제 (UI는 SwiftUI가 관리)
-            mapView.deselectAnnotation(view.annotation, animated: false)
-            onPinTap?(pin.stopID)
-        }
-
-        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            guard let pl = overlay as? MKPolyline else { return MKOverlayRenderer(overlay: overlay) }
-            let r = MKPolylineRenderer(polyline: pl)
-            r.strokeColor = MapTheme.primaryBlue.withAlphaComponent(0.7)
-            r.lineWidth = 2.5
-            return r
-        }
-
-        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            guard let pin = annotation as? StopPin else { return nil }
-            let reuseID = "StopPin"
-            let v = mapView.dequeueReusableAnnotationView(withIdentifier: reuseID)
-                ?? MKAnnotationView(annotation: annotation, reuseIdentifier: reuseID)
-            v.annotation = annotation
-            v.canShowCallout = false
-            v.subviews.forEach { $0.removeFromSuperview() }
-            v.isAccessibilityElement = true
-            v.accessibilityLabel = pin.stopName
-            v.accessibilityHint = pin.isDeparture ? "출발 정류장" : (pin.isDestination ? "종점 정류장" : "중간 정류장, 탭하면 상세 정보를 볼 수 있습니다")
-
-            if pin.isDeparture {
-                let size: CGFloat = pin.isSelected ? 28 : 20
-                let circle = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
-                circle.backgroundColor = MapTheme.departureGreen
-                circle.layer.cornerRadius = size / 2
-                circle.layer.borderColor = UIColor.white.cgColor
-                circle.layer.borderWidth = pin.isSelected ? 2.5 : 2
-                if pin.isSelected {
-                    circle.layer.shadowColor = MapTheme.departureGreen.withAlphaComponent(0.8).cgColor
-                    circle.layer.shadowRadius = 10
-                    circle.layer.shadowOpacity = 1
-                    circle.layer.shadowOffset = .zero
-                }
-                v.addSubview(circle)
-                v.frame = CGRect(x: 0, y: 0, width: size, height: size)
-            } else if pin.isDestination {
-                let size: CGFloat = pin.isSelected ? 36 : 32
-                let outer = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
-                outer.backgroundColor = MapTheme.primaryBlue
-                outer.layer.cornerRadius = size / 2
-                outer.layer.borderColor = UIColor.white.cgColor
-                outer.layer.borderWidth = pin.isSelected ? 2.5 : 2
-                outer.layer.shadowColor = MapTheme.primaryBlue.withAlphaComponent(pin.isSelected ? 0.8 : 0.5).cgColor
-                outer.layer.shadowRadius = pin.isSelected ? 10 : 8
-                outer.layer.shadowOpacity = 1
-                outer.layer.shadowOffset = .zero
-                let dotSize: CGFloat = size / 3
-                let dot = UIView(frame: CGRect(x: (size - dotSize) / 2, y: (size - dotSize) / 2, width: dotSize, height: dotSize))
-                dot.backgroundColor = .white
-                dot.layer.cornerRadius = dotSize / 2
-                outer.addSubview(dot)
-                v.addSubview(outer)
-                v.frame = CGRect(x: 0, y: 0, width: size, height: size)
-            } else if pin.isSelected {
-                let size: CGFloat = 28
-                let outer = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
-                outer.backgroundColor = MapTheme.primaryBlue
-                outer.layer.cornerRadius = size / 2
-                outer.layer.borderColor = UIColor.white.cgColor
-                outer.layer.borderWidth = 2.5
-                outer.layer.shadowColor = MapTheme.primaryBlue.withAlphaComponent(0.8).cgColor
-                outer.layer.shadowRadius = 10
-                outer.layer.shadowOpacity = 1
-                outer.layer.shadowOffset = .zero
-                v.addSubview(outer)
-                v.frame = CGRect(x: 0, y: 0, width: size, height: size)
-            } else {
-                let size: CGFloat = 16
-                let circle = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
-                circle.backgroundColor = MapTheme.stopBg
-                circle.layer.cornerRadius = size / 2
-                circle.layer.borderColor = UIColor.white.cgColor
-                circle.layer.borderWidth = 2
-                v.addSubview(circle)
-                v.frame = CGRect(x: 0, y: 0, width: size, height: size)
-            }
-
-            let label = UILabel()
-            label.text = pin.stopName
-            label.textColor = .white
-            label.font = pin.isDestination || pin.isDeparture
-                ? UIFont.boldSystemFont(ofSize: 12)
-                : UIFont.systemFont(ofSize: 10, weight: .medium)
-            label.sizeToFit()
-            label.backgroundColor = pin.isSelected ? MapTheme.selectedLabelBg : MapTheme.labelBg
-            label.textAlignment = .center
-            label.layer.cornerRadius = 4
-            label.layer.masksToBounds = true
-            let lw = label.intrinsicContentSize.width + 16
-            let lh: CGFloat = 20
-            let pinSize = v.frame.width
-            let totalWidth = max(pinSize, lw)
-            label.frame = CGRect(x: (totalWidth - lw) / 2, y: pinSize + 6, width: lw, height: lh)
-            v.addSubview(label)
-            v.frame = CGRect(x: 0, y: 0, width: totalWidth, height: pinSize + 6 + lh)
-
-            return v
-        }
-    }
-}
-
-// MARK: - 지도 핀 모델
-
-private final class StopPin: NSObject, MKAnnotation {
-    let coordinate: CLLocationCoordinate2D
-    let stopID: String
-    let stopName: String
-    let isDeparture: Bool
-    let isDestination: Bool
-    let isSelected: Bool
-    var title: String? { stopName }
-
-    init(coordinate: CLLocationCoordinate2D, stopID: String, stopName: String,
-         isDeparture: Bool, isDestination: Bool, isSelected: Bool) {
-        self.coordinate = coordinate
-        self.stopID = stopID
-        self.stopName = stopName
-        self.isDeparture = isDeparture
-        self.isDestination = isDestination
-        self.isSelected = isSelected
     }
 }
 

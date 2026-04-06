@@ -79,6 +79,13 @@
 			);
 			target = 9B44DB0C2F1FAF4700F7AC27 /* LocalBusWidgetExtension */;
 		};
+		9BD1A00130A800000021EC15 /* Exceptions for "LocalBusApp" folder in "LocalBusApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9B86056C2F125AD00021EC15 /* LocalBusApp */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -98,6 +105,7 @@
 		9B86056F2F125AD00021EC15 /* LocalBusApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				9BD1A00130A800000021EC15 /* Exceptions for "LocalBusApp" folder in "LocalBusApp" target */,
 				9B44DB282F1FB0A300F7AC27 /* Exceptions for "LocalBusApp" folder in "LocalBusWidgetExtension" target */,
 			);
 			path = LocalBusApp;
@@ -644,6 +652,7 @@
 				DEVELOPMENT_TEAM = AMNS6W2AA9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LocalBusApp/Info.plist;
 				INFOPLIST_KEY_KakaoRestAPIKey = "$(KAKAO_REST_API_KEY)";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치를 지도에 표시하기 위해 위치 정보를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -674,6 +683,7 @@
 				DEVELOPMENT_TEAM = AMNS6W2AA9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LocalBusApp/Info.plist;
 				INFOPLIST_KEY_KakaoRestAPIKey = "$(KAKAO_REST_API_KEY)";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치를 지도에 표시하기 위해 위치 정보를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
