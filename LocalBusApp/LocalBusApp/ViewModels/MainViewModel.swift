@@ -322,6 +322,8 @@ final class MainViewModel: ObservableObject {
 
     /// 방향 변경
     func changeDirection(to direction: RouteDirection) {
+        guard selectedDirection != direction else { return }
+
         selectedDirection = direction
         if let data = timetableData {
             loadTimesForCurrentDirection(from: data)
