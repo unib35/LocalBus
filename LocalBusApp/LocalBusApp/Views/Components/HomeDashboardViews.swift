@@ -198,7 +198,7 @@ struct NextBusHeroCard: View {
             Text("다음 버스")
                 .font(HomeDashboardTypography.heroEyebrow)
                 .tracking(1.2)
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
+                .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.75))
                 .padding(.bottom, 14)
 
             if minuteText.isEmpty {
@@ -223,7 +223,7 @@ struct NextBusHeroCard: View {
 
                 Text(descriptionText)
                     .font(HomeDashboardTypography.heroDescription)
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
+                    .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.75))
                     .padding(.top, 6)
             }
 
@@ -302,7 +302,7 @@ struct NextBusHeroCard: View {
             Text(title)
                 .font(HomeDashboardTypography.heroMetaLabel)
                 .tracking(0.5)
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
+                .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.75))
 
             HStack(alignment: .lastTextBaseline, spacing: 2) {
                 Text(value)
@@ -313,7 +313,7 @@ struct NextBusHeroCard: View {
                 if let suffix {
                     Text(suffix)
                         .font(HomeDashboardTypography.heroMetaSuffix)
-                        .foregroundStyle(HomeDashboardTheme.secondaryText)
+                        .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.75))
                 }
             }
         }

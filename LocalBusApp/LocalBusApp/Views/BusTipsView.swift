@@ -153,7 +153,7 @@ struct BusTipsView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
 
                 Text(item.description)
                     .font(.system(size: 13))
