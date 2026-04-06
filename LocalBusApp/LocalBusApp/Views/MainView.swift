@@ -31,13 +31,28 @@ struct MainView: View {
     @StateObject private var viewModel = MainViewModel()
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
     @State private var selectedTab: MainTab = .home
+    @State private var stopsSheetPresentationToken = 0
 
     private var preferredColorScheme: ColorScheme? {
         AppColorScheme(rawValue: colorSchemeRaw)?.colorScheme
     }
 
+    private var selectedTabBinding: Binding<MainTab> {
+        Binding(
+            get: { selectedTab },
+            set: { newValue in
+                if selectedTab == newValue {
+                    handleTabReselection(newValue)
+                } else {
+                    selectedTab = newValue
+                    handleTabSelectionChange(to: newValue)
+                }
+            }
+        )
+    }
+
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: selectedTabBinding) {
             homeTab
                 .tabItem { Label("홈", systemImage: "house") }
                 .tag(MainTab.home)
@@ -206,7 +221,10 @@ struct MainView: View {
     // MARK: - 정류장 탭
 
     private var stopsTab: some View {
-        StopsScreenView(viewModel: viewModel)
+        StopsScreenView(
+            viewModel: viewModel,
+            presentationToken: stopsSheetPresentationToken
+        )
     }
 
     // MARK: - 헬퍼
@@ -237,6 +255,16 @@ struct MainView: View {
         withAnimation(.easeInOut(duration: 0.25)) {
             viewModel.changeDirection(to: direction)
         }
+    }
+
+    private func handleTabSelectionChange(to newValue: MainTab) {
+        guard newValue == .stops else { return }
+        stopsSheetPresentationToken += 1
+    }
+
+    private func handleTabReselection(_ tab: MainTab) {
+        guard tab == .stops else { return }
+        stopsSheetPresentationToken += 1
     }
 }
 

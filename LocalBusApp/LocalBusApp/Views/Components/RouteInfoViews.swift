@@ -14,6 +14,7 @@ private let fallbackCoordinates: [String: CLLocationCoordinate2D] = [
 
 struct StopsScreenView: View {
     @ObservedObject var viewModel: MainViewModel
+    let presentationToken: Int
 
     @State private var selectedStop: BusStop? = nil
     @State private var centerOnUser = false
@@ -80,7 +81,6 @@ struct StopsScreenView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let collapsedOffset = geo.size.height * 0.52
             let hiddenOffset = geo.size.height * 0.88
             let sheetY = min(hiddenOffset, max(0, sheetOffset + dragTranslation))
 
@@ -149,7 +149,7 @@ struct StopsScreenView: View {
 
                         VStack(spacing: 0) {
                             // 드래그 핸들 (제스처 영역)
-                            dragHandleArea(collapsedOffset: collapsedOffset, hiddenOffset: hiddenOffset)
+                            dragHandleArea(hiddenOffset: hiddenOffset)
 
                             ScrollView(showsIndicators: false) {
                                 sheetContent
@@ -165,11 +165,14 @@ struct StopsScreenView: View {
         .onChange(of: viewModel.selectedDirection) { _ in
             selectedStop = nil
         }
+        .onChange(of: presentationToken) { _ in
+            presentSheet()
+        }
     }
 
     // MARK: - 드래그 핸들
 
-    private func dragHandleArea(collapsedOffset: CGFloat, hiddenOffset: CGFloat) -> some View {
+    private func dragHandleArea(hiddenOffset: CGFloat) -> some View {
         VStack(spacing: 0) {
             Capsule()
                 .fill(HomeDashboardTheme.border)
@@ -193,19 +196,22 @@ struct StopsScreenView: View {
                     let projected = sheetOffset + value.predictedEndTranslation.height
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
                         if velocity > 800 {
-                            // 빠른 다운스와이프: 현재 위치에서 다음 단계로
-                            sheetOffset = sheetOffset < collapsedOffset / 2 ? collapsedOffset : hiddenOffset
+                            sheetOffset = hiddenOffset
                         } else if velocity < -800 {
-                            // 빠른 업스와이프: 현재 위치에서 이전 단계로
-                            sheetOffset = sheetOffset > collapsedOffset * 1.3 ? collapsedOffset : 0
+                            sheetOffset = 0
                         } else {
-                            // 위치 기반 스냅: 가장 가까운 단계
-                            let snapPoints: [CGFloat] = [0, collapsedOffset, hiddenOffset]
-                            sheetOffset = snapPoints.min(by: { abs($0 - projected) < abs($1 - projected) }) ?? collapsedOffset
+                            let snapPoints: [CGFloat] = [0, hiddenOffset]
+                            sheetOffset = snapPoints.min(by: { abs($0 - projected) < abs($1 - projected) }) ?? 0
                         }
                     }
                 }
         )
+    }
+
+    private func presentSheet() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            sheetOffset = 0
+        }
     }
 
     // MARK: - 시트 콘텐츠
