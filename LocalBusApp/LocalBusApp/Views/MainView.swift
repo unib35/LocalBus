@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 private enum MainTab: Hashable {
     case home
@@ -37,22 +38,8 @@ struct MainView: View {
         AppColorScheme(rawValue: colorSchemeRaw)?.colorScheme
     }
 
-    private var selectedTabBinding: Binding<MainTab> {
-        Binding(
-            get: { selectedTab },
-            set: { newValue in
-                if selectedTab == newValue {
-                    handleTabReselection(newValue)
-                } else {
-                    selectedTab = newValue
-                    handleTabSelectionChange(to: newValue)
-                }
-            }
-        )
-    }
-
     var body: some View {
-        TabView(selection: selectedTabBinding) {
+        TabView(selection: $selectedTab) {
             homeTab
                 .tabItem { Label("홈", systemImage: "house") }
                 .tag(MainTab.home)
@@ -71,9 +58,19 @@ struct MainView: View {
             .tabItem { Label("설정", systemImage: "gearshape") }
             .tag(MainTab.settings)
         }
+        .background(
+            TabBarSelectionObserver { index, isReselection in
+                guard index == MainTab.stops.tabIndex, isReselection else { return }
+                stopsSheetPresentationToken += 1
+            }
+        )
         .preferredColorScheme(preferredColorScheme)
         .task {
             await viewModel.onAppear()
+        }
+        .onChange(of: selectedTab) { newValue in
+            guard newValue == .stops else { return }
+            stopsSheetPresentationToken += 1
         }
         .onOpenURL(perform: handleDeepLink)
     }
@@ -132,6 +129,13 @@ struct MainView: View {
                             destinationName: viewModel.currentArrivalHubName
                         )
                     }
+                }
+
+                if viewModel.hasRoutes {
+                    FirstLastBusSectionView(
+                        firstBusTime: viewModel.firstBusTime,
+                        lastBusTime: viewModel.lastBusTime
+                    )
                 }
 
                 if viewModel.isOffline {
@@ -256,18 +260,78 @@ struct MainView: View {
             viewModel.changeDirection(to: direction)
         }
     }
-
-    private func handleTabSelectionChange(to newValue: MainTab) {
-        guard newValue == .stops else { return }
-        stopsSheetPresentationToken += 1
-    }
-
-    private func handleTabReselection(_ tab: MainTab) {
-        guard tab == .stops else { return }
-        stopsSheetPresentationToken += 1
-    }
 }
 
 #Preview {
     MainView()
+}
+
+private extension MainTab {
+    var tabIndex: Int {
+        switch self {
+        case .home:
+            return 0
+        case .timetable:
+            return 1
+        case .stops:
+            return 2
+        case .settings:
+            return 3
+        }
+    }
+}
+
+private struct TabBarSelectionObserver: UIViewControllerRepresentable {
+    let onSelection: (Int, Bool) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onSelection: onSelection)
+    }
+
+    func makeUIViewController(context: Context) -> ObserverViewController {
+        let controller = ObserverViewController()
+        controller.coordinator = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: ObserverViewController, context: Context) {
+        context.coordinator.onSelection = onSelection
+        uiViewController.coordinator = context.coordinator
+        uiViewController.attachToTabBarControllerIfNeeded()
+    }
+
+    final class ObserverViewController: UIViewController {
+        weak var coordinator: Coordinator?
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            attachToTabBarControllerIfNeeded()
+        }
+
+        func attachToTabBarControllerIfNeeded() {
+            guard let tabBarController,
+                  tabBarController.delegate !== coordinator else {
+                return
+            }
+
+            coordinator?.selectedIndex = tabBarController.selectedIndex
+            tabBarController.delegate = coordinator
+        }
+    }
+
+    final class Coordinator: NSObject, UITabBarControllerDelegate {
+        var onSelection: (Int, Bool) -> Void
+        var selectedIndex: Int?
+
+        init(onSelection: @escaping (Int, Bool) -> Void) {
+            self.onSelection = onSelection
+        }
+
+        func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
+            let currentIndex = tabBarController.selectedIndex
+            let isReselection = selectedIndex == currentIndex
+            onSelection(currentIndex, isReselection)
+            selectedIndex = currentIndex
+        }
+    }
 }
