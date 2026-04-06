@@ -32,6 +32,7 @@ struct WidgetDataHelper {
         guard let nextIndex = findNextBusIndex(times: times, from: date) else {
             return BusEntry(
                 date: date,
+                routeKey: routeKey,
                 nextBusTime: nil,
                 remainingMinutes: 0,
                 direction: direction,
@@ -55,6 +56,7 @@ struct WidgetDataHelper {
 
         return BusEntry(
             date: date,
+            routeKey: routeKey,
             nextBusTime: nextBus,
             remainingMinutes: remaining,
             direction: direction,
@@ -144,6 +146,7 @@ struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> BusEntry {
         BusEntry(
             date: Date(),
+            routeKey: WidgetDataHelper.defaultRouteKey,
             nextBusTime: "07:00",
             remainingMinutes: 15,
             direction: WidgetDataHelper.defaultDirection,
@@ -177,6 +180,7 @@ struct Provider: TimelineProvider {
 
 struct BusEntry: TimelineEntry {
     let date: Date
+    let routeKey: String
     let nextBusTime: String?
     let remainingMinutes: Int
     let direction: String
@@ -229,9 +233,94 @@ private enum WidgetTheme {
     }
 }
 
+private enum WidgetDeepLink {
+    static let scheme = "localbus"
+    static let host = "route"
+    static let directionQueryItem = "direction"
+
+    static func url(for routeKey: String) -> URL? {
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = host
+        components.queryItems = [URLQueryItem(name: directionQueryItem, value: routeKey)]
+        return components.url
+    }
+}
+
 private extension View {
     func widgetCanvas(alignment: Alignment = .center) -> some View {
         frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+    }
+}
+
+struct WidgetContainerBackground: View {
+    @Environment(\.widgetFamily) private var family
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        switch family {
+        case .systemSmall:
+            smallBackground
+        case .systemMedium:
+            mediumBackground
+        case .systemLarge:
+            largeBackground
+        default:
+            smallBackground
+        }
+    }
+
+    private var heroGradient: LinearGradient {
+        colorScheme == .dark ? WidgetTheme.heroGradientDark : WidgetTheme.heroGradientLight
+    }
+
+    private var largeCardBackground: Color {
+        colorScheme == .dark
+            ? Color(red: 11/255, green: 15/255, blue: 24/255)
+            : .white
+    }
+
+    private var smallBackground: some View {
+        ZStack(alignment: .topTrailing) {
+            heroGradient
+
+            Circle()
+                .fill(Color.white.opacity(0.05))
+                .frame(width: 90, height: 90)
+                .offset(x: 30, y: -35)
+        }
+        .widgetCanvas()
+    }
+
+    private var mediumBackground: some View {
+        ZStack(alignment: .topTrailing) {
+            heroGradient
+
+            Circle()
+                .fill(Color.white.opacity(0.05))
+                .frame(width: 130, height: 130)
+                .offset(x: 44, y: -55)
+        }
+        .widgetCanvas()
+    }
+
+    private var largeBackground: some View {
+        VStack(spacing: 0) {
+            ZStack(alignment: .topTrailing) {
+                heroGradient
+
+                Circle()
+                    .fill(Color.white.opacity(0.05))
+                    .frame(width: 130, height: 130)
+                    .offset(x: 44, y: -50)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 148)
+
+            Rectangle()
+                .fill(largeCardBackground)
+        }
+        .widgetCanvas()
     }
 }
 
@@ -242,6 +331,12 @@ struct LocalBusWidgetEntryView: View {
     @Environment(\.widgetFamily) var family
 
     var body: some View {
+        currentFamilyView
+            .widgetURL(WidgetDeepLink.url(for: entry.routeKey))
+    }
+
+    @ViewBuilder
+    private var currentFamilyView: some View {
         switch family {
         case .systemSmall:
             SmallWidgetView(entry: entry)
@@ -259,47 +354,33 @@ struct LocalBusWidgetEntryView: View {
 
 struct SmallWidgetView: View {
     let entry: BusEntry
-    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            heroBackground
-
-            // 장식 원
-            Circle()
-                .fill(Color.white.opacity(0.05))
-                .frame(width: 90, height: 90)
-                .offset(x: 30, y: -35)
-
-            VStack(alignment: .leading, spacing: 0) {
-                // 헤더
-                HStack(spacing: 5) {
-                    Image(systemName: "bus.fill")
-                        .font(.system(size: 10, weight: .bold))
-                    Text("시외버스")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .foregroundStyle(Color.white.opacity(0.55))
-
-                Spacer()
-
-                if entry.isServiceEnded {
-                    serviceEndedContent
-                } else if let nextTime = entry.nextBusTime {
-                    activeContent(nextTime: nextTime)
-                }
-
-                Spacer()
-
-                // 방향 푸터
-                Text(entry.direction)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.38))
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 5) {
+                Image(systemName: "bus.fill")
+                    .font(.system(size: 10, weight: .bold))
+                Text("시외버스")
+                    .font(.system(size: 11, weight: .semibold))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
+            .foregroundStyle(Color.white.opacity(0.55))
+
+            Spacer()
+
+            if entry.isServiceEnded {
+                serviceEndedContent
+            } else if let nextTime = entry.nextBusTime {
+                activeContent(nextTime: nextTime)
+            }
+
+            Spacer()
+
+            Text(entry.direction)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.45))
         }
-        .widgetCanvas()
+        .padding(14)
+        .widgetCanvas(alignment: .topLeading)
     }
 
     private var serviceEndedContent: some View {
@@ -344,21 +425,11 @@ struct SmallWidgetView: View {
         let isLast = entry.isLastBus
         let color: Color = isLast ? .orange : .purple
         return Text(isLast ? "막차" : "심야")
-            .font(.system(size: 10, weight: .bold))
+            .font(.system(size: 11, weight: .bold))
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(Capsule().fill(color.opacity(0.22)))
-    }
-
-    private var heroBackground: some View {
-        Group {
-            if colorScheme == .dark {
-                WidgetTheme.heroGradientDark
-            } else {
-                WidgetTheme.heroGradientLight
-            }
-        }
     }
 }
 
@@ -366,35 +437,24 @@ struct SmallWidgetView: View {
 
 struct MediumWidgetView: View {
     let entry: BusEntry
-    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            heroBackground
+        HStack(spacing: 0) {
+            leftPanel
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            // 장식 원
-            Circle()
-                .fill(Color.white.opacity(0.05))
-                .frame(width: 130, height: 130)
-                .offset(x: 44, y: -55)
+            if !entry.isServiceEnded && !entry.upcomingBuses.isEmpty {
+                Rectangle()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 1)
+                    .padding(.vertical, 18)
 
-            HStack(spacing: 0) {
-                leftPanel
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                if !entry.isServiceEnded && !entry.upcomingBuses.isEmpty {
-                    Rectangle()
-                        .fill(Color.white.opacity(0.12))
-                        .frame(width: 1)
-                        .padding(.vertical, 18)
-
-                    rightPanel
-                        .frame(width: 108)
-                }
+                rightPanel
+                    .frame(width: 108)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .widgetCanvas()
     }
 
@@ -419,8 +479,8 @@ struct MediumWidgetView: View {
             Spacer()
 
             Text(entry.direction)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.38))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.45))
         }
     }
 
@@ -463,7 +523,7 @@ struct MediumWidgetView: View {
         let isLast = entry.isLastBus
         let color: Color = isLast ? .orange : .purple
         return Text(isLast ? "막차" : "심야")
-            .font(.system(size: 10, weight: .bold))
+            .font(.system(size: 11, weight: .bold))
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
@@ -496,16 +556,6 @@ struct MediumWidgetView: View {
         .padding(.leading, 14)
         .padding(.vertical, 14)
     }
-
-    private var heroBackground: some View {
-        Group {
-            if colorScheme == .dark {
-                WidgetTheme.heroGradientDark
-            } else {
-                WidgetTheme.heroGradientLight
-            }
-        }
-    }
 }
 
 // MARK: - Large Widget
@@ -516,41 +566,31 @@ struct LargeWidgetView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 상단 히어로 섹션
-            ZStack(alignment: .topTrailing) {
-                heroBackground
-
-                Circle()
-                    .fill(Color.white.opacity(0.05))
-                    .frame(width: 130, height: 130)
-                    .offset(x: 44, y: -50)
-
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "bus.fill")
-                                .font(.system(size: 11, weight: .bold))
-                            Text("다음 버스")
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .foregroundStyle(Color.white.opacity(0.55))
-                        .padding(.bottom, 10)
-
-                        if entry.isServiceEnded {
-                            largeServiceEnded
-                        } else if let nextTime = entry.nextBusTime {
-                            largeActive(nextTime: nextTime)
-                        }
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "bus.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("다음 버스")
+                            .font(.system(size: 12, weight: .semibold))
                     }
+                    .foregroundStyle(Color.white.opacity(0.55))
+                    .padding(.bottom, 10)
 
-                    Spacer()
+                    if entry.isServiceEnded {
+                        largeServiceEnded
+                    } else if let nextTime = entry.nextBusTime {
+                        largeActive(nextTime: nextTime)
+                    }
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 16)
-            }
-            .frame(height: 148)
 
-            // 이후 버스 목록
+                Spacer()
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 148, alignment: .bottomLeading)
+
             upcomingList
         }
         .widgetCanvas()
@@ -592,7 +632,7 @@ struct LargeWidgetView: View {
                     let isLast = entry.isLastBus
                     let color: Color = isLast ? .orange : .purple
                     Text(isLast ? "막차" : "심야")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(color)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -607,9 +647,6 @@ struct LargeWidgetView: View {
     }
 
     private var upcomingList: some View {
-        let cardBg = colorScheme == .dark
-            ? Color(red: 11/255, green: 15/255, blue: 24/255)
-            : Color.white
         let border = colorScheme == .dark
             ? Color(red: 31/255, green: 41/255, blue: 55/255)
             : Color(red: 191/255, green: 219/255, blue: 254/255)
@@ -664,17 +701,6 @@ struct LargeWidgetView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(cardBg)
-    }
-
-    private var heroBackground: some View {
-        Group {
-            if colorScheme == .dark {
-                WidgetTheme.heroGradientDark
-            } else {
-                WidgetTheme.heroGradientLight
-            }
-        }
     }
 }
 
@@ -686,7 +712,9 @@ struct LocalBusWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
             LocalBusWidgetEntryView(entry: entry)
-                .containerBackground(.clear, for: .widget)
+                .containerBackground(for: .widget) {
+                    WidgetContainerBackground()
+                }
         }
         .configurationDisplayName("다음 버스 (고정)")
         .description("장유-사상 시외버스 다음 출발 시간을 확인하세요")
@@ -700,14 +728,14 @@ struct LocalBusWidget: Widget {
 #Preview(as: .systemSmall) {
     LocalBusWidget()
 } timeline: {
-    BusEntry(date: .now, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
              isServiceEnded: false, firstBusTime: "06:00",
              upcomingBuses: [("07:40", 35), ("08:00", 55)],
              isLastBus: false, isNightBus: false)
-    BusEntry(date: .now, nextBusTime: "07:20", remainingMinutes: 2, direction: "장유 → 사상",
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 2, direction: "장유 → 사상",
              isServiceEnded: false, firstBusTime: "06:00",
              upcomingBuses: [], isLastBus: true, isNightBus: false)
-    BusEntry(date: .now, nextBusTime: nil, remainingMinutes: 0, direction: "장유 → 사상",
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: nil, remainingMinutes: 0, direction: "장유 → 사상",
              isServiceEnded: true, firstBusTime: "06:00",
              upcomingBuses: [], isLastBus: false, isNightBus: false)
 }
@@ -715,14 +743,14 @@ struct LocalBusWidget: Widget {
 #Preview(as: .systemMedium) {
     LocalBusWidget()
 } timeline: {
-    BusEntry(date: .now, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
              isServiceEnded: false, firstBusTime: "06:00",
              upcomingBuses: [("07:40", 35), ("08:00", 55), ("08:20", 75)],
              isLastBus: false, isNightBus: false)
-    BusEntry(date: .now, nextBusTime: "21:40", remainingMinutes: 8, direction: "장유 → 사상",
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "21:40", remainingMinutes: 8, direction: "장유 → 사상",
              isServiceEnded: false, firstBusTime: "06:00",
              upcomingBuses: [("22:00", 28)], isLastBus: false, isNightBus: true)
-    BusEntry(date: .now, nextBusTime: nil, remainingMinutes: 0, direction: "장유 → 사상",
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: nil, remainingMinutes: 0, direction: "장유 → 사상",
              isServiceEnded: true, firstBusTime: "06:00",
              upcomingBuses: [], isLastBus: false, isNightBus: false)
 }
@@ -730,7 +758,7 @@ struct LocalBusWidget: Widget {
 #Preview(as: .systemLarge) {
     LocalBusWidget()
 } timeline: {
-    BusEntry(date: .now, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
              isServiceEnded: false, firstBusTime: "06:00",
              upcomingBuses: [("07:40", 35), ("08:00", 55), ("08:20", 75), ("08:40", 95)],
              isLastBus: false, isNightBus: false)

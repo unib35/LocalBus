@@ -55,6 +55,7 @@ struct ConfigurableProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> BusEntry {
         BusEntry(
             date: Date(),
+            routeKey: WidgetRouteOption.jangyuToSasang.rawValue,
             nextBusTime: "07:00",
             remainingMinutes: 15,
             direction: "장유 → 사상",
@@ -104,7 +105,9 @@ struct LocalBusConfigurableWidget: Widget {
             provider: ConfigurableProvider()
         ) { entry in
             LocalBusWidgetEntryView(entry: entry)
-                .containerBackground(.clear, for: .widget)
+                .containerBackground(for: .widget) {
+                    WidgetContainerBackground()
+                }
         }
         .configurationDisplayName("다음 버스")
         .description("장유·율하 시외버스 다음 출발 시간을 확인하세요")
