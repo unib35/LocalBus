@@ -198,7 +198,7 @@ struct ReportView: View {
 
     private func sendReport() {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let email = "jm.jongminlee@mgmail.com"
+        let email = "jm.jongminlee@gmail.com"
         let subject = "[LocalBus] 시간표 변경 제보"
         let body: String
         if description.isEmpty {

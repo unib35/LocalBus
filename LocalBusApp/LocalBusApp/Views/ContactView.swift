@@ -35,6 +35,7 @@ struct ContactView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(nil, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
     }
 
@@ -52,7 +53,6 @@ struct ContactView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .colorMultiply(HomeDashboardTheme.secondaryText)
         }
     }
 
@@ -148,12 +148,11 @@ struct ContactView: View {
             } label: {
                 Text("보내기")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(.white)
+                    .background(HomeDashboardTheme.primaryBlue)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(color: .black.opacity(0.1), radius: 15, x: 0, y: 10)
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)
@@ -167,7 +166,7 @@ struct ContactView: View {
 
     private func sendContact() {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let email = "jm.jongminlee@mgmail.com"
+        let email = "jm.jongminlee@gmail.com"
         let subject = "[LocalBus] \(selectedType.rawValue)"
         let bodyContent = content.isEmpty ? "" : "\(content)\n\n"
         let body = "\(bodyContent)---\n앱 버전: \(appVersion)\n기기: \(UIDevice.current.model)\niOS: \(UIDevice.current.systemVersion)"
