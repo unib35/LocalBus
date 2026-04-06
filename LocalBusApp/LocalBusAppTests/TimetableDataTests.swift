@@ -247,4 +247,20 @@ struct TimetableDataTests {
         #expect(data.routes == nil)
         #expect(data.timetable != nil)
     }
+
+    @Test func 시간표리소스의_모든_정류장에_좌표가_존재한다() throws {
+        let timetableURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("LocalBusApp")
+            .appendingPathComponent("Resources")
+            .appendingPathComponent("timetable.json")
+
+        let data = try Data(contentsOf: timetableURL)
+        let timetableData = try JSONDecoder().decode(TimetableData.self, from: data)
+        let stops = timetableData.routes?.values.flatMap(\.stops) ?? []
+
+        #expect(stops.isEmpty == false)
+        #expect(stops.allSatisfy { $0.latitude != nil && $0.longitude != nil })
+    }
 }
