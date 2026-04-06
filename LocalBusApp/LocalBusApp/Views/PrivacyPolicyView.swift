@@ -43,16 +43,16 @@ private struct WebViewWrapper: UIViewRepresentable {
     }
 }
 
-// MARK: - 개인정보처리방침 화면
+// MARK: - 법률 문서 화면
 
 struct PrivacyPolicyView: View {
     @State private var isLoading = true
 
-    private let privacyURL = URL(string: "https://unib35.github.io/LocalBus/terms")!
+    private let legalURL = URL(string: "https://unib35.github.io/LocalBus/terms")!
 
     var body: some View {
         ZStack {
-            WebViewWrapper(url: privacyURL, isLoading: $isLoading)
+            WebViewWrapper(url: legalURL, isLoading: $isLoading)
                 .ignoresSafeArea(edges: .bottom)
 
             if isLoading {
@@ -60,7 +60,7 @@ struct PrivacyPolicyView: View {
                     .tint(.white)
             }
         }
-        .navigationTitle("개인정보처리방침")
+        .navigationTitle("이용약관 및 개인정보")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color.black.opacity(0.95), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)

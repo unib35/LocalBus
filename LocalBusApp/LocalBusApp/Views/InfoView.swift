@@ -218,9 +218,9 @@ struct InfoView: View {
 
                 rowDivider
 
-                // 이용약관 및 개인정보처리방침
+                // 이용약관 및 개인정보 처리방침
                 NavigationLink(destination: PrivacyPolicyView()) {
-                    infoNavigationRow("이용약관 및 개인정보처리방침")
+                    infoNavigationRow("이용약관 및 개인정보 처리방침")
                 }
                 .buttonStyle(.plain)
 
