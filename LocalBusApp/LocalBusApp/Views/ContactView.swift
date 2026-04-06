@@ -23,7 +23,7 @@ struct ContactView: View {
                 contentSection
                 infoBox
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 20)
             .padding(.top, 24)
             .padding(.bottom, 24)
         }
@@ -73,7 +73,7 @@ struct ContactView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 40)
                     .frame(minHeight: 180)
-                    .background(HomeDashboardTheme.segmentBackground)
+                    .background(HomeDashboardTheme.cardBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -127,7 +127,7 @@ struct ContactView: View {
         .padding(.horizontal, 17)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(HomeDashboardTheme.noteBackground)
+        .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
