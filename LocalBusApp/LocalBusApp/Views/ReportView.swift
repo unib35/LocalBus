@@ -172,19 +172,18 @@ struct ReportView: View {
         VStack(spacing: 0) {
             Rectangle()
                 .fill(HomeDashboardTheme.border)
-                .frame(height: 1)
+                .frame(height: 0.5)
 
             Button {
                 sendReport()
             } label: {
                 Text("제보 보내기")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-                    .background(.white)
+                    .frame(height: 56)
+                    .background(HomeDashboardTheme.primaryBlue)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(color: .white.opacity(0.06), radius: 16)
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)
