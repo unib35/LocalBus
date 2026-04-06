@@ -4,6 +4,8 @@ import UserNotifications
 /// 버스 알림 서비스
 final class NotificationService {
     static let shared = NotificationService()
+    private let busNotificationPrefix = "bus_"
+    private let lastBusNotificationIdentifier = "last_bus_daily_notification"
 
     private init() {}
 
@@ -44,7 +46,7 @@ final class NotificationService {
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
         let request = UNNotificationRequest(
-            identifier: "bus_\(busTime)_\(minutesBefore)",
+            identifier: busNotificationIdentifier(busTime: busTime, minutesBefore: minutesBefore),
             content: content,
             trigger: trigger
         )
@@ -54,7 +56,7 @@ final class NotificationService {
 
     /// 특정 버스 알림 취소
     func cancelNotification(busTime: String, minutesBefore: Int) {
-        let identifier = "bus_\(busTime)_\(minutesBefore)"
+        let identifier = busNotificationIdentifier(busTime: busTime, minutesBefore: minutesBefore)
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
     }
 
@@ -103,12 +105,26 @@ final class NotificationService {
         )
     }
 
-    private let lastBusNotificationIdentifier = "last_bus_daily_notification"
-
     /// 예약된 알림이 있는지 확인
     func hasScheduledNotification(busTime: String, minutesBefore: Int) async -> Bool {
-        let identifier = "bus_\(busTime)_\(minutesBefore)"
+        let identifier = busNotificationIdentifier(busTime: busTime, minutesBefore: minutesBefore)
         let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
         return requests.contains { $0.identifier == identifier }
+    }
+
+    /// 예약된 개별 버스 알림 키 목록 반환
+    func scheduledBusNotificationKeys() async -> Set<String> {
+        let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
+        return Set(
+            requests.compactMap { request in
+                let identifier = request.identifier
+                guard identifier.hasPrefix(busNotificationPrefix) else { return nil }
+                return String(identifier.dropFirst(busNotificationPrefix.count))
+            }
+        )
+    }
+
+    private func busNotificationIdentifier(busTime: String, minutesBefore: Int) -> String {
+        "\(busNotificationPrefix)\(busTime)_\(minutesBefore)"
     }
 }
