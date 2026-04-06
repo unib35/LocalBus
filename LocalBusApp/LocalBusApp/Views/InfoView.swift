@@ -196,7 +196,7 @@ struct InfoView: View {
 
                 // 이용 안내
                 NavigationLink(destination: BusTipsView()) {
-                    infoNavigationRow("이용 안내")
+                    infoNavigationRow("버스 이용 안내")
                 }
                 .buttonStyle(.plain)
 
