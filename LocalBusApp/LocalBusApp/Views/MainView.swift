@@ -33,6 +33,8 @@ struct MainView: View {
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
     @State private var selectedTab: MainTab = .home
     @State private var stopsSheetPresentationToken = 0
+    @State private var showTimetableShareSheet = false
+    @State private var timetableShareImage: UIImage?
 
     private var preferredColorScheme: ColorScheme? {
         AppColorScheme(rawValue: colorSchemeRaw)?.colorScheme
@@ -203,8 +205,38 @@ struct MainView: View {
                     ToolbarItem(placement: .principal) {
                         directionTitle(viewModel.selectedDirection)
                     }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            Task { await prepareTimetableShare() }
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(HomeDashboardTheme.secondaryText)
+                        }
+                    }
                 }
         }
+        .sheet(isPresented: $showTimetableShareSheet) {
+            if let image = timetableShareImage {
+                ShareSheet(activityItems: [
+                    image,
+                    "\(viewModel.selectedDirection.displayName) 시외버스 시간표 | LocalBus 앱으로 확인하세요"
+                ])
+            }
+        }
+    }
+
+    @MainActor
+    private func prepareTimetableShare() async {
+        let viaTimes = Set(viewModel.currentTimes.filter { viewModel.isViaBus(for: $0) })
+        timetableShareImage = renderTimetableShareImage(
+            direction: viewModel.selectedDirection,
+            scheduleType: viewModel.selectedScheduleType,
+            times: viewModel.currentTimes,
+            nightFareStartTime: viewModel.nightFareStartTime,
+            viaTimes: viaTimes
+        )
+        showTimetableShareSheet = true
     }
 
     private func directionTitle(_ direction: RouteDirection) -> some View {
@@ -327,11 +359,20 @@ private struct TabBarSelectionObserver: UIViewControllerRepresentable {
             self.onSelection = onSelection
         }
 
+        func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
+            if let index = tabBarController.viewControllers?.firstIndex(of: viewController) {
+                let isReselection = selectedIndex == index
+                onSelection(index, isReselection)
+                selectedIndex = index
+            }
+            return true
+        }
+
         func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
             let currentIndex = tabBarController.selectedIndex
-            let isReselection = selectedIndex == currentIndex
-            onSelection(currentIndex, isReselection)
-            selectedIndex = currentIndex
+            if selectedIndex != currentIndex {
+                selectedIndex = currentIndex
+            }
         }
     }
 }
