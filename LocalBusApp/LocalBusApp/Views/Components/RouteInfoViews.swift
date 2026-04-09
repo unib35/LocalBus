@@ -174,6 +174,39 @@ struct StopsScreenView: View {
                     }
                     .offset(y: sheetY)
                 }
+
+                // 시트 완전히 숨김 시 복원 버튼
+                if sheetOffset >= hiddenOffset * 0.95 {
+                    VStack {
+                        Spacer()
+                        Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            presentSheet()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "list.bullet")
+                                    .font(.system(.footnote, weight: .semibold))
+                                Text("정류장 목록")
+                                    .font(.system(.subheadline, weight: .semibold))
+                                Image(systemName: "chevron.up")
+                                    .font(.system(.caption, weight: .bold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 11)
+                            .background(HomeDashboardTheme.primaryBlue)
+                            .clipShape(Capsule())
+                            .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 4)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("정류장 목록 열기")
+                        .padding(.bottom, max(geo.safeAreaInsets.bottom, 16))
+                    }
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+                }
             }
         }
         .ignoresSafeArea(edges: .top)
