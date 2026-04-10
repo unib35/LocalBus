@@ -35,6 +35,7 @@ struct MainView: View {
     @State private var stopsSheetPresentationToken = 0
     @State private var showTimetableShareSheet = false
     @State private var timetableShareImage: UIImage?
+    @State private var isPreparingShare = false
 
     private var preferredColorScheme: ColorScheme? {
         AppColorScheme(rawValue: colorSchemeRaw)?.colorScheme
@@ -207,12 +208,24 @@ struct MainView: View {
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button {
-                            Task { await prepareTimetableShare() }
+                            guard !isPreparingShare else { return }
+                            Task {
+                                isPreparingShare = true
+                                await prepareTimetableShare()
+                                isPreparingShare = false
+                            }
                         } label: {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(HomeDashboardTheme.secondaryText)
+                            if isPreparingShare {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(HomeDashboardTheme.secondaryText)
+                            } else {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundStyle(HomeDashboardTheme.secondaryText)
+                            }
                         }
+                        .disabled(isPreparingShare)
                     }
                 }
         }
@@ -220,7 +233,7 @@ struct MainView: View {
             if let image = timetableShareImage {
                 ShareSheet(activityItems: [
                     image,
-                    "\(viewModel.selectedDirection.displayName) 시외버스 시간표 | LocalBus 앱으로 확인하세요"
+                    "\(viewModel.selectedDirection.displayName) \(viewModel.selectedScheduleType.displayLabel) 시간표 | LocalBus 앱으로 확인하세요"
                 ])
             }
         }
@@ -228,14 +241,14 @@ struct MainView: View {
 
     @MainActor
     private func prepareTimetableShare() async {
-        let viaTimes = Set(viewModel.currentTimes.filter { viewModel.isViaBus(for: $0) })
         timetableShareImage = renderTimetableShareImage(
             direction: viewModel.selectedDirection,
             scheduleType: viewModel.selectedScheduleType,
             times: viewModel.currentTimes,
             nightFareStartTime: viewModel.nightFareStartTime,
-            viaTimes: viaTimes
+            viaTimes: viewModel.currentViaTimes
         )
+        guard timetableShareImage != nil else { return }
         showTimetableShareSheet = true
     }
 
