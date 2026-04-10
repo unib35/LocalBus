@@ -180,6 +180,14 @@ final class MainViewModel: ObservableObject {
         return route.platformNumber
     }
 
+    /// 현재 방향의 경유 시간 전체 집합
+    var currentViaTimes: Set<String> {
+        guard let routes = timetableData?.routes,
+              let route = routes[selectedDirection.rawValue],
+              let viaTimes = route.viaTimes else { return [] }
+        return Set(viaTimes)
+    }
+
     /// 주어진 시간이 심야 요금 적용 대상인지
     func isNightFare(for time: String) -> Bool {
         guard let start = nightFareStartTime else { return false }
