@@ -217,6 +217,9 @@ func renderTimetableShareImage(
     nightFareStartTime: String?,
     viaTimes: Set<String>
 ) -> UIImage? {
+    let scale: CGFloat = 3.0
+    let cardWidth: CGFloat = 390
+
     let card = TimetableShareCard(
         direction: direction,
         scheduleType: scheduleType,
@@ -224,9 +227,31 @@ func renderTimetableShareImage(
         nightFareStartTime: nightFareStartTime,
         viaTimes: viaTimes
     )
-    .frame(width: 390)
+    .frame(width: cardWidth)
+    .fixedSize(horizontal: false, vertical: true)
 
-    let renderer = ImageRenderer(content: card)
-    renderer.scale = 3.0
-    return renderer.uiImage
+    let imageRenderer = ImageRenderer(content: card)
+    imageRenderer.scale = scale
+
+    guard let cgImage = imageRenderer.cgImage else { return nil }
+
+    // UIGraphicsImageRenderer의 opaque 설정은 CGImage 포맷을 강제하지 못함
+    // CGContext를 직접 생성해 noneSkipLast(알파 없음)로 명시적 재렌더링
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+    guard let context = CGContext(
+        data: nil,
+        width: cgImage.width,
+        height: cgImage.height,
+        bitsPerComponent: 8,
+        bytesPerRow: 0,
+        space: colorSpace,
+        bitmapInfo: bitmapInfo.rawValue
+    ) else { return nil }
+
+    // ImageRenderer.cgImage와 새 CGContext는 동일한 좌표계(하단 원점) — 변환 없이 직접 드로우
+    context.draw(cgImage, in: CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height))
+
+    guard let opaqueCGImage = context.makeImage() else { return nil }
+    return UIImage(cgImage: opaqueCGImage, scale: scale, orientation: .up)
 }
