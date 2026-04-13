@@ -342,7 +342,7 @@ private struct TabBarSelectionObserver: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: ObserverViewController, context: Context) {
         context.coordinator.onSelection = onSelection
         uiViewController.coordinator = context.coordinator
-        uiViewController.attachToTabBarControllerIfNeeded()
+        uiViewController.attachGestureIfNeeded()
     }
 
     final class ObserverViewController: UIViewController {
@@ -350,42 +350,53 @@ private struct TabBarSelectionObserver: UIViewControllerRepresentable {
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
-            attachToTabBarControllerIfNeeded()
+            attachGestureIfNeeded()
         }
 
-        func attachToTabBarControllerIfNeeded() {
-            guard let tabBarController,
-                  tabBarController.delegate !== coordinator else {
-                return
-            }
-
-            coordinator?.selectedIndex = tabBarController.selectedIndex
-            tabBarController.delegate = coordinator
+        func attachGestureIfNeeded() {
+            guard let tabBarController else { return }
+            coordinator?.attachGestureRecognizer(to: tabBarController)
         }
     }
 
-    final class Coordinator: NSObject, UITabBarControllerDelegate {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var onSelection: (Int, Bool) -> Void
-        var selectedIndex: Int?
+        private weak var observedTabBarController: UITabBarController?
 
         init(onSelection: @escaping (Int, Bool) -> Void) {
             self.onSelection = onSelection
         }
 
-        func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
-            if let index = tabBarController.viewControllers?.firstIndex(of: viewController) {
-                let isReselection = selectedIndex == index
-                onSelection(index, isReselection)
-                selectedIndex = index
-            }
-            return true
+        func attachGestureRecognizer(to tabBarController: UITabBarController) {
+            guard observedTabBarController !== tabBarController else { return }
+            observedTabBarController = tabBarController
+
+            let tap = UITapGestureRecognizer(target: self, action: #selector(tabBarTapped(_:)))
+            tap.delegate = self
+            tap.cancelsTouchesInView = false
+            tabBarController.tabBar.addGestureRecognizer(tap)
         }
 
-        func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
-            let currentIndex = tabBarController.selectedIndex
-            if selectedIndex != currentIndex {
-                selectedIndex = currentIndex
-            }
+        @objc private func tabBarTapped(_ recognizer: UITapGestureRecognizer) {
+            guard let tabBarController = observedTabBarController,
+                  let tabBar = recognizer.view as? UITabBar else { return }
+
+            let itemCount = tabBar.items?.count ?? 0
+            guard itemCount > 0 else { return }
+
+            let location = recognizer.location(in: tabBar)
+            let itemWidth = tabBar.bounds.width / CGFloat(itemCount)
+            let tappedIndex = max(0, min(itemCount - 1, Int(location.x / itemWidth)))
+            let isReselection = tabBarController.selectedIndex == tappedIndex
+
+            onSelection(tappedIndex, isReselection)
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool {
+            return true
         }
     }
 }
