@@ -102,10 +102,33 @@ struct TimetableShareCard: View {
 
     // MARK: - 시간 그리드
 
+    /// 열 우선 순서로 재배열된 시간 배열 (nil = 빈 셀)
+    private var columnOrderedTimes: [String?] {
+        let colCount = 4
+        let rowCount = Int(ceil(Double(times.count) / Double(colCount)))
+        return (0 ..< rowCount * colCount).map { i in
+            let row = i / colCount
+            let col = i % colCount
+            let index = col * rowCount + row
+            return index < times.count ? times[index] : nil
+        }
+    }
+
     private var timeGrid: some View {
         LazyVGrid(columns: columns, spacing: 0) {
-            ForEach(Array(times.enumerated()), id: \.offset) { _, time in
-                timeCell(time)
+            ForEach(Array(columnOrderedTimes.enumerated()), id: \.offset) { _, time in
+                if let time {
+                    timeCell(time)
+                } else {
+                    Color.clear
+                        .frame(height: 40)
+                        .overlay(alignment: .bottom) {
+                            Rectangle().fill(borderColor).frame(height: 0.5)
+                        }
+                        .overlay(alignment: .trailing) {
+                            Rectangle().fill(borderColor).frame(width: 0.5)
+                        }
+                }
             }
         }
         .padding(.vertical, 12)

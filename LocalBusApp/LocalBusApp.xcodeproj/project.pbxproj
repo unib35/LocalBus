@@ -10,6 +10,7 @@
 		9B44DB102F1FAF4700F7AC27 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B44DB0F2F1FAF4700F7AC27 /* WidgetKit.framework */; };
 		9B44DB122F1FAF4700F7AC27 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B44DB112F1FAF4700F7AC27 /* SwiftUI.framework */; };
 		9B44DB212F1FAF4900F7AC27 /* LocalBusWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9B44DB0D2F1FAF4700F7AC27 /* LocalBusWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		9B8928412F8D5E4E001EE08D /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 9B8928402F8D5E4E001EE08D /* FirebaseMessaging */; };
 		9B9E29D92F6BE3190049E89C /* Secrets.xcconfig.example in Resources */ = {isa = PBXBuildFile; fileRef = 9B9E29D72F6BE3190049E89C /* Secrets.xcconfig.example */; };
 		9B9E29DA2F6BE3190049E89C /* Secrets.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 9B9E29D62F6BE3190049E89C /* Secrets.xcconfig */; };
 		AA51D19430A64FDA9D1624D9 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 036FCB026FEF4DA88E776FF8 /* Kingfisher */; };
@@ -75,6 +76,7 @@
 		9B44DB282F1FB0A300F7AC27 /* Exceptions for "LocalBusApp" folder in "LocalBusWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Models/BusLiveActivityAttributes.swift,
 				Resources/timetable.json,
 			);
 			target = 9B44DB0C2F1FAF4700F7AC27 /* LocalBusWidgetExtension */;
@@ -139,6 +141,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9B8928412F8D5E4E001EE08D /* FirebaseMessaging in Frameworks */,
 				AA51D19430A64FDA9D1624D9 /* Kingfisher in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -263,6 +266,7 @@
 			name = LocalBusApp;
 			packageProductDependencies = (
 				036FCB026FEF4DA88E776FF8 /* Kingfisher */,
+				9B8928402F8D5E4E001EE08D /* FirebaseMessaging */,
 			);
 			productName = LocalBusApp;
 			productReference = 9B86056D2F125AD00021EC15 /* LocalBusApp.app */;
@@ -328,6 +332,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				9B9E27B92F60E8260049E89C /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				9B89283F2F8D5E4D001EE08D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9B86056E2F125AD00021EC15 /* Products */;
@@ -437,6 +442,8 @@
 				INFOPLIST_FILE = LocalBusWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LocalBusWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -465,6 +472,8 @@
 				INFOPLIST_FILE = LocalBusWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LocalBusWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -647,6 +656,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LocalBusApp/LocalBusApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = AMNS6W2AA9;
@@ -678,6 +688,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LocalBusApp/LocalBusApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = AMNS6W2AA9;
@@ -791,6 +802,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		9B89283F2F8D5E4D001EE08D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.12.0;
+			};
+		};
 		9B9E27B92F60E8260049E89C /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/onevcat/Kingfisher";
@@ -806,6 +825,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B9E27B92F60E8260049E89C /* XCRemoteSwiftPackageReference "Kingfisher" */;
 			productName = Kingfisher;
+		};
+		9B8928402F8D5E4E001EE08D /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B89283F2F8D5E4D001EE08D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

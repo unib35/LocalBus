@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseMessaging
 
 // MARK: - 색상 모드 설정
 
@@ -30,11 +31,40 @@ struct InfoView: View {
     @ObservedObject var viewModel: MainViewModel
 
     @AppStorage("lastMileAlertEnabled") private var lastMileAlertEnabled = true
-    @AppStorage("delayAlertEnabled") private var delayAlertEnabled = false
+    @AppStorage("liveActivityEnabled") private var liveActivityEnabled = true
+    @AppStorage("noticeAlertEnabled") private var noticeAlertEnabled = true
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
 
     @State private var showClearCacheConfirm = false
     @State private var isRefreshing = false
+    @State private var toast: ToastMessage?
+
+    enum NotificationInfoItem: String, Identifiable {
+        case lastMile
+        case liveActivity
+        case notice
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .lastMile:     return "막차 30분 전 알림"
+            case .liveActivity: return "Live Activity"
+            case .notice:       return "공지사항 알림"
+            }
+        }
+
+        var description: String {
+            switch self {
+            case .lastMile:
+                return "매일 막차 출발 30분 전, 자동으로 알림을 보내드립니다. 알림은 매일 반복됩니다."
+            case .liveActivity:
+                return "알림을 설정한 버스가 20분 이내로 출발할 때 Dynamic Island와 잠금화면에 실시간 카운트다운을 표시합니다."
+            case .notice:
+                return "시간표 변경, 임시 운휴 등 중요한 공지사항을 푸시 알림으로 즉시 전달합니다."
+            }
+        }
+    }
 
     private let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     private let shareMessage = "장유-사상 시외버스 시간표 앱 LocalBus를 사용해보세요!"
@@ -52,6 +82,7 @@ struct InfoView: View {
                     notificationSection
                     displaySection
                     infoSection
+                    supportSection
                     dataSection
 
                     Text("Bus Schedule App © 2024")
@@ -79,27 +110,25 @@ struct InfoView: View {
             }
             Button("취소", role: .cancel) {}
         }
+        .toast(item: $toast)
     }
 
     // MARK: - 알림 설정
 
     private var notificationSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 16) {
             sectionHeader("알림 설정")
 
-            VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    iconBox(systemName: "bell.fill")
-                    Text("막차 30분 전 알림")
-                        .font(.system(size: 16))
-                        .foregroundStyle(HomeDashboardTheme.primaryText)
-                    Spacer()
-                    Toggle("", isOn: $lastMileAlertEnabled)
-                        .labelsHidden()
-                        .tint(HomeDashboardTheme.primaryBlue)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
+            // 버스 알림 그룹
+            VStack(alignment: .leading, spacing: 0) {
+                notificationGroupHeader("버스 알림")
+
+                notificationRow(
+                    icon: "bell.fill",
+                    title: "막차 30분 전 알림",
+                    infoItem: .lastMile,
+                    isOn: $lastMileAlertEnabled
+                )
                 .onChange(of: lastMileAlertEnabled) { enabled in
                     Task {
                         if enabled {
@@ -108,31 +137,84 @@ struct InfoView: View {
                             viewModel.cancelLastBusNotification()
                         }
                     }
+                    toast = enabled
+                        ? ToastMessage(icon: "bell.fill", message: "막차 알림이 켜졌습니다")
+                        : ToastMessage(icon: "bell.slash.fill", message: "막차 알림이 꺼졌습니다")
                 }
 
                 rowDivider
 
-                HStack(spacing: 12) {
-                    iconBox(systemName: "clock.badge.exclamationmark")
-                    Text("지연 정보 실시간 알림")
-                        .font(.system(size: 16))
-                        .foregroundStyle(HomeDashboardTheme.tertiaryText)
-                    Spacer()
-                    Toggle("", isOn: $delayAlertEnabled)
-                        .labelsHidden()
-                        .tint(HomeDashboardTheme.primaryBlue)
-                        .disabled(true)
+                notificationRow(
+                    icon: "livephoto",
+                    title: "Live Activity",
+                    infoItem: .liveActivity,
+                    isOn: $liveActivityEnabled
+                )
+                .onChange(of: liveActivityEnabled) { enabled in
+                    toast = enabled
+                        ? ToastMessage(icon: "livephoto", message: "Live Activity가 활성화됩니다")
+                        : ToastMessage(icon: "livephoto.slash", message: "Live Activity가 비활성화됩니다")
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
             }
             .settingsCard()
 
-            Text("막차 알림은 매일 반복됩니다. 지연 정보 알림은 준비 중입니다.")
-                .font(.system(size: 13))
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
-                .padding(.horizontal, 12)
+            // 공지 알림 그룹
+            VStack(alignment: .leading, spacing: 0) {
+                notificationGroupHeader("공지 알림")
+
+                notificationRow(
+                    icon: "megaphone.fill",
+                    title: "공지사항 알림",
+                    infoItem: .notice,
+                    isOn: $noticeAlertEnabled
+                )
+                .onChange(of: noticeAlertEnabled) { enabled in
+                    if enabled {
+                        Messaging.messaging().subscribe(toTopic: "notices")
+                    } else {
+                        Messaging.messaging().unsubscribe(fromTopic: "notices")
+                    }
+                    toast = enabled
+                        ? ToastMessage(icon: "megaphone.fill", message: "공지 알림이 켜졌습니다")
+                        : ToastMessage(icon: "megaphone.fill", message: "공지 알림이 꺼졌습니다")
+                }
+            }
+            .settingsCard()
         }
+    }
+
+    private func notificationGroupHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(HomeDashboardTheme.secondaryText)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+    }
+
+    private func notificationRow(
+        icon: String,
+        title: String,
+        infoItem: NotificationInfoItem,
+        isOn: Binding<Bool>
+    ) -> some View {
+        HStack(spacing: 12) {
+            iconBox(systemName: icon)
+
+            Text(title)
+                .font(.system(size: 16))
+                .foregroundStyle(HomeDashboardTheme.primaryText)
+
+            NotificationInfoButton(item: infoItem)
+
+            Spacer()
+
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .tint(HomeDashboardTheme.primaryBlue)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 
     // MARK: - 디스플레이
@@ -232,6 +314,46 @@ struct InfoView: View {
                 }
                 .buttonStyle(.plain)
             }
+            .settingsCard()
+        }
+    }
+
+    // MARK: - 개발자 응원
+
+    private var supportSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("개발자 응원")
+
+            Button {
+                if let url = URL(string: "https://ko-fi.com/localbus") {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Text("☕")
+                        .font(.system(size: 18))
+                        .frame(width: 28, height: 28)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("커피 한 잔 사주기")
+                            .font(.system(size: 16))
+                            .foregroundStyle(HomeDashboardTheme.primaryText)
+                        Text("개발자에게 응원을 보내주세요")
+                            .font(.system(size: 12))
+                            .foregroundStyle(HomeDashboardTheme.secondaryText)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(HomeDashboardTheme.tertiaryText)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
             .settingsCard()
         }
     }
@@ -391,6 +513,40 @@ struct InfoView: View {
     }
 }
 
+// MARK: - Notification Info Button
+
+private struct NotificationInfoButton: View {
+    let item: InfoView.NotificationInfoItem
+    @State private var showPopover = false
+
+    var body: some View {
+        Button {
+            showPopover = true
+        } label: {
+            Image(systemName: "info.circle")
+                .font(.system(size: 14))
+                .foregroundStyle(HomeDashboardTheme.tertiaryText)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showPopover, arrowEdge: .top) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(item.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
+                Text(item.description)
+                    .font(.system(size: 13))
+                    .foregroundStyle(HomeDashboardTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+            .frame(width: 260, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .compactPopoverAdaptation()
+            .background(HomeDashboardTheme.cardBackground)
+        }
+    }
+}
+
 // MARK: - View Modifier
 
 private struct SettingsCardModifier: ViewModifier {
@@ -408,6 +564,15 @@ private struct SettingsCardModifier: ViewModifier {
 private extension View {
     func settingsCard() -> some View {
         modifier(SettingsCardModifier())
+    }
+
+    @ViewBuilder
+    func compactPopoverAdaptation() -> some View {
+        if #available(iOS 16.4, *) {
+            self.presentationCompactAdaptation(.popover)
+        } else {
+            self
+        }
     }
 }
 
