@@ -139,6 +139,24 @@ struct Meta: Codable {
     }
 }
 
+// MARK: - 버스 상세 정보 (시트용 스냅샷)
+
+struct BusDetailInfo: Identifiable {
+    var id: String { departureTime }
+    let departureTime: String
+    let arrivalTime: String
+    let durationMinutes: Int
+    let isVia: Bool
+    let isNightFare: Bool
+    let fare: Int
+    let nightFare: Int?
+    let platformNumber: String?
+    let stops: [BusStop]
+    let directionDisplayName: String
+    let scheduleTypeLabel: String
+    var isNotificationEnabled: Bool
+}
+
 /// 시간표 (평일/주말)
 struct Timetable: Codable, Equatable {
     let weekday: [String]
