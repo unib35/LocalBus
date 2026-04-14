@@ -6,6 +6,7 @@ import UIKit
 struct TimetableScreenView: View {
     @ObservedObject var viewModel: MainViewModel
     @State private var showNotificationDeniedAlert = false
+    @State private var selectedBusInfo: BusDetailInfo?
 
     private func nextBusIndex(at referenceDate: Date) -> Int? {
         guard let nextTime = viewModel.nextBusTime(at: referenceDate) else { return nil }
@@ -47,6 +48,10 @@ struct TimetableScreenView: View {
                                                     await viewModel.toggleNotification(for: time)
                                                 }
                                             }
+                                        },
+                                        onRowTap: {
+                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                            selectedBusInfo = viewModel.makeBusDetailInfo(for: time)
                                         }
                                     )
                                     .id(time)
@@ -87,6 +92,20 @@ struct TimetableScreenView: View {
             Button("취소", role: .cancel) {}
         } message: {
             Text("버스 출발 알림을 받으려면\n설정 > LocalBus > 알림을 허용해주세요.")
+        }
+        .sheet(item: $selectedBusInfo) { info in
+            BusDetailView(
+                info: info,
+                onNotificationTap: {
+                    let status = await NotificationService.shared.authorizationStatus()
+                    if status == .denied {
+                        selectedBusInfo = nil
+                        showNotificationDeniedAlert = true
+                    } else {
+                        await viewModel.toggleNotification(for: info.departureTime)
+                    }
+                }
+            )
         }
     }
 
@@ -211,6 +230,7 @@ struct TimetableRow: View {
     let isVia: Bool
     let isNotificationEnabled: Bool
     let onNotificationTap: () -> Void
+    var onRowTap: (() -> Void)? = nil
 
     var body: some View {
         ZStack {
@@ -281,6 +301,8 @@ struct TimetableRow: View {
             .padding(.vertical, 18)
         }
         .opacity(isPast ? 0.4 : 1.0)
+        .contentShape(Rectangle())
+        .onTapGesture { onRowTap?() }
         .overlay(alignment: .top) {
             if !isNextBus {
                 Rectangle()
