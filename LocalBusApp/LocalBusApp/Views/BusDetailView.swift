@@ -243,20 +243,25 @@ struct BusDetailView: View {
             }
 
             // 요금 행
-            VStack(spacing: 12) {
+            VStack(spacing: 0) {
                 if info.isNightFare {
                     fareRow(label: "심야 성인", amount: effectiveFare, isNight: true)
+                    fareRowDivider
                     fareRow(label: "심야 청소년 (13-18세)", amount: Int(Double(effectiveFare) * 0.8), isNight: true)
+                    fareRowDivider
                     fareRow(label: "심야 어린이 (6-12세)", amount: Int(Double(effectiveFare) * 0.52), isNight: true)
                 } else {
                     fareRow(label: "성인", amount: baseFare)
+                    fareRowDivider
                     fareRow(label: "청소년 (13-18세)", amount: Int(Double(baseFare) * 0.8))
+                    fareRowDivider
                     fareRow(label: "어린이 (6-12세)", amount: Int(Double(baseFare) * 0.52))
 
                     if let nightFare = info.nightFare {
                         Rectangle()
                             .fill(HomeDashboardTheme.border)
                             .frame(height: 1)
+                            .padding(.vertical, 4)
                         HStack {
                             HStack(spacing: 4) {
                                 Text("심야")
@@ -276,6 +281,7 @@ struct BusDetailView: View {
                                     .foregroundStyle(HomeDashboardTheme.timetableMutedText)
                             }
                         }
+                        .padding(.vertical, 12)
                     }
                 }
             }
@@ -311,6 +317,13 @@ struct BusDetailView: View {
                     .foregroundStyle(HomeDashboardTheme.timetableMutedText)
             }
         }
+        .padding(.vertical, 12)
+    }
+
+    private var fareRowDivider: some View {
+        Rectangle()
+            .fill(HomeDashboardTheme.border.opacity(0.6))
+            .frame(height: 0.5)
     }
 
     private func formattedFare(_ amount: Int) -> String {
