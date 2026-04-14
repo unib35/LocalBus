@@ -9,6 +9,11 @@ final class NotificationService {
 
     private init() {}
 
+    /// 현재 알림 권한 상태 반환
+    func authorizationStatus() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
     /// 알림 권한 요청
     func requestAuthorization() async -> Bool {
         do {

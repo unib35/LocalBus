@@ -36,6 +36,7 @@ struct MainView: View {
     @State private var showTimetableShareSheet = false
     @State private var timetableShareImage: UIImage?
     @State private var isPreparingShare = false
+    @State private var showNotificationDeniedAlert = false
 
     private var preferredColorScheme: ColorScheme? {
         AppColorScheme(rawValue: colorSchemeRaw)?.colorScheme
@@ -76,6 +77,15 @@ struct MainView: View {
             stopsSheetPresentationToken += 1
         }
         .onOpenURL(perform: handleDeepLink)
+        .alert("알림 권한이 필요합니다", isPresented: $showNotificationDeniedAlert) {
+            Button("설정으로 이동") {
+                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(url)
+            }
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text("버스 출발 알림을 받으려면\n설정 > LocalBus > 알림을 허용해주세요.")
+        }
     }
 
     // MARK: - 홈 탭
@@ -293,7 +303,12 @@ struct MainView: View {
     private func handleNotificationTap(for nextBusTime: String?) {
         guard let nextBusTime else { return }
         Task {
-            await viewModel.toggleNotification(for: nextBusTime)
+            let status = await NotificationService.shared.authorizationStatus()
+            if status == .denied {
+                showNotificationDeniedAlert = true
+            } else {
+                await viewModel.toggleNotification(for: nextBusTime)
+            }
         }
     }
 

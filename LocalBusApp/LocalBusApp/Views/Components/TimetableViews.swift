@@ -1,9 +1,11 @@
 import SwiftUI
+import UIKit
 
 // MARK: - 시간표 화면 전체
 
 struct TimetableScreenView: View {
     @ObservedObject var viewModel: MainViewModel
+    @State private var showNotificationDeniedAlert = false
 
     private func nextBusIndex(at referenceDate: Date) -> Int? {
         guard let nextTime = viewModel.nextBusTime(at: referenceDate) else { return nil }
@@ -37,7 +39,14 @@ struct TimetableScreenView: View {
                                         isVia: viewModel.isViaBus(for: time),
                                         isNotificationEnabled: viewModel.isNotificationScheduled(for: time),
                                         onNotificationTap: {
-                                            Task { await viewModel.toggleNotification(for: time) }
+                                            Task {
+                                                let status = await NotificationService.shared.authorizationStatus()
+                                                if status == .denied {
+                                                    showNotificationDeniedAlert = true
+                                                } else {
+                                                    await viewModel.toggleNotification(for: time)
+                                                }
+                                            }
                                         }
                                     )
                                     .id(time)
@@ -69,6 +78,15 @@ struct TimetableScreenView: View {
                     }
                 }
             }
+        }
+        .alert("알림 권한이 필요합니다", isPresented: $showNotificationDeniedAlert) {
+            Button("설정으로 이동") {
+                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(url)
+            }
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text("버스 출발 알림을 받으려면\n설정 > LocalBus > 알림을 허용해주세요.")
         }
     }
 
