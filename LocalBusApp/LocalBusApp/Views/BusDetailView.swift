@@ -219,45 +219,72 @@ struct BusDetailView: View {
     // MARK: - 요금
 
     private var fareSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let adult = info.fare
+        let youth = Int(Double(adult) * 0.8)
+        let child = Int(Double(adult) * 0.52)
+        let effectiveFare = info.isNightFare ? (info.nightFare ?? adult) : adult
+
+        return VStack(alignment: .leading, spacing: 0) {
             Text("요금")
                 .font(.system(size: 12, weight: .bold))
                 .tracking(0.5)
                 .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
+                .padding(.bottom, 12)
 
-            HStack(spacing: 0) {
-                fareItem(label: info.isNightFare ? "심야 요금" : "기본 요금",
-                         amount: info.isNightFare ? (info.nightFare ?? info.fare) : info.fare,
-                         isHighlighted: true)
+            VStack(spacing: 0) {
+                fareRow(label: "성인", amount: effectiveFare, isHighlighted: info.isNightFare)
+                Divider().padding(.leading, 20)
+                fareRow(label: "청소년 (13-18세)", amount: Int(Double(effectiveFare) * 0.8))
+                Divider().padding(.leading, 20)
+                fareRow(label: "어린이 (6-12세)", amount: Int(Double(effectiveFare) * 0.52))
 
                 if let nightFare = info.nightFare, !info.isNightFare {
-                    Rectangle()
-                        .fill(HomeDashboardTheme.border)
-                        .frame(width: 1, height: 40)
-
-                    fareItem(label: "심야 요금", amount: nightFare, isHighlighted: false)
+                    Divider().padding(.leading, 20)
+                    HStack {
+                        Image(systemName: "moon.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color(red: 167/255, green: 139/255, blue: 250/255))
+                        Text("심야 요금 (성인 기준)")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+                        Spacer()
+                        Text(formattedFare(nightFare))
+                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(Color(red: 167/255, green: 139/255, blue: 250/255))
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 16)
+            .padding(.bottom, 4)
+
+            // 요금 안내
+            Text("청소년·어린이 요금은 성인 요금 기준 추정값입니다")
+                .font(.system(size: 11))
+                .foregroundStyle(HomeDashboardTheme.timetableMutedText)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
         }
     }
 
-    private func fareItem(label: String, amount: Int, isHighlighted: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func fareRow(label: String, amount: Int, isHighlighted: Bool = false) -> some View {
+        HStack {
             Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(isHighlighted
+                    ? HomeDashboardTheme.primaryText
+                    : HomeDashboardTheme.timetableSecondaryText)
+            Spacer()
             Text(formattedFare(amount))
-                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                .font(.system(size: 15, weight: isHighlighted ? .bold : .semibold, design: .monospaced))
                 .foregroundStyle(isHighlighted
                     ? HomeDashboardTheme.primaryText
                     : HomeDashboardTheme.timetableSecondaryText)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
     }
 
     private func formattedFare(_ amount: Int) -> String {
