@@ -598,7 +598,7 @@ struct StopsScreenView: View {
 
 // MARK: - 정류장 배지
 
-private struct StopBadge: View {
+struct StopBadge: View {
     let isDeparture: Bool
     let isDestination: Bool
 
@@ -627,7 +627,7 @@ private struct StopBadge: View {
 
 // MARK: - 정류장 행 뷰
 
-private struct StopRowView: View {
+struct StopRowView: View {
     let stop: BusStop
     let isFirst: Bool
     let isLast: Bool
