@@ -1,3 +1,4 @@
+import ActivityKit
 import Foundation
 import SwiftUI
 
@@ -256,7 +257,10 @@ final class MainViewModel: ObservableObject {
 
     // MARK: - Initialization
 
-    init() {}
+    init() {
+        let saved = UserDefaults.standard.string(forKey: "selectedDirection") ?? RouteDirection.jangyuToSasang.rawValue
+        self.selectedDirection = RouteDirection(rawValue: saved) ?? .jangyuToSasang
+    }
 
     // MARK: - Public Methods
 
@@ -270,9 +274,15 @@ final class MainViewModel: ObservableObject {
         let secondsUntilNextBus = secondsUntilNextBus(at: referenceDate, nextBusTime: nextBusTime)
         let firstBusLeadTime = firstBusLeadTime(at: referenceDate)
 
+        let isServiceEnded: Bool = {
+            guard !currentTimes.isEmpty else { return false }
+            guard let minutes = minutesUntilNextBus else { return true }
+            return minutes > 120
+        }()
+
         return BusTimingSnapshot(
             nextBusTime: nextBusTime,
-            isServiceEnded: nextBusTime == nil && !currentTimes.isEmpty,
+            isServiceEnded: isServiceEnded,
             nextBusMinuteDisplay: nextBusMinuteDisplay(secondsUntilNextBus: secondsUntilNextBus),
             nextBusUnitDisplay: nextBusUnitDisplay(secondsUntilNextBus: secondsUntilNextBus),
             nextBusCountdownDescription: nextBusCountdownDescription(secondsUntilNextBus: secondsUntilNextBus),
@@ -333,6 +343,7 @@ final class MainViewModel: ObservableObject {
         guard selectedDirection != direction else { return }
 
         selectedDirection = direction
+        UserDefaults.standard.set(direction.rawValue, forKey: "selectedDirection")
         if let data = timetableData {
             loadTimesForCurrentDirection(from: data)
         }
@@ -395,6 +406,9 @@ final class MainViewModel: ObservableObject {
         if scheduledNotifications.contains(key) {
             NotificationService.shared.cancelNotification(busTime: busTime, minutesBefore: minutesBefore)
             scheduledNotifications.remove(key)
+            if #available(iOS 16.2, *) {
+                LiveActivityService.shared.endActivity()
+            }
         } else {
             let granted = await NotificationService.shared.requestAuthorization()
             if granted {
@@ -404,6 +418,19 @@ final class MainViewModel: ObservableObject {
                     direction: currentDirectionName
                 )
                 scheduledNotifications.insert(key)
+
+                // 20분 이내 버스면 Live Activity 시작 (설정에서 활성화된 경우)
+                let liveActivityEnabled = UserDefaults.standard.object(forKey: "liveActivityEnabled") as? Bool ?? true
+                if #available(iOS 16.2, *),
+                   liveActivityEnabled,
+                   let minutes = DateService.minutesUntil(timeString: busTime, from: Date()),
+                   minutes >= 0 && minutes <= 20 {
+                    LiveActivityService.shared.startActivity(
+                        departureTime: busTime,
+                        direction: currentDirectionName,
+                        durationMinutes: effectiveDurationMinutes
+                    )
+                }
             }
         }
     }
@@ -432,17 +459,29 @@ final class MainViewModel: ObservableObject {
     private func nextBusMinuteDisplay(secondsUntilNextBus: Int?) -> String {
         guard let secondsUntilNextBus else { return "--" }
         if secondsUntilNextBus <= 60 { return "" }
-        return String(Int(ceil(Double(secondsUntilNextBus) / 60.0)))
+        let minutes = Int(ceil(Double(secondsUntilNextBus) / 60.0))
+        if minutes >= 60 {
+            return String(minutes / 60)
+        }
+        return String(minutes)
     }
 
     private func nextBusUnitDisplay(secondsUntilNextBus: Int?) -> String {
         guard let secondsUntilNextBus else { return "분" }
-        return secondsUntilNextBus <= 60 ? "" : "분"
+        if secondsUntilNextBus <= 60 { return "" }
+        let minutes = Int(ceil(Double(secondsUntilNextBus) / 60.0))
+        return minutes >= 60 ? "시간" : "분"
     }
 
     private func nextBusCountdownDescription(secondsUntilNextBus: Int?) -> String {
         guard let secondsUntilNextBus else { return "후 출발" }
-        return secondsUntilNextBus <= 60 ? "곧 도착" : "후 출발"
+        if secondsUntilNextBus <= 60 { return "곧 도착" }
+        let minutes = Int(ceil(Double(secondsUntilNextBus) / 60.0))
+        if minutes >= 60 {
+            let remainingMinutes = minutes % 60
+            return remainingMinutes > 0 ? "\(remainingMinutes)분 후 출발" : "후 출발"
+        }
+        return "후 출발"
     }
 
     private func firstBusLeadTime(at referenceDate: Date) -> (hours: Int, minutes: Int) {
