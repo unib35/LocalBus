@@ -264,6 +264,24 @@ final class MainViewModel: ObservableObject {
 
     // MARK: - Public Methods
 
+    func makeBusDetailInfo(for time: String) -> BusDetailInfo {
+        let arrival = DateService.timeByAdding(minutes: effectiveDurationMinutes, to: time) ?? "--:--"
+        return BusDetailInfo(
+            departureTime: time,
+            arrivalTime: arrival,
+            durationMinutes: effectiveDurationMinutes,
+            isVia: isViaBus(for: time),
+            isNightFare: isNightFare(for: time),
+            fare: fare,
+            nightFare: nightFare,
+            platformNumber: platformNumber,
+            stops: currentStops,
+            directionDisplayName: selectedDirection.displayName,
+            scheduleTypeLabel: selectedScheduleType.displayLabel,
+            isNotificationEnabled: isNotificationScheduled(for: time)
+        )
+    }
+
     func nextBusTime(at referenceDate: Date) -> String? {
         DateService.findNextBus(times: currentTimes, from: referenceDate)
     }
