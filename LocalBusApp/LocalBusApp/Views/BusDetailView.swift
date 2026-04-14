@@ -144,7 +144,7 @@ struct BusDetailView: View {
     // MARK: - 알림 카드
 
     private var notificationCard: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             ZStack {
                 Circle()
                     .fill(isNotificationEnabled
@@ -180,7 +180,7 @@ struct BusDetailView: View {
             .tint(HomeDashboardTheme.primaryBlue)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.vertical, 16)
         .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
@@ -192,12 +192,12 @@ struct BusDetailView: View {
     // MARK: - 플랫폼 카드
 
     private var platformCard: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: "signpost.right.fill")
                 .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(HomeDashboardTheme.primaryBlue)
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("탑승홈")
                     .font(.system(.caption2, weight: .medium))
                     .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
@@ -208,8 +208,8 @@ struct BusDetailView: View {
 
             Spacer()
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .background(HomeDashboardTheme.primaryBlue.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
@@ -322,8 +322,8 @@ struct BusDetailView: View {
     // MARK: - 정류장 카드
 
     private var stopsCard: some View {
-        VStack(spacing: 0) {
-            // 헤더
+        VStack(spacing: 16) {
+            // 헤더 (fareCard 헤더와 동일한 구조)
             HStack(spacing: 8) {
                 Image(systemName: "bus")
                     .font(.system(.caption, weight: .bold))
@@ -333,14 +333,11 @@ struct BusDetailView: View {
                     .foregroundStyle(HomeDashboardTheme.primaryText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-            .padding(.bottom, 16)
+            .padding(.bottom, 4)
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(HomeDashboardTheme.border)
                     .frame(height: 1)
-                    .padding(.horizontal, 20)
             }
 
             if info.stops.isEmpty {
@@ -348,21 +345,23 @@ struct BusDetailView: View {
                     .font(.system(.subheadline, weight: .medium))
                     .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
+                    .padding(.vertical, 8)
             } else {
-                ForEach(Array(info.stops.enumerated()), id: \.element.id) { index, stop in
-                    StopRowView(
-                        stop: stop,
-                        isFirst: index == 0,
-                        isLast: index == info.stops.count - 1,
-                        isSelected: false,
-                        onTap: {}
-                    )
-                    .padding(.horizontal, 8)
+                VStack(spacing: 0) {
+                    ForEach(Array(info.stops.enumerated()), id: \.element.id) { index, stop in
+                        StopRowView(
+                            stop: stop,
+                            isFirst: index == 0,
+                            isLast: index == info.stops.count - 1,
+                            isSelected: false,
+                            onTap: {}
+                        )
+                    }
                 }
-                .padding(.bottom, 8)
+                .padding(.bottom, 4)
             }
         }
+        .padding(20)
         .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
