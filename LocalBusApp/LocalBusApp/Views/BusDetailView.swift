@@ -108,10 +108,10 @@ struct BusDetailView: View {
                 if info.isNightFare {
                     Text("심야")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(AppTheme.Color.nightFare)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
-                        .background(Color.orange.opacity(0.12))
+                        .background(AppTheme.Color.nightFare.opacity(0.12))
                         .clipShape(Capsule())
                 }
             }
@@ -235,7 +235,7 @@ struct BusDetailView: View {
                     .foregroundStyle(HomeDashboardTheme.primaryText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 4)
+            .padding(.bottom, 12)
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(HomeDashboardTheme.border)
@@ -266,7 +266,7 @@ struct BusDetailView: View {
                             HStack(spacing: 4) {
                                 Text("심야")
                                     .font(.system(.caption2, weight: .bold))
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(AppTheme.Color.nightFare)
                                 Text("(성인 기준)")
                                     .font(.system(.caption, weight: .medium))
                                     .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
@@ -305,7 +305,7 @@ struct BusDetailView: View {
             Text(label)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(isNight
-                    ? Color.orange
+                    ? AppTheme.Color.nightFare
                     : HomeDashboardTheme.timetableSecondaryText)
             Spacer()
             HStack(alignment: .lastTextBaseline, spacing: 2) {
@@ -346,7 +346,7 @@ struct BusDetailView: View {
                     .foregroundStyle(HomeDashboardTheme.primaryText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 4)
+            .padding(.bottom, 12)
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(HomeDashboardTheme.border)
