@@ -6,9 +6,11 @@
 //
 
 import SwiftUI
+import FirebaseMessaging
 
 @main
 struct LocalBusAppApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @State private var showLaunchScreen = true
 
     var body: some Scene {
