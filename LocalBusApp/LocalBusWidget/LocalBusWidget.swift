@@ -189,6 +189,24 @@ struct BusEntry: TimelineEntry {
     let upcomingBuses: [(String, Int)]
     let isLastBus: Bool
     let isNightBus: Bool
+
+    var remainingDisplay: String {
+        remainingMinutes >= 60 ? String(remainingMinutes / 60) : String(remainingMinutes)
+    }
+
+    var remainingUnit: String {
+        remainingMinutes >= 60 ? "시간" : "분"
+    }
+
+}
+
+private func formatUpcomingMinutes(_ minutes: Int) -> String {
+    if minutes >= 60 {
+        let h = minutes / 60
+        let m = minutes % 60
+        return m > 0 ? "\(h)시간 \(m)분" : "\(h)시간"
+    }
+    return "\(minutes)분"
 }
 
 struct WidgetTimetableData: Codable {
@@ -265,6 +283,8 @@ struct WidgetContainerBackground: View {
             mediumBackground
         case .systemLarge:
             largeBackground
+        case .accessoryCircular, .accessoryRectangular, .accessoryInline:
+            Color.clear
         default:
             smallBackground
         }
@@ -344,6 +364,12 @@ struct LocalBusWidgetEntryView: View {
             MediumWidgetView(entry: entry)
         case .systemLarge:
             LargeWidgetView(entry: entry)
+        case .accessoryCircular:
+            AccessoryCircularView(entry: entry)
+        case .accessoryRectangular:
+            AccessoryRectangularView(entry: entry)
+        case .accessoryInline:
+            AccessoryInlineView(entry: entry)
         default:
             SmallWidgetView(entry: entry)
         }
@@ -400,11 +426,11 @@ struct SmallWidgetView: View {
     private func activeContent(nextTime: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .lastTextBaseline, spacing: 2) {
-                Text("\(entry.remainingMinutes)")
+                Text(entry.remainingDisplay)
                     .font(.system(size: 46, weight: .black, design: .rounded))
                     .foregroundStyle(WidgetTheme.countdownColor(minutes: entry.remainingMinutes))
                     .monospacedDigit()
-                Text("분")
+                Text(entry.remainingUnit)
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(Color.white.opacity(0.7))
                     .padding(.bottom, 7)
@@ -498,11 +524,11 @@ struct MediumWidgetView: View {
     private func mediumActive(nextTime: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .lastTextBaseline, spacing: 2) {
-                Text("\(entry.remainingMinutes)")
+                Text(entry.remainingDisplay)
                     .font(.system(size: 48, weight: .black, design: .rounded))
                     .foregroundStyle(WidgetTheme.countdownColor(minutes: entry.remainingMinutes))
                     .monospacedDigit()
-                Text("분")
+                Text(entry.remainingUnit)
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(Color.white.opacity(0.7))
                     .padding(.bottom, 8)
@@ -544,7 +570,7 @@ struct MediumWidgetView: View {
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundStyle(Color.white.opacity(0.9))
                     Spacer()
-                    Text("\(bus.1)분")
+                    Text(formatUpcomingMinutes(bus.1))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Color.white.opacity(0.48))
                 }
@@ -614,11 +640,11 @@ struct LargeWidgetView: View {
     private func largeActive(nextTime: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .lastTextBaseline, spacing: 3) {
-                Text("\(entry.remainingMinutes)")
+                Text(entry.remainingDisplay)
                     .font(.system(size: 54, weight: .black, design: .rounded))
                     .foregroundStyle(WidgetTheme.countdownColor(minutes: entry.remainingMinutes))
                     .monospacedDigit()
-                Text("분")
+                Text(entry.remainingUnit)
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Color.white.opacity(0.7))
                     .padding(.bottom, 10)
@@ -682,7 +708,7 @@ struct LargeWidgetView: View {
                             .font(.system(size: 16, weight: .bold, design: .monospaced))
                             .foregroundStyle(primaryText)
                         Spacer()
-                        Text("\(bus.1)분 후")
+                        Text("\(formatUpcomingMinutes(bus.1)) 후")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(secondaryText)
                     }
@@ -701,6 +727,81 @@ struct LargeWidgetView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Accessory (Lock Screen) Widgets
+
+struct AccessoryCircularView: View {
+    let entry: BusEntry
+
+    var body: some View {
+        if entry.isServiceEnded {
+            ZStack {
+                AccessoryWidgetBackground()
+                VStack(spacing: 1) {
+                    Image(systemName: "moon.zzz.fill")
+                        .font(.system(size: 14))
+                    Text("종료")
+                        .font(.system(size: 9, weight: .semibold))
+                }
+            }
+        } else {
+            Gauge(value: Double(min(entry.remainingMinutes, 60)), in: 0...60) {
+                Image(systemName: "bus.fill")
+            } currentValueLabel: {
+                Text(entry.remainingDisplay)
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+            }
+            .gaugeStyle(.accessoryCircular)
+        }
+    }
+}
+
+struct AccessoryRectangularView: View {
+    let entry: BusEntry
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: "bus.fill")
+                    .font(.system(size: 10))
+                Text(entry.direction)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(.secondary)
+
+            if entry.isServiceEnded {
+                Text("운행 종료 · 첫차 \(entry.firstBusTime)")
+                    .font(.system(size: 14, weight: .medium))
+            } else if let nextTime = entry.nextBusTime {
+                Text("\(nextTime) 출발 · \(formatUpcomingMinutes(entry.remainingMinutes)) 후")
+                    .font(.system(size: 15, weight: .bold))
+
+                if entry.isLastBus {
+                    Text("막차")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.orange)
+                } else if entry.isNightBus {
+                    Text("심야")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.purple)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct AccessoryInlineView: View {
+    let entry: BusEntry
+
+    var body: some View {
+        if entry.isServiceEnded {
+            Label("운행 종료", systemImage: "bus.fill")
+        } else if let nextTime = entry.nextBusTime {
+            Label("\(nextTime) · \(formatUpcomingMinutes(entry.remainingMinutes)) 후", systemImage: "bus.fill")
+        }
     }
 }
 
