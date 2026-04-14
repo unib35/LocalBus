@@ -197,7 +197,6 @@ struct BusEntry: TimelineEntry {
     var remainingUnit: String {
         remainingMinutes >= 60 ? "시간" : "분"
     }
-
 }
 
 private func formatUpcomingMinutes(_ minutes: Int) -> String {
@@ -227,26 +226,33 @@ struct WidgetRouteData: Codable {
 // MARK: - Design Tokens
 
 private enum WidgetTheme {
-    static let heroGradientDark = LinearGradient(
+    static let bgGradientDark = LinearGradient(
         colors: [
-            Color(red: 6/255,  green: 18/255, blue: 46/255),
-            Color(red: 12/255, green: 24/255, blue: 52/255)
+            Color(red: 9/255,  green: 14/255, blue: 34/255),
+            Color(red: 18/255, green: 26/255, blue: 58/255)
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
-    static let heroGradientLight = LinearGradient(
+    static let bgGradientLight = LinearGradient(
         colors: [
-            Color(red: 30/255, green: 64/255,  blue: 175/255),
-            Color(red: 29/255, green: 78/255,  blue: 216/255)
+            Color(red: 55/255,  green: 95/255, blue: 210/255),
+            Color(red: 99/255, green: 74/255, blue: 226/255)
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
-    static func countdownColor(minutes: Int) -> Color {
-        if minutes <= 3 { return Color(red: 239/255, green: 68/255, blue: 68/255) }
-        if minutes <= 7 { return Color(red: 251/255, green: 146/255, blue: 60/255) }
+    // 긴급도에 따른 시각 색상
+    static func urgencyColor(minutes: Int) -> Color {
+        if minutes <= 3 { return Color(red: 248/255, green: 113/255, blue: 113/255) }
+        if minutes <= 7 { return Color(red: 251/255, green: 191/255, blue: 36/255) }
+        return Color(red: 74/255, green: 222/255, blue: 128/255)
+    }
+
+    static func timeColor(minutes: Int) -> Color {
+        if minutes <= 3 { return Color(red: 248/255, green: 113/255, blue: 113/255) }
+        if minutes <= 7 { return Color(red: 251/255, green: 191/255, blue: 36/255) }
         return .white
     }
 }
@@ -277,70 +283,15 @@ struct WidgetContainerBackground: View {
 
     var body: some View {
         switch family {
-        case .systemSmall:
-            smallBackground
-        case .systemMedium:
-            mediumBackground
-        case .systemLarge:
-            largeBackground
         case .accessoryCircular, .accessoryRectangular, .accessoryInline:
             Color.clear
         default:
-            smallBackground
+            heroGradient.widgetCanvas()
         }
     }
 
     private var heroGradient: LinearGradient {
-        colorScheme == .dark ? WidgetTheme.heroGradientDark : WidgetTheme.heroGradientLight
-    }
-
-    private var largeCardBackground: Color {
-        colorScheme == .dark
-            ? Color(red: 11/255, green: 15/255, blue: 24/255)
-            : .white
-    }
-
-    private var smallBackground: some View {
-        ZStack(alignment: .topTrailing) {
-            heroGradient
-
-            Circle()
-                .fill(Color.white.opacity(0.05))
-                .frame(width: 90, height: 90)
-                .offset(x: 30, y: -35)
-        }
-        .widgetCanvas()
-    }
-
-    private var mediumBackground: some View {
-        ZStack(alignment: .topTrailing) {
-            heroGradient
-
-            Circle()
-                .fill(Color.white.opacity(0.05))
-                .frame(width: 130, height: 130)
-                .offset(x: 44, y: -55)
-        }
-        .widgetCanvas()
-    }
-
-    private var largeBackground: some View {
-        VStack(spacing: 0) {
-            ZStack(alignment: .topTrailing) {
-                heroGradient
-
-                Circle()
-                    .fill(Color.white.opacity(0.05))
-                    .frame(width: 130, height: 130)
-                    .offset(x: 44, y: -50)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 148)
-
-            Rectangle()
-                .fill(largeCardBackground)
-        }
-        .widgetCanvas()
+        colorScheme == .dark ? WidgetTheme.bgGradientDark : WidgetTheme.bgGradientLight
     }
 }
 
@@ -383,13 +334,14 @@ struct SmallWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 5) {
+            // Header
+            HStack(spacing: 4) {
                 Image(systemName: "bus.fill")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 9, weight: .bold))
                 Text("시외버스")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
             }
-            .foregroundStyle(Color.white.opacity(0.55))
+            .foregroundStyle(.white.opacity(0.45))
 
             Spacer()
 
@@ -402,60 +354,64 @@ struct SmallWidgetView: View {
             Spacer()
 
             Text(entry.direction)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.45))
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.35))
         }
         .padding(14)
         .widgetCanvas(alignment: .topLeading)
     }
 
     private var serviceEndedContent: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 5) {
             Text("운행 종료")
-                .font(.system(size: 17, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
-            Text("내일 첫차")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.55))
-            Text(entry.firstBusTime)
-                .font(.system(size: 22, weight: .black, design: .monospaced))
-                .foregroundStyle(.white)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(.white.opacity(0.6))
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("내일 첫차")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.4))
+                Text(entry.firstBusTime)
+                    .font(.system(size: 32, weight: .black, design: .monospaced))
+                    .foregroundStyle(.white)
+            }
         }
     }
 
     private func activeContent(nextTime: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .lastTextBaseline, spacing: 2) {
-                Text(entry.remainingDisplay)
-                    .font(.system(size: 46, weight: .black, design: .rounded))
-                    .foregroundStyle(WidgetTheme.countdownColor(minutes: entry.remainingMinutes))
-                    .monospacedDigit()
-                Text(entry.remainingUnit)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.7))
-                    .padding(.bottom, 7)
-            }
+        VStack(alignment: .leading, spacing: 5) {
+            // 출발 시각이 주인공
+            Text(nextTime)
+                .font(.system(size: 40, weight: .black, design: .monospaced))
+                .foregroundStyle(WidgetTheme.timeColor(minutes: entry.remainingMinutes))
+                .monospacedDigit()
 
-            Text("\(nextTime) 출발")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color.white.opacity(0.82))
+            // 카운트다운 + 상태
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(WidgetTheme.urgencyColor(minutes: entry.remainingMinutes))
+                    .frame(width: 6, height: 6)
+                Text("\(entry.remainingDisplay)\(entry.remainingUnit) 후")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.6))
 
-            if entry.isLastBus || entry.isNightBus {
-                statusBadge
-                    .padding(.top, 5)
+                if entry.isLastBus || entry.isNightBus {
+                    statusLabel
+                }
             }
         }
     }
 
-    private var statusBadge: some View {
+    private var statusLabel: some View {
         let isLast = entry.isLastBus
-        let color: Color = isLast ? .orange : .purple
-        return Text(isLast ? "막차" : "심야")
-            .font(.system(size: 11, weight: .bold))
+        let label = isLast ? "막차" : "심야"
+        let color: Color = isLast ? .orange : Color(red: 167/255, green: 139/255, blue: 250/255)
+        return Text(label)
+            .font(.system(size: 9, weight: .bold))
             .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(color.opacity(0.22)))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(color.opacity(0.18)))
     }
 }
 
@@ -465,18 +421,13 @@ struct MediumWidgetView: View {
     let entry: BusEntry
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
             leftPanel
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if !entry.isServiceEnded && !entry.upcomingBuses.isEmpty {
-                Rectangle()
-                    .fill(Color.white.opacity(0.12))
-                    .frame(width: 1)
-                    .padding(.vertical, 18)
-
-                rightPanel
-                    .frame(width: 108)
+                upcomingPanel
+                    .frame(width: 104)
             }
         }
         .padding(.horizontal, 16)
@@ -486,13 +437,13 @@ struct MediumWidgetView: View {
 
     private var leftPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 Image(systemName: "bus.fill")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                 Text("다음 버스")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
             }
-            .foregroundStyle(Color.white.opacity(0.55))
+            .foregroundStyle(.white.opacity(0.45))
 
             Spacer()
 
@@ -505,82 +456,79 @@ struct MediumWidgetView: View {
             Spacer()
 
             Text(entry.direction)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.45))
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.35))
         }
     }
 
     private var mediumServiceEnded: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 5) {
             Text("운행 종료")
-                .font(.system(size: 20, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
-            Text("내일 첫차  \(entry.firstBusTime)")
-                .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color.white.opacity(0.7))
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(.white.opacity(0.6))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("내일 첫차")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.4))
+                Text(entry.firstBusTime)
+                    .font(.system(size: 36, weight: .black, design: .monospaced))
+                    .foregroundStyle(.white)
+            }
         }
     }
 
     private func mediumActive(nextTime: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .lastTextBaseline, spacing: 2) {
-                Text(entry.remainingDisplay)
-                    .font(.system(size: 48, weight: .black, design: .rounded))
-                    .foregroundStyle(WidgetTheme.countdownColor(minutes: entry.remainingMinutes))
-                    .monospacedDigit()
-                Text(entry.remainingUnit)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.7))
-                    .padding(.bottom, 8)
-            }
+        VStack(alignment: .leading, spacing: 5) {
+            Text(nextTime)
+                .font(.system(size: 44, weight: .black, design: .monospaced))
+                .foregroundStyle(WidgetTheme.timeColor(minutes: entry.remainingMinutes))
+                .monospacedDigit()
 
-            Text("\(nextTime) 출발")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color.white.opacity(0.82))
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(WidgetTheme.urgencyColor(minutes: entry.remainingMinutes))
+                    .frame(width: 6, height: 6)
+                Text("\(entry.remainingDisplay)\(entry.remainingUnit) 후")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.6))
 
-            if entry.isLastBus || entry.isNightBus {
-                mediumStatusBadge
-                    .padding(.top, 5)
+                if entry.isLastBus || entry.isNightBus {
+                    let isLast = entry.isLastBus
+                    let label = isLast ? "막차" : "심야"
+                    let color: Color = isLast ? .orange : Color(red: 167/255, green: 139/255, blue: 250/255)
+                    Text(label)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(color)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(color.opacity(0.18)))
+                }
             }
         }
     }
 
-    private var mediumStatusBadge: some View {
-        let isLast = entry.isLastBus
-        let color: Color = isLast ? .orange : .purple
-        return Text(isLast ? "막차" : "심야")
-            .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(color.opacity(0.22)))
-    }
-
-    private var rightPanel: some View {
+    private var upcomingPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("이후 버스")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.45))
-                .padding(.bottom, 10)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.35))
+                .padding(.bottom, 9)
 
-            let displayBuses = Array(entry.upcomingBuses.prefix(3))
-            ForEach(Array(displayBuses.enumerated()), id: \.offset) { index, bus in
-                HStack(alignment: .center) {
+            let buses = Array(entry.upcomingBuses.prefix(3))
+            ForEach(Array(buses.enumerated()), id: \.offset) { index, bus in
+                VStack(alignment: .leading, spacing: 1) {
                     Text(bus.0)
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color.white.opacity(0.9))
-                    Spacer()
-                    Text(formatUpcomingMinutes(bus.1))
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.48))
+                        .font(.system(size: 15, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.85))
+                    Text(formatUpcomingMinutes(bus.1) + " 후")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.38))
                 }
-                .padding(.bottom, index < displayBuses.count - 1 ? 8 : 0)
+                .padding(.bottom, index < buses.count - 1 ? 8 : 0)
             }
 
             Spacer()
         }
-        .padding(.leading, 14)
-        .padding(.vertical, 14)
     }
 }
 
@@ -592,103 +540,111 @@ struct LargeWidgetView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "bus.fill")
-                            .font(.system(size: 11, weight: .bold))
-                        Text("다음 버스")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundStyle(Color.white.opacity(0.55))
-                    .padding(.bottom, 10)
-
-                    if entry.isServiceEnded {
-                        largeServiceEnded
-                    } else if let nextTime = entry.nextBusTime {
-                        largeActive(nextTime: nextTime)
-                    }
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 148, alignment: .bottomLeading)
+            heroSection
+                .padding(.horizontal, 18)
+                .padding(.vertical, 18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 152, alignment: .bottomLeading)
 
             upcomingList
         }
         .widgetCanvas()
     }
 
+    private var heroSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 4) {
+                Image(systemName: "bus.fill")
+                    .font(.system(size: 10, weight: .bold))
+                Text("다음 버스")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(.white.opacity(0.45))
+            .padding(.bottom, 10)
+
+            if entry.isServiceEnded {
+                largeServiceEnded
+            } else if let nextTime = entry.nextBusTime {
+                largeActive(nextTime: nextTime)
+            }
+        }
+    }
+
     private var largeServiceEnded: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             Text("운행 종료")
-                .font(.system(size: 28, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
-            Text("내일 첫차  \(entry.firstBusTime)")
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color.white.opacity(0.7))
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.white.opacity(0.6))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("내일 첫차")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.4))
+                Text(entry.firstBusTime)
+                    .font(.system(size: 44, weight: .black, design: .monospaced))
+                    .foregroundStyle(.white)
+            }
             Text(entry.direction)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.38))
+                .foregroundStyle(.white.opacity(0.32))
                 .padding(.top, 2)
         }
     }
 
     private func largeActive(nextTime: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .lastTextBaseline, spacing: 3) {
-                Text(entry.remainingDisplay)
-                    .font(.system(size: 54, weight: .black, design: .rounded))
-                    .foregroundStyle(WidgetTheme.countdownColor(minutes: entry.remainingMinutes))
-                    .monospacedDigit()
-                Text(entry.remainingUnit)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.7))
-                    .padding(.bottom, 10)
-            }
-            HStack(spacing: 8) {
-                Text("\(nextTime) 출발")
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.white.opacity(0.82))
+        VStack(alignment: .leading, spacing: 5) {
+            Text(nextTime)
+                .font(.system(size: 52, weight: .black, design: .monospaced))
+                .foregroundStyle(WidgetTheme.timeColor(minutes: entry.remainingMinutes))
+                .monospacedDigit()
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(WidgetTheme.urgencyColor(minutes: entry.remainingMinutes))
+                    .frame(width: 7, height: 7)
+                Text("\(entry.remainingDisplay)\(entry.remainingUnit) 후 출발")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.65))
 
                 if entry.isLastBus || entry.isNightBus {
                     let isLast = entry.isLastBus
-                    let color: Color = isLast ? .orange : .purple
-                    Text(isLast ? "막차" : "심야")
+                    let label = isLast ? "막차" : "심야"
+                    let color: Color = isLast ? .orange : Color(red: 167/255, green: 139/255, blue: 250/255)
+                    Text(label)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(color)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, 7)
                         .padding(.vertical, 3)
-                        .background(Capsule().fill(color.opacity(0.22)))
+                        .background(Capsule().fill(color.opacity(0.18)))
                 }
             }
+
             Text(entry.direction)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.38))
-                .padding(.top, 2)
+                .foregroundStyle(.white.opacity(0.32))
+                .padding(.top, 1)
         }
     }
 
     private var upcomingList: some View {
-        let border = colorScheme == .dark
-            ? Color(red: 31/255, green: 41/255, blue: 55/255)
-            : Color(red: 191/255, green: 219/255, blue: 254/255)
-        let secondaryText = colorScheme == .dark
-            ? Color(red: 156/255, green: 163/255, blue: 175/255)
-            : Color(red: 55/255, green: 65/255, blue: 81/255)
-        let primaryText = colorScheme == .dark ? Color.white : Color(red: 15/255, green: 23/255, blue: 42/255)
+        let listBg: Color = colorScheme == .dark
+            ? Color(red: 12/255, green: 18/255, blue: 36/255)
+            : Color(red: 255/255, green: 255/255, blue: 255/255).opacity(0.12)
+        let divider: Color = colorScheme == .dark
+            ? Color.white.opacity(0.06)
+            : Color.white.opacity(0.2)
+        let primaryText: Color = colorScheme == .dark ? .white : .white
+        let secondaryText: Color = colorScheme == .dark
+            ? Color.white.opacity(0.38)
+            : Color.white.opacity(0.55)
 
         return VStack(spacing: 0) {
             HStack {
                 Text("이후 시간표")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(secondaryText)
                 Spacer()
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 18)
             .padding(.top, 14)
             .padding(.bottom, 10)
 
@@ -699,27 +655,27 @@ struct LargeWidgetView: View {
                         .foregroundStyle(secondaryText)
                     Spacer()
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 18)
             } else {
-                let displayBuses = Array(entry.upcomingBuses.prefix(4))
-                ForEach(Array(displayBuses.enumerated()), id: \.offset) { index, bus in
-                    HStack {
+                let buses = Array(entry.upcomingBuses.prefix(4))
+                ForEach(Array(buses.enumerated()), id: \.offset) { index, bus in
+                    HStack(alignment: .center) {
                         Text(bus.0)
-                            .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            .font(.system(size: 17, weight: .bold, design: .monospaced))
                             .foregroundStyle(primaryText)
                         Spacer()
-                        Text("\(formatUpcomingMinutes(bus.1)) 후")
+                        Text(formatUpcomingMinutes(bus.1) + " 후")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(secondaryText)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 11)
 
-                    if index < displayBuses.count - 1 {
+                    if index < buses.count - 1 {
                         Rectangle()
-                            .fill(border.opacity(0.6))
+                            .fill(divider)
                             .frame(height: 1)
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, 18)
                     }
                 }
             }
@@ -727,6 +683,7 @@ struct LargeWidgetView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(listBg)
     }
 }
 
