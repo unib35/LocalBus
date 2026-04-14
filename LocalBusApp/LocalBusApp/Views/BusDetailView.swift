@@ -15,31 +15,23 @@ struct BusDetailView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 0) {
+            VStack(spacing: 16) {
                 headerSection
-
-                timeHeroSection
-
-                sectionDivider
-
-                notificationRow
+                timeHeroCard
+                notificationCard
 
                 if info.platformNumber != nil {
-                    sectionDivider
-                    platformSection
+                    platformCard
                 }
 
-                sectionDivider
-
-                fareSection
-
-                sectionDivider
-
-                stopsSection
+                fareCard
+                stopsCard
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
             .padding(.bottom, 40)
         }
-        .background(HomeDashboardTheme.screenBackground.ignoresSafeArea())
+        .background(HomeDashboardTheme.sheetBackground.ignoresSafeArea())
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
@@ -49,129 +41,129 @@ struct BusDetailView: View {
     private var headerSection: some View {
         HStack(spacing: 8) {
             Text(info.directionDisplayName)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(.subheadline, weight: .semibold))
                 .foregroundStyle(HomeDashboardTheme.primaryText)
 
             Spacer()
 
-            // 직행/경유 배지
-            Text(info.isVia ? "경유" : "직행")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(info.isVia
-                    ? HomeDashboardTheme.timetableSecondaryText
-                    : HomeDashboardTheme.primaryBlue)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(info.isVia
-                            ? HomeDashboardTheme.timetablePickerBackground
-                            : HomeDashboardTheme.primaryBlue.opacity(0.12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .stroke(info.isVia
-                                    ? HomeDashboardTheme.timetablePickerSelected
-                                    : HomeDashboardTheme.primaryBlue.opacity(0.3),
-                                        lineWidth: 1)
-                        )
-                )
+            typeBadge(text: info.isVia ? "경유" : "직행",
+                      isAccent: !info.isVia)
 
-            // 평일/주말 배지
-            Text(info.scheduleTypeLabel)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(HomeDashboardTheme.timetablePickerBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .stroke(HomeDashboardTheme.timetablePickerSelected, lineWidth: 1)
-                        )
-                )
+            typeBadge(text: info.scheduleTypeLabel,
+                      isAccent: false)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
-        .padding(.bottom, 16)
+        .padding(.top, 8)
     }
 
-    // MARK: - 출발/도착 시간 히어로
+    private func typeBadge(text: String, isAccent: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(isAccent
+                ? HomeDashboardTheme.primaryBlue
+                : HomeDashboardTheme.timetableSecondaryText)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(isAccent
+                        ? HomeDashboardTheme.primaryBlue.opacity(0.12)
+                        : HomeDashboardTheme.timetablePickerBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(isAccent
+                                ? HomeDashboardTheme.primaryBlue.opacity(0.3)
+                                : HomeDashboardTheme.timetablePickerSelected,
+                                    lineWidth: 1)
+                    )
+            )
+    }
 
-    private var timeHeroSection: some View {
+    // MARK: - 출발/도착 시간 카드
+
+    private var timeHeroCard: some View {
         HStack(spacing: 0) {
-            // 출발 시간
+            // 출발
             VStack(alignment: .leading, spacing: 4) {
-                Text("출발")
+                Label("출발", systemImage: "circle.fill")
                     .font(.system(size: 11, weight: .bold))
-                    .tracking(0.5)
-                    .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+                    .tracking(0.4)
+                    .foregroundStyle(HomeDashboardTheme.departureGreen)
+                    .labelStyle(.iconLabel(size: 6))
 
                 Text(info.departureTime)
-                    .font(.system(size: 44, weight: .bold, design: .monospaced))
+                    .font(.system(size: 40, weight: .bold, design: .monospaced))
                     .tracking(-1)
                     .foregroundStyle(HomeDashboardTheme.primaryText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // 구분선
-            Rectangle()
-                .fill(HomeDashboardTheme.border)
-                .frame(width: 1, height: 64)
-
-            // 도착 예정 + 소요시간
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("도착 예정")
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(0.5)
+            // 소요시간 칩
+            VStack(spacing: 4) {
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+                Text("\(info.durationMinutes)분")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+                if info.isNightFare {
+                    Text("심야")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, 16)
+
+            // 도착
+            VStack(alignment: .trailing, spacing: 4) {
+                Label("도착 예정", systemImage: "mappin.circle.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(0.4)
+                    .foregroundStyle(HomeDashboardTheme.primaryBlue)
+                    .labelStyle(.iconLabel(size: 6))
 
                 Text(info.arrivalTime)
-                    .font(.system(size: 44, weight: .bold, design: .monospaced))
+                    .font(.system(size: 40, weight: .bold, design: .monospaced))
                     .tracking(-1)
                     .foregroundStyle(HomeDashboardTheme.primaryText)
-
-                HStack(spacing: 4) {
-                    Text("약 \(info.durationMinutes)분 소요")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-
-                    if info.isNightFare {
-                        Text("심야")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(Color.orange)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.orange.opacity(0.12))
-                            .clipShape(Capsule())
-                    }
-                }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 20)
-        .background(HomeDashboardTheme.cardBackground.opacity(0.5))
+        .padding(20)
+        .background(HomeDashboardTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(HomeDashboardTheme.border, lineWidth: 1)
+        )
     }
 
-    // MARK: - 알림 토글
+    // MARK: - 알림 카드
 
-    private var notificationRow: some View {
-        HStack(spacing: 12) {
-            Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(isNotificationEnabled
-                    ? HomeDashboardTheme.primaryBlue
-                    : HomeDashboardTheme.timetableSecondaryText)
-                .frame(width: 24)
+    private var notificationCard: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(isNotificationEnabled
+                        ? HomeDashboardTheme.primaryBlue.opacity(0.12)
+                        : HomeDashboardTheme.timetablePickerBackground)
+                    .frame(width: 40, height: 40)
+                Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(isNotificationEnabled
+                        ? HomeDashboardTheme.primaryBlue
+                        : HomeDashboardTheme.timetableSecondaryText)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("출발 5분 전 알림")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(HomeDashboardTheme.primaryText)
-
                 Text("\(info.departureTime) 출발 기준")
-                    .font(.system(size: 12))
+                    .font(.system(.caption, weight: .regular))
                     .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
             }
 
@@ -187,143 +179,215 @@ struct BusDetailView: View {
             .labelsHidden()
             .tint(HomeDashboardTheme.primaryBlue)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(HomeDashboardTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(HomeDashboardTheme.border, lineWidth: 0.5)
+        )
     }
 
-    // MARK: - 플랫폼 번호
+    // MARK: - 플랫폼 카드
 
-    private var platformSection: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "signpost.right")
-                .font(.system(size: 16, weight: .medium))
+    private var platformCard: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "signpost.right.fill")
+                .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(HomeDashboardTheme.primaryBlue)
-                .frame(width: 24)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("탑승 홈")
-                    .font(.system(size: 12, weight: .medium))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("탑승홈")
+                    .font(.system(.caption2, weight: .medium))
                     .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-
-                Text("\(info.platformNumber ?? "")번 홈")
-                    .font(.system(size: 15, weight: .semibold))
+                Text(info.platformNumber ?? "")
+                    .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(HomeDashboardTheme.primaryText)
             }
 
             Spacer()
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(HomeDashboardTheme.primaryBlue.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(HomeDashboardTheme.primaryBlue.opacity(0.3), lineWidth: 1)
+        )
     }
 
-    // MARK: - 요금
+    // MARK: - 요금 카드
 
-    private var fareSection: some View {
-        let adult = info.fare
-        let youth = Int(Double(adult) * 0.8)
-        let child = Int(Double(adult) * 0.52)
-        let effectiveFare = info.isNightFare ? (info.nightFare ?? adult) : adult
+    private var fareCard: some View {
+        let baseFare = info.fare
+        let effectiveFare = info.isNightFare ? (info.nightFare ?? baseFare) : baseFare
 
-        return VStack(alignment: .leading, spacing: 0) {
-            Text("요금")
-                .font(.system(size: 12, weight: .bold))
-                .tracking(0.5)
-                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 12)
+        return VStack(spacing: 16) {
+            // 헤더
+            HStack(spacing: 8) {
+                Image(systemName: "creditcard")
+                    .font(.system(.caption, weight: .bold))
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
+                Text("요금 정보")
+                    .font(.system(.subheadline, weight: .bold))
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 4)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(HomeDashboardTheme.border)
+                    .frame(height: 1)
+            }
 
-            VStack(spacing: 0) {
-                fareRow(label: "성인", amount: effectiveFare, isHighlighted: info.isNightFare)
-                Divider().padding(.leading, 20)
-                fareRow(label: "청소년 (13-18세)", amount: Int(Double(effectiveFare) * 0.8))
-                Divider().padding(.leading, 20)
-                fareRow(label: "어린이 (6-12세)", amount: Int(Double(effectiveFare) * 0.52))
+            // 요금 행
+            VStack(spacing: 12) {
+                if info.isNightFare {
+                    fareRow(label: "심야 성인", amount: effectiveFare, isNight: true)
+                    fareRow(label: "심야 청소년 (13-18세)", amount: Int(Double(effectiveFare) * 0.8), isNight: true)
+                    fareRow(label: "심야 어린이 (6-12세)", amount: Int(Double(effectiveFare) * 0.52), isNight: true)
+                } else {
+                    fareRow(label: "성인", amount: baseFare)
+                    fareRow(label: "청소년 (13-18세)", amount: Int(Double(baseFare) * 0.8))
+                    fareRow(label: "어린이 (6-12세)", amount: Int(Double(baseFare) * 0.52))
 
-                if let nightFare = info.nightFare, !info.isNightFare {
-                    Divider().padding(.leading, 20)
-                    HStack {
-                        Image(systemName: "moon.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color(red: 167/255, green: 139/255, blue: 250/255))
-                        Text("심야 요금 (성인 기준)")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-                        Spacer()
-                        Text(formattedFare(nightFare))
-                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(Color(red: 167/255, green: 139/255, blue: 250/255))
+                    if let nightFare = info.nightFare {
+                        Rectangle()
+                            .fill(HomeDashboardTheme.border)
+                            .frame(height: 1)
+                        HStack {
+                            HStack(spacing: 4) {
+                                Text("심야")
+                                    .font(.system(.caption2, weight: .bold))
+                                    .foregroundStyle(.orange)
+                                Text("(성인 기준)")
+                                    .font(.system(.caption, weight: .medium))
+                                    .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+                            }
+                            Spacer()
+                            HStack(alignment: .lastTextBaseline, spacing: 2) {
+                                Text(formattedFare(nightFare))
+                                    .font(.system(.callout, weight: .bold))
+                                    .foregroundStyle(HomeDashboardTheme.primaryText)
+                                Text("원")
+                                    .font(.system(.caption))
+                                    .foregroundStyle(HomeDashboardTheme.timetableMutedText)
+                            }
+                        }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
                 }
             }
-            .padding(.bottom, 4)
 
-            // 요금 안내
-            Text("청소년·어린이 요금은 성인 요금 기준 추정값입니다")
-                .font(.system(size: 11))
+            Text("청소년·어린이 요금은 성인 기준 추정값입니다")
+                .font(.system(.caption2))
                 .foregroundStyle(HomeDashboardTheme.timetableMutedText)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(20)
+        .background(HomeDashboardTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(HomeDashboardTheme.border, lineWidth: 1)
+        )
     }
 
-    private func fareRow(label: String, amount: Int, isHighlighted: Bool = false) -> some View {
+    private func fareRow(label: String, amount: Int, isNight: Bool = false) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(isHighlighted
-                    ? HomeDashboardTheme.primaryText
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(isNight
+                    ? Color.orange
                     : HomeDashboardTheme.timetableSecondaryText)
             Spacer()
-            Text(formattedFare(amount))
-                .font(.system(size: 15, weight: isHighlighted ? .bold : .semibold, design: .monospaced))
-                .foregroundStyle(isHighlighted
-                    ? HomeDashboardTheme.primaryText
-                    : HomeDashboardTheme.timetableSecondaryText)
+            HStack(alignment: .lastTextBaseline, spacing: 2) {
+                Text(formattedFare(amount))
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
+                Text("원")
+                    .font(.system(size: 12))
+                    .foregroundStyle(HomeDashboardTheme.timetableMutedText)
+            }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
     }
 
     private func formattedFare(_ amount: Int) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
-        return (formatter.string(from: NSNumber(value: amount)) ?? "\(amount)") + "원"
+        return formatter.string(from: NSNumber(value: amount)) ?? "\(amount)"
     }
 
-    // MARK: - 정류장 목록
+    // MARK: - 정류장 카드
 
-    private var stopsSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("정류장")
-                .font(.system(size: 12, weight: .bold))
-                .tracking(0.5)
-                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 4)
+    private var stopsCard: some View {
+        VStack(spacing: 0) {
+            // 헤더
+            HStack(spacing: 8) {
+                Image(systemName: "bus")
+                    .font(.system(.caption, weight: .bold))
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
+                Text("정류장")
+                    .font(.system(.subheadline, weight: .bold))
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 16)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(HomeDashboardTheme.border)
+                    .frame(height: 1)
+                    .padding(.horizontal, 20)
+            }
 
-            ForEach(Array(info.stops.enumerated()), id: \.element.id) { index, stop in
-                StopRowView(
-                    stop: stop,
-                    isFirst: index == 0,
-                    isLast: index == info.stops.count - 1,
-                    isSelected: false,
-                    onTap: {}
-                )
-                .padding(.horizontal, 12)
+            if info.stops.isEmpty {
+                Text("정류장 정보를 불러올 수 없습니다")
+                    .font(.system(.subheadline, weight: .medium))
+                    .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+            } else {
+                ForEach(Array(info.stops.enumerated()), id: \.element.id) { index, stop in
+                    StopRowView(
+                        stop: stop,
+                        isFirst: index == 0,
+                        isLast: index == info.stops.count - 1,
+                        isSelected: false,
+                        onTap: {}
+                    )
+                    .padding(.horizontal, 8)
+                }
+                .padding(.bottom, 8)
             }
         }
+        .background(HomeDashboardTheme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(HomeDashboardTheme.border, lineWidth: 1)
+        )
     }
+}
 
-    // MARK: - 구분선
+// MARK: - 아이콘 레이블 스타일
 
-    private var sectionDivider: some View {
-        Rectangle()
-            .fill(HomeDashboardTheme.border.opacity(0.6))
-            .frame(height: 1)
-            .padding(.horizontal, 20)
+private struct IconLabelStyle: LabelStyle {
+    let size: CGFloat
+
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.icon
+                .font(.system(size: size))
+            configuration.title
+        }
+    }
+}
+
+private extension LabelStyle where Self == IconLabelStyle {
+    static func iconLabel(size: CGFloat) -> IconLabelStyle {
+        IconLabelStyle(size: size)
     }
 }
