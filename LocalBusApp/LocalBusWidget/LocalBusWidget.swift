@@ -226,28 +226,25 @@ struct WidgetRouteData: Codable {
 // MARK: - Design Tokens
 
 private enum WidgetTheme {
-    static let bgGradientDark = LinearGradient(
+    /// 히어로 배경 그라디언트 — AppTheme.Color.heroStart/heroEnd 와 동일.
+    /// 라이트/다크 구분 없이 항상 어두운 단색 그레이 사용.
+    static let bgGradient = LinearGradient(
         colors: [
-            Color(red: 9/255,  green: 14/255, blue: 34/255),
-            Color(red: 18/255, green: 26/255, blue: 58/255)
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-    static let bgGradientLight = LinearGradient(
-        colors: [
-            Color(red: 55/255,  green: 95/255, blue: 210/255),
-            Color(red: 99/255, green: 74/255, blue: 226/255)
+            Color(white: 0.10),   // #1A1A1A — heroStart
+            Color(white: 0.04)    // #0A0A0A — heroEnd
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
-    // 긴급도에 따른 시각 색상
+    /// 심야/막차 배지 색상 — AppTheme.Color.nightFare(dark) 와 동일.
+    static let nightFare = Color(red: 251/255, green: 146/255, blue: 60/255)
+
+    // 긴급도에 따른 카운트다운 색상 (semantic — 변경 없음)
     static func urgencyColor(minutes: Int) -> Color {
-        if minutes <= 3 { return Color(red: 248/255, green: 113/255, blue: 113/255) }
-        if minutes <= 7 { return Color(red: 251/255, green: 191/255, blue: 36/255) }
-        return Color(red: 74/255, green: 222/255, blue: 128/255)
+        if minutes <= 3 { return Color(red: 248/255, green: 113/255, blue: 113/255) } // destructive
+        if minutes <= 7 { return Color(red: 251/255, green: 191/255, blue: 36/255) }  // amber
+        return Color(red: 74/255, green: 222/255, blue: 128/255)                       // departureGreen
     }
 
     static func timeColor(minutes: Int) -> Color {
@@ -279,19 +276,14 @@ private extension View {
 
 struct WidgetContainerBackground: View {
     @Environment(\.widgetFamily) private var family
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         switch family {
         case .accessoryCircular, .accessoryRectangular, .accessoryInline:
             Color.clear
         default:
-            heroGradient.widgetCanvas()
+            WidgetTheme.bgGradient.widgetCanvas()
         }
-    }
-
-    private var heroGradient: LinearGradient {
-        colorScheme == .dark ? WidgetTheme.bgGradientDark : WidgetTheme.bgGradientLight
     }
 }
 
@@ -337,9 +329,9 @@ struct SmallWidgetView: View {
             // Header
             HStack(spacing: 4) {
                 Image(systemName: "bus.fill")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                 Text("시외버스")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
             }
             .foregroundStyle(.white.opacity(0.45))
 
@@ -355,7 +347,8 @@ struct SmallWidgetView: View {
 
             Text(entry.direction)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white.opacity(0.35))
+                .foregroundStyle(.white.opacity(0.5))
+                .lineLimit(1)
         }
         .padding(14)
         .widgetCanvas(alignment: .topLeading)
@@ -385,6 +378,8 @@ struct SmallWidgetView: View {
                 .font(.system(size: 40, weight: .black, design: .monospaced))
                 .foregroundStyle(WidgetTheme.timeColor(minutes: entry.remainingMinutes))
                 .monospacedDigit()
+                .minimumScaleFactor(0.75)
+                .lineLimit(1)
 
             // 카운트다운 + 상태
             HStack(spacing: 5) {
@@ -405,9 +400,9 @@ struct SmallWidgetView: View {
     private var statusLabel: some View {
         let isLast = entry.isLastBus
         let label = isLast ? "막차" : "심야"
-        let color: Color = isLast ? .orange : Color(red: 167/255, green: 139/255, blue: 250/255)
+        let color: Color = isLast ? WidgetTheme.nightFare : WidgetTheme.nightFare
         return Text(label)
-            .font(.system(size: 9, weight: .bold))
+            .font(.system(size: 11, weight: .bold))
             .foregroundStyle(color)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
@@ -439,7 +434,7 @@ struct MediumWidgetView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
                 Image(systemName: "bus.fill")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                 Text("다음 버스")
                     .font(.system(size: 11, weight: .semibold))
             }
@@ -457,7 +452,8 @@ struct MediumWidgetView: View {
 
             Text(entry.direction)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white.opacity(0.35))
+                .foregroundStyle(.white.opacity(0.5))
+                .lineLimit(1)
         }
     }
 
@@ -483,6 +479,8 @@ struct MediumWidgetView: View {
                 .font(.system(size: 44, weight: .black, design: .monospaced))
                 .foregroundStyle(WidgetTheme.timeColor(minutes: entry.remainingMinutes))
                 .monospacedDigit()
+                .minimumScaleFactor(0.8)
+                .lineLimit(1)
 
             HStack(spacing: 5) {
                 Circle()
@@ -495,7 +493,7 @@ struct MediumWidgetView: View {
                 if entry.isLastBus || entry.isNightBus {
                     let isLast = entry.isLastBus
                     let label = isLast ? "막차" : "심야"
-                    let color: Color = isLast ? .orange : Color(red: 167/255, green: 139/255, blue: 250/255)
+                    let color: Color = isLast ? WidgetTheme.nightFare : WidgetTheme.nightFare
                     Text(label)
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(color)
@@ -511,7 +509,7 @@ struct MediumWidgetView: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("이후 버스")
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.35))
+                .foregroundStyle(.white.opacity(0.5))
                 .padding(.bottom, 9)
 
             let buses = Array(entry.upcomingBuses.prefix(3))
@@ -555,7 +553,7 @@ struct LargeWidgetView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
                 Image(systemName: "bus.fill")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                 Text("다음 버스")
                     .font(.system(size: 11, weight: .semibold))
             }
@@ -596,6 +594,8 @@ struct LargeWidgetView: View {
                 .font(.system(size: 52, weight: .black, design: .monospaced))
                 .foregroundStyle(WidgetTheme.timeColor(minutes: entry.remainingMinutes))
                 .monospacedDigit()
+                .minimumScaleFactor(0.8)
+                .lineLimit(1)
 
             HStack(spacing: 6) {
                 Circle()
@@ -608,7 +608,7 @@ struct LargeWidgetView: View {
                 if entry.isLastBus || entry.isNightBus {
                     let isLast = entry.isLastBus
                     let label = isLast ? "막차" : "심야"
-                    let color: Color = isLast ? .orange : Color(red: 167/255, green: 139/255, blue: 250/255)
+                    let color: Color = isLast ? WidgetTheme.nightFare : WidgetTheme.nightFare
                     Text(label)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(color)
@@ -620,22 +620,17 @@ struct LargeWidgetView: View {
 
             Text(entry.direction)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.32))
+                .foregroundStyle(.white.opacity(0.5))
                 .padding(.top, 1)
         }
     }
 
     private var upcomingList: some View {
-        let listBg: Color = colorScheme == .dark
-            ? Color(red: 12/255, green: 18/255, blue: 36/255)
-            : Color(red: 255/255, green: 255/255, blue: 255/255).opacity(0.12)
-        let divider: Color = colorScheme == .dark
-            ? Color.white.opacity(0.06)
-            : Color.white.opacity(0.2)
-        let primaryText: Color = colorScheme == .dark ? .white : .white
-        let secondaryText: Color = colorScheme == .dark
-            ? Color.white.opacity(0.38)
-            : Color.white.opacity(0.55)
+        // 위젯 배경이 항상 어두운 그레이이므로 리스트 배경도 단일 다크 색상 사용
+        let listBg = Color(white: 0.08)          // #141414 — cardBackground dark
+        let divider = Color.white.opacity(0.09)
+        let primaryText = Color.white
+        let secondaryText = Color.white.opacity(0.55)
 
         return VStack(spacing: 0) {
             HStack {
@@ -776,7 +771,7 @@ struct LocalBusWidget: Widget {
         }
         .configurationDisplayName("다음 버스 (고정)")
         .description("장유-사상 시외버스 다음 출발 시간을 확인하세요")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .accessoryCircular, .accessoryRectangular, .accessoryInline])
         .contentMarginsDisabled()
     }
 }
