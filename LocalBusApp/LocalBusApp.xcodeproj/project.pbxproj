@@ -440,7 +440,7 @@
 				DEVELOPMENT_TEAM = AMNS6W2AA9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LocalBusWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = LocalBusWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = "장유시외버스 위젯";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = "";
@@ -470,7 +470,7 @@
 				DEVELOPMENT_TEAM = AMNS6W2AA9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LocalBusWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = LocalBusWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = "장유시외버스 위젯";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = "";
@@ -663,6 +663,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LocalBusApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "장유시외버스";
 				INFOPLIST_KEY_KakaoRestAPIKey = "$(KAKAO_REST_API_KEY)";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치를 지도에 표시하기 위해 위치 정보를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -695,6 +696,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LocalBusApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "장유시외버스";
 				INFOPLIST_KEY_KakaoRestAPIKey = "$(KAKAO_REST_API_KEY)";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치를 지도에 표시하기 위해 위치 정보를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
