@@ -35,6 +35,10 @@ Carthage/Build/
 *.ipa
 *.dSYM.zip
 *.dSYM
+LocalBusApp.zip
+
+# Build/test 산출물 (실수로 커밋되지 않도록)
+LocalBusApp/test_widget
 
 # Playgrounds
 timeline.xctimeline
@@ -53,3 +57,7 @@ fastlane/test_output
 
 # API Keys
 **/Configurations/Secrets.xcconfig
+
+# 내부 문서 (깃 추적 제외 — 로컬에서만 관리)
+# 공개 약관/Pages 문서는 docs/ 에 두어 추적, 내부 참고 문서는 internal-docs/ 로 분리
+internal-docs/
