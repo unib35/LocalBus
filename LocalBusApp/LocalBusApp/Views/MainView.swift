@@ -9,7 +9,7 @@ private enum MainTab: Hashable {
 }
 
 private enum AppDeepLink {
-    static let scheme = "localbus"
+    static let scheme = "jangyusasang"
     static let host = "route"
     static let directionQueryItem = "direction"
 

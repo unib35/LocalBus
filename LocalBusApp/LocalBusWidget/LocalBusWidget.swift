@@ -267,7 +267,7 @@ private enum WidgetTheme {
 }
 
 private enum WidgetDeepLink {
-    static let scheme = "localbus"
+    static let scheme = "jangyusasang"
     static let host = "route"
     static let directionQueryItem = "direction"
 
