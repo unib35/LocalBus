@@ -31,6 +31,21 @@
 
 ---
 
+## 🔒 보안 — GoogleService-Info.plist 노출 대응
+
+> `GoogleService-Info.plist`가 `e98719c` 커밋부터 public 레포에 노출됨.
+> Firebase iOS API 키는 앱 번들에 포함되는 값이라 서버 시크릿은 아니지만, 키 제한 필수.
+> 히스토리는 유지하기로 결정(키 제한으로 충분).
+
+- [x] git 추적 제외 + `.gitignore` 추가 (커밋 `8390f99`)
+- [ ] **🔴 API 키 제한** (Google Cloud Console → API/서비스 → 사용자 인증 정보)
+  - 애플리케이션 제한 → iOS 앱 → 번들 ID `kr.co.lee.jangyusasang` 추가
+  - API 제한 → Firebase 사용 API만 허용
+- [ ] 🟡 Firebase App Check 활성화 (DeviceCheck/App Attest)
+- [ ] 🟡 Firestore/Storage 보안 규칙 점검 (무인증 read/write 차단 여부)
+
+---
+
 ## 🔴 할 일 — 우선순위 1 (안 하면 실기기/배포 빌드 불가)
 
 ### Apple Developer Portal (developer.apple.com → Identifiers)
