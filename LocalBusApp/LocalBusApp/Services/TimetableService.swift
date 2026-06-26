@@ -8,11 +8,19 @@ struct TimetableService {
     private let cacheKey: String
     private let bundleFileName: String
 
+    /// App Group 공유 저장소. 위젯이 같은 캐시를 읽을 수 있도록 standard 대신 사용한다.
+    private let defaults: UserDefaults
+
     // MARK: - Initialization
 
-    init(bundleFileName: String = "timetable", cacheKey: String = "cached_timetable_data") {
+    init(
+        bundleFileName: String = "timetable",
+        cacheKey: String = EntitlementStore.timetableCacheKey,
+        defaults: UserDefaults = EntitlementStore.sharedDefaults
+    ) {
         self.bundleFileName = bundleFileName
         self.cacheKey = cacheKey
+        self.defaults = defaults
     }
 
     // MARK: - Local Data Loading
@@ -36,7 +44,7 @@ struct TimetableService {
     /// UserDefaults 캐시에서 데이터 로드
     /// - Returns: TimetableData 또는 nil (캐시 없음/파싱 실패 시)
     func loadCachedData() -> TimetableData? {
-        guard let data = UserDefaults.standard.data(forKey: cacheKey) else {
+        guard let data = defaults.data(forKey: cacheKey) else {
             return nil
         }
 
@@ -45,7 +53,7 @@ struct TimetableService {
 
     /// UserDefaults 캐시 삭제
     func clearCache() {
-        UserDefaults.standard.removeObject(forKey: cacheKey)
+        defaults.removeObject(forKey: cacheKey)
     }
 
     /// UserDefaults 캐시에 데이터 저장
@@ -55,7 +63,7 @@ struct TimetableService {
             return
         }
 
-        UserDefaults.standard.set(encoded, forKey: cacheKey)
+        defaults.set(encoded, forKey: cacheKey)
     }
 
     // MARK: - Timetable Selection

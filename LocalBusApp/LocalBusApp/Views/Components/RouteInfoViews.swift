@@ -18,11 +18,14 @@ struct StopsScreenView: View {
 
     @State private var selectedStop: BusStop? = nil
     @State private var centerOnUser = false
+    @State private var fitToRoute = false
     @State private var userLocation: CLLocation? = nil
 
-    // 시트 드래그
-    @GestureState private var dragTranslation: CGFloat = 0
-    @State private var sheetOffset: CGFloat = 0
+    // 시트 상태 (SwiftUI 표준 sheet)
+    @State private var isSheetPresented: Bool = true
+    @State private var sheetDetent: PresentationDetent = .medium
+    private let peekDetent: PresentationDetent = .height(120)
+
     @Environment(\.colorScheme) private var colorScheme
 
     private var stopsDirection: RouteDirection { viewModel.selectedDirection }
@@ -67,6 +70,10 @@ struct StopsScreenView: View {
         }
     }
 
+    private var mapRoutePath: [CLLocationCoordinate2D]? {
+        viewModel.getRoutePath(for: stopsDirection)
+    }
+
     private func formattedFare(_ amount: Int) -> String {
         Self.fareFormatter.string(from: NSNumber(value: amount)) ?? "\(amount)"
     }
@@ -95,121 +102,110 @@ struct StopsScreenView: View {
     // MARK: - Body
 
     var body: some View {
-        GeometryReader { geo in
-            let hiddenOffset = geo.size.height * 0.88
-            let sheetY = min(hiddenOffset, max(0, sheetOffset + dragTranslation))
+        ZStack(alignment: .top) {
+            HomeDashboardTheme.screenBackground.ignoresSafeArea()
 
-            ZStack(alignment: .top) {
-                HomeDashboardTheme.screenBackground.ignoresSafeArea()
-
-                // 지도 — 전체 화면. 시트가 위에 오버레이되며, 시트가 내려가면 지도가 드러남
+            // 지도 — 화면 전체. safe area 무시
+            GeometryReader { geo in
                 RouteMapView(
                     pins: mapPins,
+                    routePath: mapRoutePath,
                     selectedStopID: selectedStopID,
                     selectedCoordinate: selectedCoordinate,
                     centerOnUser: $centerOnUser,
+                    fitToRoute: $fitToRoute,
                     colorScheme: colorScheme,
-                    sheetTopY: geo.size.height * 0.40 + geo.safeAreaInsets.top + sheetY,
+                    sheetTopY: estimatedSheetTopY(for: geo.size.height),
                     onPinTap: { stopID in
                         guard let stop = stops.first(where: { $0.id == stopID }) else { return }
                         withAnimation(.easeInOut(duration: 0.3)) {
                             selectedStop = stop
-                            if sheetOffset > 0 { sheetOffset = 0 }
+                        }
+                        if !isSheetPresented {
+                            isSheetPresented = true
+                        }
+                        if sheetDetent == peekDetent {
+                            sheetDetent = .medium
                         }
                     },
                     onLocationUpdate: { location in
                         userLocation = location
                     }
                 )
-                .ignoresSafeArea()
+            }
+            .ignoresSafeArea()
 
-                // 현재위치 버튼 — 시트 상단을 따라 이동
+            // 우상단 고정 컨트롤 — safe area 안에 자동 위치 (시계 아래)
+            VStack(spacing: 10) {
+                mapControlButton(
+                    systemName: "arrow.up.left.and.arrow.down.right",
+                    accessibilityLabel: "노선 전체 보기"
+                ) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    fitToRoute = true
+                }
+
+                mapControlButton(
+                    systemName: "location.fill",
+                    accessibilityLabel: "현재 위치로 이동"
+                ) {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    centerOnUser = true
+                }
+
+                #if DEBUG
+                mapControlButton(
+                    systemName: "square.and.arrow.down.on.square",
+                    accessibilityLabel: "경로 추출 (DEBUG)"
+                ) {
+                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                    let direction = stopsDirection
+                    let currentStops = stops
+                    Task {
+                        await RoutePathExporter.exportPath(
+                            for: direction,
+                            stops: currentStops
+                        )
+                    }
+                }
+                #endif
+            }
+            .padding(.top, 16)
+            .padding(.trailing, 16)
+            .frame(maxWidth: .infinity, alignment: .topTrailing)
+
+            // 시트 닫혔을 때 다시 열기 버튼
+            if !isSheetPresented {
                 VStack {
                     Spacer()
-                        .frame(height: max(
-                            geo.safeAreaInsets.top + 16,
-                            geo.size.height * 0.40 + geo.safeAreaInsets.top + sheetY - 52
-                        ))
-                    HStack {
-                        Spacer()
-                        Button {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            centerOnUser = true
-                        } label: {
-                            Image(systemName: "location.fill")
-                                .font(.system(.subheadline, weight: .medium))
-                                .foregroundStyle(.white)
-                                .frame(width: 44, height: 44)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Circle())
-                                .shadow(color: .black.opacity(0.4), radius: 8)
+                    Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        isSheetPresented = true
+                        sheetDetent = .medium
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text("정류장 목록")
+                                .font(.system(.subheadline, weight: .semibold))
+                            Image(systemName: "chevron.up")
+                                .font(.system(.caption, weight: .bold))
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("현재 위치로 이동")
-                        .padding(.trailing, 16)
+                        .foregroundStyle(AppTheme.Color.primaryForeground)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 11)
+                        .background(HomeDashboardTheme.primaryBlue)
+                        .clipShape(Capsule())
+                        .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 4)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("정류장 목록 열기")
+                    .padding(.bottom, 24)
                 }
-
-                // 바텀 시트
-                VStack(spacing: 0) {
-                    Spacer()
-                        .frame(height: geo.size.height * 0.40 + geo.safeAreaInsets.top)
-
-                    ZStack(alignment: .top) {
-                        // 배경 (하단까지 채우기)
-                        HomeDashboardTheme.sheetBackground
-                            .clipShape(TopRoundedShape(radius: 32))
-                            .ignoresSafeArea(edges: .bottom)
-                            .shadow(color: .black.opacity(0.5), radius: 40, x: 0, y: -10)
-
-                        VStack(spacing: 0) {
-                            // 드래그 핸들 (제스처 영역)
-                            dragHandleArea(hiddenOffset: hiddenOffset)
-
-                            ScrollView(showsIndicators: false) {
-                                sheetContent
-                                    .padding(.bottom, 40)
-                            }
-                        }
-                    }
-                    .offset(y: sheetY)
-                }
-
-                // 시트 완전히 숨김 시 복원 버튼
-                if sheetOffset >= hiddenOffset * 0.95 {
-                    VStack {
-                        Spacer()
-                        Button {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            presentSheet()
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "list.bullet")
-                                    .font(.system(.footnote, weight: .semibold))
-                                Text("정류장 목록")
-                                    .font(.system(.subheadline, weight: .semibold))
-                                Image(systemName: "chevron.up")
-                                    .font(.system(.caption, weight: .bold))
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 11)
-                            .background(HomeDashboardTheme.primaryBlue)
-                            .clipShape(Capsule())
-                            .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 4)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("정류장 목록 열기")
-                        .padding(.bottom, max(geo.safeAreaInsets.bottom, 16))
-                    }
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .bottom).combined(with: .opacity),
-                        removal: .opacity
-                    ))
-                }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .opacity
+                ))
             }
         }
-        .ignoresSafeArea(edges: .top)
         .onAppear {
             selectDefaultStopIfNeeded()
         }
@@ -217,53 +213,48 @@ struct StopsScreenView: View {
             selectDefaultStopIfNeeded(force: true)
         }
         .onChange(of: presentationToken) { _ in
-            presentSheet()
+            isSheetPresented = true
+            sheetDetent = .medium
             selectDefaultStopIfNeeded()
         }
+        .sheet(isPresented: $isSheetPresented) {
+            ScrollView(showsIndicators: false) {
+                sheetContent
+                    .padding(.bottom, 40)
+            }
+            .presentationDetents([peekDetent, .medium, .large], selection: $sheetDetent)
+            .presentationDragIndicator(.visible)
+            .sheetEnhancements()
+        }
     }
 
-    // MARK: - 드래그 핸들
+    // MARK: - Sheet 높이 추정 (지도 핀 centering 보정용)
 
-    private func dragHandleArea(hiddenOffset: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            Capsule()
-                .fill(HomeDashboardTheme.border)
-                .frame(width: 48, height: 4)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(minHeight: 44)
-        .contentShape(Rectangle())
-        .accessibilityLabel("시트 핸들")
-        .accessibilityHint("위아래로 드래그해서 시트를 표시하거나 숨깁니다")
-        .accessibilityAddTraits(.isButton)
-        .gesture(
-            DragGesture()
-                .updating($dragTranslation) { value, state, _ in
-                    state = value.translation.height
-                }
-                .onEnded { value in
-                    let velocity = value.velocity.height
-                    let projected = sheetOffset + value.predictedEndTranslation.height
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        if velocity > 800 {
-                            sheetOffset = hiddenOffset
-                        } else if velocity < -800 {
-                            sheetOffset = 0
-                        } else {
-                            let snapPoints: [CGFloat] = [0, hiddenOffset]
-                            sheetOffset = snapPoints.min(by: { abs($0 - projected) < abs($1 - projected) }) ?? 0
-                        }
-                    }
-                }
-        )
+    private func estimatedSheetTopY(for screenHeight: CGFloat) -> CGFloat {
+        if sheetDetent == .large { return screenHeight * 0.10 }
+        if sheetDetent == .medium { return screenHeight * 0.50 }
+        return screenHeight * 0.85
     }
 
-    private func presentSheet() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-            sheetOffset = 0
+    // MARK: - 지도 컨트롤 버튼
+
+    private func mapControlButton(
+        systemName: String,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(.subheadline, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial)
+                .clipShape(Circle())
+                .liquidGlass(in: Circle())
+                .shadow(color: .black.opacity(0.4), radius: 8)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
     }
 
     // MARK: - 시트 콘텐츠
@@ -301,10 +292,6 @@ struct StopsScreenView: View {
 
     private func platformBanner(_ platformNum: String) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "signpost.right.fill")
-                .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(HomeDashboardTheme.primaryBlue)
-
             VStack(alignment: .leading, spacing: 1) {
                 Text("탑승홈")
                     .font(.system(.caption2, weight: .medium))
@@ -320,6 +307,7 @@ struct StopsScreenView: View {
         .padding(.vertical, 12)
         .background(HomeDashboardTheme.primaryBlue.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .liquidGlass(cornerRadius: 10)
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(HomeDashboardTheme.primaryBlue.opacity(0.3), lineWidth: 1)
@@ -372,6 +360,9 @@ struct StopsScreenView: View {
 
     private func selectedStopCard(stop: BusStop, stops currentStops: [BusStop]) -> some View {
         let isLast = currentStops.last?.id == stop.id
+        let accent: Color = stop.isDeparture
+            ? HomeDashboardTheme.departureGreen
+            : HomeDashboardTheme.primaryBlue
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Text(stop.name)
@@ -387,14 +378,9 @@ struct StopsScreenView: View {
 
             HStack(spacing: 12) {
                 if let address = stop.description {
-                    HStack(spacing: 4) {
-                        Image(systemName: "location.fill")
-                            .font(.system(.caption2, weight: .medium))
-                            .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-                        Text(address)
-                            .font(.system(.footnote, weight: .medium))
-                            .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-                    }
+                    Text(address)
+                        .font(.system(.footnote, weight: .medium))
+                        .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                 }
 
                 if let userLoc = userLocation, let coord = coordinate(for: stop) {
@@ -416,20 +402,6 @@ struct StopsScreenView: View {
                 }
             }
 
-            if (stop.isDeparture || isLast), let platformNum = platform {
-                HStack(spacing: 6) {
-                    Image(systemName: "signpost.right.fill")
-                        .font(.system(.caption2, weight: .semibold))
-                    Text(platformNum)
-                        .font(.system(.caption, weight: .bold))
-                }
-                .foregroundStyle(.black)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Color.white)
-                .clipShape(Capsule())
-            }
-
             if coordinate(for: stop) != nil {
                 Button {
                     openMapsNavigation(for: stop)
@@ -440,10 +412,10 @@ struct StopsScreenView: View {
                         Text("길 찾기")
                             .font(.system(.subheadline, weight: .bold))
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(AppTheme.Color.primaryForeground)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(.white)
+                    .background(accent)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -452,9 +424,10 @@ struct StopsScreenView: View {
         .padding(16)
         .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .liquidGlass(cornerRadius: 12)
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(HomeDashboardTheme.primaryBlue.opacity(0.5), lineWidth: 1)
+                .stroke(accent.opacity(0.5), lineWidth: 1)
         )
     }
 
@@ -496,6 +469,7 @@ struct StopsScreenView: View {
                     .padding(.vertical, 5)
                     .background(.ultraThinMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .liquidGlass(cornerRadius: 4)
                     .padding(12)
             }
         }
@@ -511,21 +485,16 @@ struct StopsScreenView: View {
 
     private func fareCard(adult: Int) -> some View {
         VStack(spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: "creditcard")
-                    .font(.system(.caption, weight: .bold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-                Text("요금 정보")
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 4)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(HomeDashboardTheme.border)
-                    .frame(height: 1)
-            }
+            Text("요금 정보")
+                .font(.system(.subheadline, weight: .bold))
+                .foregroundStyle(HomeDashboardTheme.primaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 4)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(HomeDashboardTheme.border)
+                        .frame(height: 1)
+                }
 
             VStack(spacing: 12) {
                 fareRow(label: "성인", amount: adult)
@@ -540,7 +509,7 @@ struct StopsScreenView: View {
                         HStack(spacing: 4) {
                             Text("심야")
                                 .font(.system(.caption2, weight: .bold))
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(AppTheme.Color.nightFare)
                             Text("(\(startTime) 이후 성인 기준)")
                                 .font(.system(.caption, weight: .medium))
                                 .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
@@ -562,9 +531,10 @@ struct StopsScreenView: View {
         }
         .padding(21)
         .background(HomeDashboardTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .liquidGlass(cornerRadius: 12)
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
         )
     }
@@ -616,10 +586,10 @@ struct StopBadge: View {
             Text("종점")
                 .font(.system(size: 10, weight: .bold))
                 .tracking(0.5)
-                .foregroundStyle(.black)
+                .foregroundStyle(HomeDashboardTheme.secondaryText)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2)
-                .background(Color.white)
+                .background(HomeDashboardTheme.chipBackground)
                 .clipShape(Capsule())
         }
     }
@@ -681,12 +651,6 @@ struct StopRowView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 StopBadge(isDeparture: isFirst, isDestination: isLast)
-
-                if isSelected {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(HomeDashboardTheme.primaryBlue)
-                }
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 12)
@@ -713,27 +677,19 @@ struct StopRowView: View {
     }
 }
 
-// MARK: - 상단 모서리 둥근 Shape (iOS 16 호환)
+// MARK: - Sheet enhancements (iOS 16.4+ API 안전 적용)
 
-private struct TopRoundedShape: Shape {
-    let radius: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        p.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
-        p.addQuadCurve(
-            to: CGPoint(x: rect.minX + radius, y: rect.minY),
-            control: CGPoint(x: rect.minX, y: rect.minY)
-        )
-        p.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
-        p.addQuadCurve(
-            to: CGPoint(x: rect.maxX, y: rect.minY + radius),
-            control: CGPoint(x: rect.maxX, y: rect.minY)
-        )
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        p.closeSubpath()
-        return p
+private extension View {
+    @ViewBuilder
+    func sheetEnhancements() -> some View {
+        if #available(iOS 16.4, *) {
+            self
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                .presentationCornerRadius(28)
+                .presentationContentInteraction(.scrolls)
+        } else {
+            self
+        }
     }
 }
 

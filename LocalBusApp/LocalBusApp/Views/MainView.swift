@@ -29,6 +29,9 @@ private enum AppDeepLink {
 
 /// 메인 화면
 struct MainView: View {
+    // 정류장 위치 탭은 다음 버전에 도입 예정. 활성화하려면 true 로 변경.
+    private let isStopsTabEnabled = false
+
     @StateObject private var viewModel = MainViewModel()
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
     @State private var selectedTab: MainTab = .home
@@ -37,6 +40,7 @@ struct MainView: View {
     @State private var timetableShareImage: UIImage?
     @State private var isPreparingShare = false
     @State private var showNotificationDeniedAlert = false
+    @State private var notificationToast: ToastMessage?
 
     private var preferredColorScheme: ColorScheme? {
         AppColorScheme(rawValue: colorSchemeRaw)?.colorScheme
@@ -52,9 +56,11 @@ struct MainView: View {
                 .tabItem { Label("전체 시간표", systemImage: "calendar") }
                 .tag(MainTab.timetable)
 
-            stopsTab
-                .tabItem { Label("정류장 위치", systemImage: "map") }
-                .tag(MainTab.stops)
+            if isStopsTabEnabled {
+                stopsTab
+                    .tabItem { Label("정류장 위치", systemImage: "map") }
+                    .tag(MainTab.stops)
+            }
 
             NavigationStack {
                 InfoView(viewModel: viewModel)
@@ -64,7 +70,9 @@ struct MainView: View {
         }
         .background(
             TabBarSelectionObserver { index, isReselection in
-                guard index == MainTab.stops.tabIndex, isReselection else { return }
+                guard isStopsTabEnabled,
+                      index == MainTab.stops.tabIndex,
+                      isReselection else { return }
                 stopsSheetPresentationToken += 1
             }
         )
@@ -73,7 +81,7 @@ struct MainView: View {
             await viewModel.onAppear()
         }
         .onChange(of: selectedTab) { newValue in
-            guard newValue == .stops else { return }
+            guard isStopsTabEnabled, newValue == .stops else { return }
             stopsSheetPresentationToken += 1
         }
         .onOpenURL(perform: handleDeepLink)
@@ -84,8 +92,9 @@ struct MainView: View {
             }
             Button("취소", role: .cancel) {}
         } message: {
-            Text("버스 출발 알림을 받으려면\n설정 > LocalBus > 알림을 허용해주세요.")
+            Text("버스 출발 알림을 받으려면\n설정 > 장유시외버스 > 알림을 허용해주세요.")
         }
+        .toast(item: $notificationToast)
     }
 
     // MARK: - 홈 탭
@@ -243,7 +252,7 @@ struct MainView: View {
             if let image = timetableShareImage {
                 ShareSheet(activityItems: [
                     image,
-                    "\(viewModel.selectedDirection.displayName) \(viewModel.selectedScheduleType.displayLabel) 시간표 | LocalBus 앱으로 확인하세요"
+                    "\(viewModel.selectedDirection.displayName) \(viewModel.selectedScheduleType.displayLabel) 시간표 | 장유시외버스 앱으로 확인하세요"
                 ])
             }
         }
@@ -308,6 +317,11 @@ struct MainView: View {
                 showNotificationDeniedAlert = true
             } else {
                 await viewModel.toggleNotification(for: nextBusTime)
+                let isEnabled = viewModel.isNotificationScheduled(for: nextBusTime)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                notificationToast = isEnabled
+                    ? ToastMessage(icon: "bell.fill", message: "\(nextBusTime) 버스 알림이 켜졌습니다")
+                    : ToastMessage(icon: "bell.slash.fill", message: "\(nextBusTime) 버스 알림이 꺼졌습니다")
             }
         }
     }

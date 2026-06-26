@@ -29,6 +29,7 @@ enum AppColorScheme: Int, CaseIterable {
 
 struct InfoView: View {
     @ObservedObject var viewModel: MainViewModel
+    @EnvironmentObject private var storeService: StoreService
 
     @AppStorage("lastMileAlertEnabled") private var lastMileAlertEnabled = true
     @AppStorage("liveActivityEnabled") private var liveActivityEnabled = true
@@ -38,6 +39,7 @@ struct InfoView: View {
     @State private var showClearCacheConfirm = false
     @State private var isRefreshing = false
     @State private var toast: ToastMessage?
+    @State private var showPaywall = false
 
     enum NotificationInfoItem: String, Identifiable {
         case lastMile
@@ -67,7 +69,7 @@ struct InfoView: View {
     }
 
     private let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-    private let shareMessage = "장유-사상 시외버스 시간표 앱 LocalBus를 사용해보세요!"
+    private let shareMessage = "장유-사상 시외버스 시간표 앱 장유시외버스를 사용해보세요!"
 
     private var colorScheme: AppColorScheme {
         AppColorScheme(rawValue: colorSchemeRaw) ?? .dark
@@ -79,10 +81,12 @@ struct InfoView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 32) {
+                    // v1.0 무료 출시: IAP 미적용 상태이므로 Pro 업그레이드 진입점을 숨긴다.
+                    // IAP 도입 시 아래 줄의 주석을 해제하면 결제 화면 진입점이 복원된다.
+                    // proSection
                     notificationSection
                     displaySection
                     infoSection
-                    supportSection
                     dataSection
 
                     Text("Bus Schedule App © 2024")
@@ -111,6 +115,52 @@ struct InfoView: View {
             Button("취소", role: .cancel) {}
         }
         .toast(item: $toast)
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
+                .environmentObject(storeService)
+        }
+    }
+
+    // MARK: - Pro 업그레이드
+
+    private var proSection: some View {
+        Button {
+            showPaywall = true
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: storeService.isPro ? "checkmark.seal.fill" : "sparkles")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(storeService.isPro ? Color.green : HomeDashboardTheme.primaryBlue)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        (storeService.isPro ? Color.green : HomeDashboardTheme.primaryBlue)
+                            .opacity(0.12)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(storeService.isPro ? "장유시외버스 Pro 이용 중" : "장유시외버스 Pro로 업그레이드")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(HomeDashboardTheme.primaryText)
+                    Text(storeService.isPro ? "모든 기능을 사용 중입니다" : "위젯 기능과 광고 제거")
+                        .font(.system(size: 13))
+                        .foregroundStyle(HomeDashboardTheme.secondaryText)
+                }
+
+                Spacer()
+
+                if !storeService.isPro {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(HomeDashboardTheme.tertiaryText)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .settingsCard()
     }
 
     // MARK: - 알림 설정
@@ -124,7 +174,6 @@ struct InfoView: View {
                 notificationGroupHeader("버스 알림")
 
                 notificationRow(
-                    icon: "bell.fill",
                     title: "막차 30분 전 알림",
                     infoItem: .lastMile,
                     isOn: $lastMileAlertEnabled
@@ -145,7 +194,6 @@ struct InfoView: View {
                 rowDivider
 
                 notificationRow(
-                    icon: "livephoto",
                     title: "Live Activity",
                     infoItem: .liveActivity,
                     isOn: $liveActivityEnabled
@@ -163,7 +211,6 @@ struct InfoView: View {
                 notificationGroupHeader("공지 알림")
 
                 notificationRow(
-                    icon: "megaphone.fill",
                     title: "공지사항 알림",
                     infoItem: .notice,
                     isOn: $noticeAlertEnabled
@@ -193,14 +240,11 @@ struct InfoView: View {
     }
 
     private func notificationRow(
-        icon: String,
         title: String,
         infoItem: NotificationInfoItem,
         isOn: Binding<Bool>
     ) -> some View {
-        HStack(spacing: 12) {
-            iconBox(systemName: icon)
-
+        HStack(spacing: 8) {
             Text(title)
                 .font(.system(size: 16))
                 .foregroundStyle(HomeDashboardTheme.primaryText)
@@ -314,46 +358,6 @@ struct InfoView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .settingsCard()
-        }
-    }
-
-    // MARK: - 개발자 응원
-
-    private var supportSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("개발자 응원")
-
-            Button {
-                if let url = URL(string: "https://ko-fi.com/localbus") {
-                    UIApplication.shared.open(url)
-                }
-            } label: {
-                HStack(spacing: 12) {
-                    Text("☕")
-                        .font(.system(size: 18))
-                        .frame(width: 28, height: 28)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("커피 한 잔 사주기")
-                            .font(.system(size: 16))
-                            .foregroundStyle(HomeDashboardTheme.primaryText)
-                        Text("개발자에게 응원을 보내주세요")
-                            .font(.system(size: 12))
-                            .foregroundStyle(HomeDashboardTheme.secondaryText)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(HomeDashboardTheme.tertiaryText)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
             .settingsCard()
         }
     }
@@ -481,15 +485,6 @@ struct InfoView: View {
             .padding(.horizontal, 12)
     }
 
-    private func iconBox(systemName: String) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(HomeDashboardTheme.primaryText)
-            .frame(width: 28, height: 28)
-            .background(HomeDashboardTheme.iconBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-    }
-
     private func infoNavigationRow(_ title: String) -> some View {
         HStack {
             Text(title)
@@ -543,6 +538,7 @@ private struct NotificationInfoButton: View {
             .fixedSize(horizontal: false, vertical: true)
             .compactPopoverAdaptation()
             .background(HomeDashboardTheme.cardBackground)
+            .liquidGlass(cornerRadius: 12)
         }
     }
 }
@@ -553,10 +549,11 @@ private struct SettingsCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(HomeDashboardTheme.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .liquidGlass(cornerRadius: 12)
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(HomeDashboardTheme.border, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(HomeDashboardTheme.border, lineWidth: 1)
             )
     }
 }
@@ -581,6 +578,7 @@ private extension View {
 #Preview {
     NavigationStack {
         InfoView(viewModel: MainViewModel())
+            .environmentObject(StoreService())
     }
     .preferredColorScheme(.dark)
 }

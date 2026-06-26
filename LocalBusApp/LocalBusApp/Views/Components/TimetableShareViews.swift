@@ -10,13 +10,6 @@ struct TimetableShareCard: View {
     let nightFareStartTime: String?
     let viaTimes: Set<String>
 
-    private let cardBackground = Color(red: 2/255, green: 6/255, blue: 15/255)
-    private let surfaceColor = Color(red: 11/255, green: 15/255, blue: 24/255)
-    private let borderColor = Color(red: 31/255, green: 41/255, blue: 55/255)
-    private let accentBlue = Color(red: 59/255, green: 130/255, blue: 246/255)
-    private let mutedText = Color(red: 107/255, green: 114/255, blue: 128/255)
-    private let secondaryText = Color(red: 156/255, green: 163/255, blue: 175/255)
-
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 4)
 
     var body: some View {
@@ -25,79 +18,89 @@ struct TimetableShareCard: View {
             timeGrid
             footer
         }
-        .background(cardBackground)
+        .background(AppTheme.Color.cardBackground)
         .environment(\.colorScheme, .dark)
     }
 
     // MARK: - 헤더
 
     private var header: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
                 Image(systemName: "bus.fill")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(accentBlue)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(AppTheme.Color.heroText)
 
-                Text("LocalBus")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
+                Text("장유시외버스")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(AppTheme.Color.heroText)
 
                 Spacer()
 
                 scheduleTypeBadge
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 24)
             .padding(.top, 24)
-            .padding(.bottom, 16)
+            .padding(.bottom, 22)
 
+            VStack(alignment: .leading, spacing: 10) {
+                Text("운행 시간표")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundStyle(AppTheme.Color.heroText.opacity(0.55))
+
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    directionTitle
+                    Spacer(minLength: 12)
+                    Text("총 \(times.count)회")
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(AppTheme.Color.heroText.opacity(0.7))
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+        }
+        .background(
+            LinearGradient(
+                colors: [AppTheme.Color.heroStart, AppTheme.Color.heroEnd],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(borderColor)
+                .fill(AppTheme.Color.border)
                 .frame(height: 1)
+        }
+    }
 
-            directionInfo
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
+    private var directionTitle: some View {
+        HStack(spacing: 8) {
+            Text(direction.departureLabel)
+                .font(.system(size: 19, weight: .bold))
+                .foregroundStyle(AppTheme.Color.heroText)
 
-            Rectangle()
-                .fill(borderColor)
-                .frame(height: 1)
+            Image(systemName: "arrow.right")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(AppTheme.Color.heroText.opacity(0.5))
+
+            Text(direction.arrivalLabel)
+                .font(.system(size: 19, weight: .bold))
+                .foregroundStyle(AppTheme.Color.heroText)
         }
     }
 
     private var scheduleTypeBadge: some View {
         Text(scheduleType.displayLabel)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(accentBlue)
+            .font(.system(size: 11, weight: .bold))
+            .tracking(0.5)
+            .foregroundStyle(AppTheme.Color.heroText)
             .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(accentBlue.opacity(0.15))
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(accentBlue.opacity(0.3), lineWidth: 1)
+            .padding(.vertical, 5)
+            .background(
+                Capsule()
+                    .stroke(AppTheme.Color.heroText.opacity(0.35), lineWidth: 1)
             )
-    }
-
-    private var directionInfo: some View {
-        HStack(spacing: 8) {
-            Text(direction.departureLabel)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-
-            Image(systemName: "arrow.right")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(mutedText)
-
-            Text(direction.arrivalLabel)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-
-            Spacer()
-
-            Text("총 \(times.count)회 운행")
-                .font(.system(size: 12))
-                .foregroundStyle(mutedText)
-        }
     }
 
     // MARK: - 시간 그리드
@@ -116,54 +119,62 @@ struct TimetableShareCard: View {
 
     private var timeGrid: some View {
         LazyVGrid(columns: columns, spacing: 0) {
-            ForEach(Array(columnOrderedTimes.enumerated()), id: \.offset) { _, time in
+            ForEach(Array(columnOrderedTimes.enumerated()), id: \.offset) { index, time in
+                let col = index % 4
                 if let time {
-                    timeCell(time)
+                    timeCell(time, isLastColumn: col == 3)
                 } else {
                     Color.clear
-                        .frame(height: 40)
+                        .frame(height: 48)
                         .overlay(alignment: .bottom) {
-                            Rectangle().fill(borderColor).frame(height: 0.5)
+                            Rectangle().fill(AppTheme.Color.border).frame(height: 0.5)
                         }
                         .overlay(alignment: .trailing) {
-                            Rectangle().fill(borderColor).frame(width: 0.5)
+                            if col != 3 {
+                                Rectangle().fill(AppTheme.Color.border).frame(width: 0.5)
+                            }
                         }
                 }
             }
         }
-        .padding(.vertical, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
     }
 
-    private func timeCell(_ time: String) -> some View {
+    private func timeCell(_ time: String, isLastColumn: Bool) -> some View {
         let isNight = nightFareStartTime.map { time >= $0 } ?? false
         let isVia = viaTimes.contains(time)
 
         return VStack(spacing: 3) {
             Text(time)
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
-                .foregroundStyle(isNight ? Color.orange.opacity(0.9) : .white)
+                .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                .foregroundStyle(isNight ? AppTheme.Color.nightFare : AppTheme.Color.primaryText)
 
             if isNight {
                 Text("심야")
                     .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(Color.orange.opacity(0.7))
+                    .tracking(0.4)
+                    .foregroundStyle(AppTheme.Color.nightFare.opacity(0.85))
             } else if isVia {
                 Text("경유")
                     .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(secondaryText)
+                    .tracking(0.4)
+                    .foregroundStyle(AppTheme.Color.tertiaryText)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(borderColor)
+                .fill(AppTheme.Color.border)
                 .frame(height: 0.5)
         }
         .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(borderColor)
-                .frame(width: 0.5)
+            if !isLastColumn {
+                Rectangle()
+                    .fill(AppTheme.Color.border)
+                    .frame(width: 0.5)
+            }
         }
     }
 
@@ -172,26 +183,26 @@ struct TimetableShareCard: View {
     private var footer: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(borderColor)
+                .fill(AppTheme.Color.border)
                 .frame(height: 1)
 
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: "arrow.down.app.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(mutedText)
-
-                Text("App Store에서 \"LocalBus\" 검색")
                     .font(.system(size: 12))
-                    .foregroundStyle(mutedText)
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+
+                Text("App Store에서 \"장유시외버스\" 검색")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppTheme.Color.secondaryText)
 
                 Spacer()
 
                 Text("장유·사상 시외버스")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color(red: 55/255, green: 65/255, blue: 81/255))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AppTheme.Color.tertiaryText)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
         }
     }
 }
@@ -277,4 +288,27 @@ func renderTimetableShareImage(
 
     guard let opaqueCGImage = context.makeImage() else { return nil }
     return UIImage(cgImage: opaqueCGImage, scale: scale, orientation: .up)
+}
+
+// MARK: - Preview
+
+#Preview("공유 카드 (평일)") {
+    TimetableShareCard(
+        direction: .jangyuToSasang,
+        scheduleType: .weekday,
+        times: [
+            "06:00", "06:20", "06:40", "07:00", "07:20", "07:40",
+            "08:00", "08:20", "08:40", "09:00", "09:30", "10:00",
+            "10:30", "11:00", "11:30", "12:00", "12:30", "13:00",
+            "13:30", "14:00", "14:30", "15:00", "15:30", "16:00",
+            "16:30", "17:00", "17:30", "18:00", "18:30", "19:00",
+            "19:30", "20:00", "20:30", "21:00", "22:00", "22:30",
+            "23:00", "23:30"
+        ],
+        nightFareStartTime: "22:00",
+        viaTimes: ["08:20", "13:00"]
+    )
+    .frame(width: 390)
+    .padding()
+    .background(Color.black)
 }

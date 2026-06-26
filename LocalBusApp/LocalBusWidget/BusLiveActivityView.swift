@@ -56,17 +56,21 @@ struct BusLiveActivityView: Widget {
         let targetDate = context.state.phase == .waitingForDeparture
             ? context.state.departureDate
             : context.state.arrivalDate
+        let safeEnd = max(targetDate, Date.now.addingTimeInterval(1))
 
-        Text(timerInterval: Date.now...targetDate, countsDown: true)
+        Text(timerInterval: Date.now...safeEnd, countsDown: true)
     }
 
     private func progressInterval(context: ActivityViewContext<BusLiveActivityAttributes>) -> ClosedRange<Date> {
         if context.state.phase == .waitingForDeparture {
             // 출발 대기: 현재 → 출발시각
-            return Date.now...context.state.departureDate
+            let safeEnd = max(context.state.departureDate, Date.now.addingTimeInterval(1))
+            return Date.now...safeEnd
         } else {
             // 이동 중: 출발시각 → 도착시각
-            return context.state.departureDate...context.state.arrivalDate
+            let start = min(context.state.departureDate, Date.now)
+            let safeEnd = max(context.state.arrivalDate, start.addingTimeInterval(1))
+            return start...safeEnd
         }
     }
 }
@@ -97,8 +101,9 @@ struct LockScreenLiveActivityView: View {
                 let targetDate = context.state.phase == .waitingForDeparture
                     ? context.state.departureDate
                     : context.state.arrivalDate
+                let safeEnd = max(targetDate, Date.now.addingTimeInterval(1))
 
-                Text(timerInterval: Date.now...targetDate, countsDown: true)
+                Text(timerInterval: Date.now...safeEnd, countsDown: true)
                     .font(.title2.bold().monospacedDigit())
                     .multilineTextAlignment(.trailing)
             }

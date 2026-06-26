@@ -88,7 +88,7 @@ struct NoticeDetailView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(HomeDashboardTheme.primaryText)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
                 Spacer()
@@ -164,6 +164,7 @@ struct NoticeDetailView: View {
         .padding(17)
         .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .liquidGlass(cornerRadius: 12)
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -192,6 +193,7 @@ struct NoticeDetailView: View {
                 .padding(.vertical, 5)
                 .background(HomeDashboardTheme.screenBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .liquidGlass(cornerRadius: 4)
                 .overlay(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -214,7 +216,7 @@ struct NoticeDetailView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
             }
-            .background(Color.white.opacity(0.03))
+            .background(HomeDashboardTheme.timetablePickerBackground)
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(HomeDashboardTheme.border)
@@ -235,7 +237,7 @@ struct NoticeDetailView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.02))
+                    .background(HomeDashboardTheme.timetablePickerBackground.opacity(0.5))
                     .overlay(alignment: .top) {
                         Rectangle()
                             .fill(HomeDashboardTheme.border)
@@ -244,6 +246,7 @@ struct NoticeDetailView: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .liquidGlass(cornerRadius: 8)
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -251,8 +254,8 @@ struct NoticeDetailView: View {
     }
 
     private func scheduleRow(_ row: NoticeTimetableRow) -> some View {
-        let accentBlue = Color(red: 96/255, green: 165/255, blue: 250/255)
-        let highlightBg = Color(red: 37/255, green: 99/255, blue: 235/255).opacity(0.08)
+        let accentBlue = HomeDashboardTheme.primaryBlue
+        let highlightBg = HomeDashboardTheme.primaryBlue.opacity(0.1)
 
         return HStack(spacing: 0) {
             // Departure (with optional new-time indicator)
@@ -263,7 +266,7 @@ struct NoticeDetailView: View {
 
                 if row.isNew {
                     Circle()
-                        .fill(Color(red: 239/255, green: 68/255, blue: 68/255))
+                        .fill(AppTheme.Color.destructive)
                         .frame(width: 6, height: 6)
                         .offset(x: 22, y: -8)
                 }
@@ -307,6 +310,7 @@ struct NoticeDetailView: View {
             .resizable()
             .scaledToFit()
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .liquidGlass(cornerRadius: 8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -328,12 +332,13 @@ struct NoticeDetailView: View {
                     Text("목록으로")
                         .font(.system(size: 16, weight: .bold))
                 }
-                .foregroundStyle(.black)
+                .foregroundStyle(HomeDashboardTheme.primaryText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(.white)
+                .background(HomeDashboardTheme.cardBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(color: .white.opacity(0.06), radius: 16)
+                .liquidGlass(cornerRadius: 12)
+                .shadow(color: .black.opacity(0.08), radius: 16)
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)

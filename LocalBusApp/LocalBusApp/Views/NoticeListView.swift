@@ -24,6 +24,7 @@ struct NoticeListView: View {
                 }
                 .background(HomeDashboardTheme.listCardBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .liquidGlass(cornerRadius: 10)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 40)

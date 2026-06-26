@@ -63,7 +63,8 @@ struct ConfigurableProvider: AppIntentTimelineProvider {
             firstBusTime: "06:00",
             upcomingBuses: [("07:20", 35), ("07:40", 55), ("08:00", 75), ("08:20", 95)],
             isLastBus: false,
-            isNightBus: false
+            isNightBus: false,
+            isPro: true
         )
     }
 

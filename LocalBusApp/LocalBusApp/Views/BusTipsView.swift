@@ -91,33 +91,33 @@ struct BusTipsView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 28) {
+            VStack(spacing: 32) {
                 ForEach(sections) { section in
                     tipSection(section)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
             .padding(.bottom, 40)
         }
         .background(HomeDashboardTheme.screenBackground.ignoresSafeArea())
-        .navigationTitle("이용 안내")
+        .navigationTitle("버스 이용 안내")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarColorScheme(nil, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
     }
 
     // MARK: - 섹션 뷰
 
     private func tipSection(_ section: TipSection) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(section.header)
-                .font(.system(size: 12, weight: .semibold))
-                .tracking(0.5)
+                .font(.system(size: 12, weight: .medium))
+                .tracking(0.3)
                 .foregroundStyle(HomeDashboardTheme.secondaryText)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 12)
 
             VStack(spacing: 1) {
                 ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
@@ -132,9 +132,10 @@ struct BusTipsView: View {
             }
             .background(HomeDashboardTheme.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .liquidGlass(cornerRadius: 12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(HomeDashboardTheme.border, lineWidth: 0.5)
+                    .stroke(HomeDashboardTheme.border, lineWidth: 1)
             )
         }
     }

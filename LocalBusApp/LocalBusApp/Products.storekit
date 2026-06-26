@@ -1,0 +1,86 @@
+{
+  "identifier" : "6B3E1A40-LOCALBUS-PRO",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "2900",
+      "familyShareable" : false,
+      "internalID" : "LOCALBUS_PRO_001",
+      "localizations" : [
+        {
+          "description" : "광고 제거 및 위젯 기능을 영구적으로 사용할 수 있습니다.",
+          "displayName" : "LocalBus Pro",
+          "locale" : "ko_KR"
+        },
+        {
+          "description" : "Remove ads and unlock widget features permanently.",
+          "displayName" : "LocalBus Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "kr.co.lee.LocalBusApp.pro",
+      "referenceName" : "LocalBus Pro",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "0",
+    "_developerTeamID" : "0",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "ko_KR",
+    "_storefront" : "KOR",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

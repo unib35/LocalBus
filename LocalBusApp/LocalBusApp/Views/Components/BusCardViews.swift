@@ -60,8 +60,9 @@ struct LiveCountdownCard: View {
             }
         }
         .padding(24)
-        .background(Color(uiColor: .secondarySystemBackground))
+        .background(AppTheme.Color.listCardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .liquidGlass(cornerRadius: 16)
     }
 }
 
@@ -79,8 +80,9 @@ struct LoadingCard: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 150)
-        .background(Color(uiColor: .secondarySystemBackground))
+        .background(AppTheme.Color.listCardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .liquidGlass(cornerRadius: 16)
     }
 }
 
@@ -118,8 +120,9 @@ struct EndOfServiceCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(32)
-        .background(Color(uiColor: .secondarySystemBackground))
+        .background(AppTheme.Color.listCardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .liquidGlass(cornerRadius: 16)
     }
 
     private var remainingTimeText: String {

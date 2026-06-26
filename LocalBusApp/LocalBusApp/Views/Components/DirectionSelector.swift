@@ -66,6 +66,7 @@ struct DirectionSelector: View {
                         .stroke(HomeDashboardTheme.border, lineWidth: 1)
                 )
         )
+        .liquidGlass(cornerRadius: 10)
     }
 }
 

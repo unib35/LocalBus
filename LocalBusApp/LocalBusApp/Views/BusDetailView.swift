@@ -1,10 +1,12 @@
 import SwiftUI
+import UIKit
 
 // MARK: - 버스 상세 시트 뷰
 
 struct BusDetailView: View {
     let info: BusDetailInfo
     @State private var isNotificationEnabled: Bool
+    @State private var notificationToast: ToastMessage?
     let onNotificationTap: () async -> Void
 
     init(info: BusDetailInfo, onNotificationTap: @escaping () async -> Void) {
@@ -28,12 +30,13 @@ struct BusDetailView: View {
                 stopsCard
             }
             .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.top, 28)
             .padding(.bottom, 40)
         }
         .background(HomeDashboardTheme.sheetBackground.ignoresSafeArea())
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .toast(item: $notificationToast)
     }
 
     // MARK: - 헤더
@@ -52,7 +55,6 @@ struct BusDetailView: View {
             typeBadge(text: info.scheduleTypeLabel,
                       isAccent: false)
         }
-        .padding(.top, 8)
     }
 
     private func typeBadge(text: String, isAccent: Bool) -> some View {
@@ -84,11 +86,10 @@ struct BusDetailView: View {
         HStack(spacing: 0) {
             // 출발
             VStack(alignment: .leading, spacing: 4) {
-                Label("출발", systemImage: "circle.fill")
+                Text("출발")
                     .font(.system(size: 11, weight: .bold))
                     .tracking(0.4)
                     .foregroundStyle(HomeDashboardTheme.departureGreen)
-                    .labelStyle(.iconLabel(size: 6))
 
                 Text(info.departureTime)
                     .font(.system(size: 40, weight: .bold, design: .monospaced))
@@ -97,13 +98,10 @@ struct BusDetailView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // 소요시간 칩
+            // 소요시간
             VStack(spacing: 4) {
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                 Text("\(info.durationMinutes)분")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                 if info.isNightFare {
                     Text("심야")
@@ -119,11 +117,10 @@ struct BusDetailView: View {
 
             // 도착
             VStack(alignment: .trailing, spacing: 4) {
-                Label("도착 예정", systemImage: "mappin.circle.fill")
+                Text("예상 도착")
                     .font(.system(size: 11, weight: .bold))
                     .tracking(0.4)
                     .foregroundStyle(HomeDashboardTheme.primaryBlue)
-                    .labelStyle(.iconLabel(size: 6))
 
                 Text(info.arrivalTime)
                     .font(.system(size: 40, weight: .bold, design: .monospaced))
@@ -135,6 +132,7 @@ struct BusDetailView: View {
         .padding(20)
         .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .liquidGlass(cornerRadius: 12)
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -145,19 +143,6 @@ struct BusDetailView: View {
 
     private var notificationCard: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(isNotificationEnabled
-                        ? HomeDashboardTheme.primaryBlue.opacity(0.12)
-                        : HomeDashboardTheme.timetablePickerBackground)
-                    .frame(width: 40, height: 40)
-                Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(isNotificationEnabled
-                        ? HomeDashboardTheme.primaryBlue
-                        : HomeDashboardTheme.timetableSecondaryText)
-            }
-
             VStack(alignment: .leading, spacing: 2) {
                 Text("출발 5분 전 알림")
                     .font(.system(size: 15, weight: .medium))
@@ -173,6 +158,11 @@ struct BusDetailView: View {
                 get: { isNotificationEnabled },
                 set: { _ in
                     isNotificationEnabled.toggle()
+                    let newState = isNotificationEnabled
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    notificationToast = newState
+                        ? ToastMessage(icon: "bell.fill", message: "\(info.departureTime) 버스 알림이 켜졌습니다")
+                        : ToastMessage(icon: "bell.slash.fill", message: "\(info.departureTime) 버스 알림이 꺼졌습니다")
                     Task { await onNotificationTap() }
                 }
             ))
@@ -183,6 +173,7 @@ struct BusDetailView: View {
         .padding(.vertical, 16)
         .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .liquidGlass(cornerRadius: 10)
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 0.5)
@@ -193,10 +184,6 @@ struct BusDetailView: View {
 
     private var platformCard: some View {
         HStack(spacing: 12) {
-            Image(systemName: "signpost.right.fill")
-                .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(HomeDashboardTheme.primaryBlue)
-
             VStack(alignment: .leading, spacing: 2) {
                 Text("탑승홈")
                     .font(.system(.caption2, weight: .medium))
@@ -212,6 +199,7 @@ struct BusDetailView: View {
         .padding(.vertical, 14)
         .background(HomeDashboardTheme.primaryBlue.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .liquidGlass(cornerRadius: 10)
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(HomeDashboardTheme.primaryBlue.opacity(0.3), lineWidth: 1)
@@ -226,21 +214,16 @@ struct BusDetailView: View {
 
         return VStack(spacing: 16) {
             // 헤더
-            HStack(spacing: 8) {
-                Image(systemName: "creditcard")
-                    .font(.system(.caption, weight: .bold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-                Text("요금 정보")
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 12)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(HomeDashboardTheme.border)
-                    .frame(height: 1)
-            }
+            Text("요금 정보")
+                .font(.system(.subheadline, weight: .bold))
+                .foregroundStyle(HomeDashboardTheme.primaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 12)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(HomeDashboardTheme.border)
+                        .frame(height: 1)
+                }
 
             // 요금 행
             VStack(spacing: 0) {
@@ -294,6 +277,7 @@ struct BusDetailView: View {
         .padding(20)
         .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .liquidGlass(cornerRadius: 8)
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -336,22 +320,17 @@ struct BusDetailView: View {
 
     private var stopsCard: some View {
         VStack(spacing: 16) {
-            // 헤더 (fareCard 헤더와 동일한 구조)
-            HStack(spacing: 8) {
-                Image(systemName: "bus")
-                    .font(.system(.caption, weight: .bold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-                Text("정류장")
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 12)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(HomeDashboardTheme.border)
-                    .frame(height: 1)
-            }
+            // 헤더
+            Text("정류장")
+                .font(.system(.subheadline, weight: .bold))
+                .foregroundStyle(HomeDashboardTheme.primaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 12)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(HomeDashboardTheme.border)
+                        .frame(height: 1)
+                }
 
             if info.stops.isEmpty {
                 Text("정류장 정보를 불러올 수 없습니다")
@@ -377,6 +356,7 @@ struct BusDetailView: View {
         .padding(20)
         .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .liquidGlass(cornerRadius: 8)
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -384,22 +364,3 @@ struct BusDetailView: View {
     }
 }
 
-// MARK: - 아이콘 레이블 스타일
-
-private struct IconLabelStyle: LabelStyle {
-    let size: CGFloat
-
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 4) {
-            configuration.icon
-                .font(.system(size: size))
-            configuration.title
-        }
-    }
-}
-
-private extension LabelStyle where Self == IconLabelStyle {
-    static func iconLabel(size: CGFloat) -> IconLabelStyle {
-        IconLabelStyle(size: size)
-    }
-}

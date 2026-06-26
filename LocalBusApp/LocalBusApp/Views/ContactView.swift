@@ -1,4 +1,6 @@
 import SwiftUI
+import MessageUI
+import UIKit
 
 // MARK: - 문의 유형
 
@@ -13,14 +15,25 @@ private enum ContactType: String, CaseIterable {
 struct ContactView: View {
     @State private var selectedType: ContactType = .schedule
     @State private var content = ""
+    @State private var replyEmail = ""
+
+    @State private var isShowingMailComposer = false
+    @State private var isShowingMailUnavailableAlert = false
+    @State private var sendResultMessage: String?
 
     private let maxCharacters = 500
+    private let recipientEmail = "jangyubus.app@gmail.com"
+
+    private var canSend: Bool {
+        !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 typeSection
                 contentSection
+                replyEmailSection
                 infoBox
             }
             .padding(.horizontal, 20)
@@ -37,6 +50,32 @@ struct ContactView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(nil, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
+        .sheet(isPresented: $isShowingMailComposer) {
+            MailComposeView(
+                recipients: [recipientEmail],
+                subject: mailSubject,
+                body: mailBody,
+                attachments: [],
+                onFinish: handleMailFinish
+            )
+            .ignoresSafeArea()
+        }
+        .alert("메일 앱을 사용할 수 없어요", isPresented: $isShowingMailUnavailableAlert) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("기본 메일 앱에 계정이 설정되어 있지 않습니다. 설정 → 메일에서 계정을 추가한 뒤 다시 시도해주세요.\n또는 \(recipientEmail) 으로 직접 보내주실 수 있어요.")
+        }
+        .alert(
+            "문의 전송 완료",
+            isPresented: Binding(
+                get: { sendResultMessage != nil },
+                set: { if !$0 { sendResultMessage = nil } }
+            )
+        ) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(sendResultMessage ?? "")
+        }
     }
 
     // MARK: - 문의 유형 섹션
@@ -75,6 +114,7 @@ struct ContactView: View {
                     .frame(minHeight: 180)
                     .background(HomeDashboardTheme.cardBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .liquidGlass(cornerRadius: 12)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -110,6 +150,37 @@ struct ContactView: View {
         }
     }
 
+    // MARK: - 회신받을 이메일 섹션
+
+    private var replyEmailSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("회신받을 이메일 (선택)")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(HomeDashboardTheme.secondaryText)
+
+            TextField("", text: $replyEmail, prompt: Text("example@email.com").foregroundColor(HomeDashboardTheme.secondaryText))
+                .font(.system(size: 16))
+                .foregroundStyle(HomeDashboardTheme.primaryText)
+                .keyboardType(.emailAddress)
+                .textContentType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .padding(.horizontal, 14)
+                .frame(height: 52)
+                .background(HomeDashboardTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .liquidGlass(cornerRadius: 12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(HomeDashboardTheme.border, lineWidth: 1)
+                )
+
+            Text("답변받을 이메일 주소를 입력하면 더 빠르게 회신받을 수 있어요.")
+                .font(.system(size: 12))
+                .foregroundStyle(HomeDashboardTheme.secondaryText)
+        }
+    }
+
     // MARK: - 안내 박스
 
     private var infoBox: some View {
@@ -129,6 +200,7 @@ struct ContactView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(HomeDashboardTheme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .liquidGlass(cornerRadius: 8)
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 0.5)
@@ -144,17 +216,18 @@ struct ContactView: View {
                 .frame(height: 0.5)
 
             Button {
-                sendContact()
+                presentMailComposer()
             } label: {
                 Text("보내기")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.Color.primaryForeground)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(HomeDashboardTheme.primaryBlue)
+                    .background(canSend ? HomeDashboardTheme.primaryBlue : HomeDashboardTheme.primaryBlue.opacity(0.4))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
+            .disabled(!canSend)
             .padding(.horizontal, 16)
             .padding(.top, 17)
             .padding(.bottom, 32)
@@ -164,24 +237,60 @@ struct ContactView: View {
 
     // MARK: - 액션
 
-    private func sendContact() {
-        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let email = "jm.jongminlee@gmail.com"
-        let subject = "[LocalBus] \(selectedType.rawValue)"
-        let bodyContent = content.isEmpty ? "" : "\(content)\n\n"
-        let body = "\(bodyContent)---\n앱 버전: \(appVersion)\n기기: \(UIDevice.current.model)\niOS: \(UIDevice.current.systemVersion)"
-        let encoded = "mailto:\(email)?subject=\(subject.contactURLEncoded)&body=\(body.contactURLEncoded)"
-        if let url = URL(string: encoded) {
-            UIApplication.shared.open(url)
+    private func presentMailComposer() {
+        guard canSend else { return }
+
+        if MailComposeView.canSendMail {
+            isShowingMailComposer = true
+        } else {
+            isShowingMailUnavailableAlert = true
         }
     }
-}
 
-// MARK: - String Extension
+    private func handleMailFinish(_ result: MFMailComposeResult, error: Error?) {
+        switch result {
+        case .sent:
+            sendResultMessage = "문의를 보내주셔서 감사합니다. 검토 후 이메일로 답변 드리겠습니다."
+            content = ""
+            replyEmail = ""
+        case .saved:
+            sendResultMessage = "임시 보관함에 저장되었습니다."
+        case .failed:
+            sendResultMessage = "전송에 실패했습니다.\n\(error?.localizedDescription ?? "잠시 후 다시 시도해주세요.")"
+        case .cancelled:
+            break
+        @unknown default:
+            break
+        }
+    }
 
-private extension String {
-    var contactURLEncoded: String {
-        addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? self
+    // MARK: - 메일 내용
+
+    private var mailSubject: String {
+        "[장유시외버스] \(selectedType.rawValue)"
+    }
+
+    private var mailBody: String {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "-"
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEmail = replyEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var lines: [String] = []
+        lines.append("[문의 유형] \(selectedType.rawValue)")
+        lines.append("")
+        lines.append("[문의 내용]")
+        lines.append(trimmedContent.isEmpty ? "(작성된 내용 없음)" : trimmedContent)
+        lines.append("")
+        lines.append("[회신받을 이메일]")
+        lines.append(trimmedEmail.isEmpty ? "(미입력)" : trimmedEmail)
+        lines.append("")
+        lines.append("---")
+        lines.append("앱 버전: \(appVersion) (\(buildNumber))")
+        lines.append("기기: \(UIDevice.current.model)")
+        lines.append("iOS: \(UIDevice.current.systemVersion)")
+
+        return lines.joined(separator: "\n")
     }
 }
 

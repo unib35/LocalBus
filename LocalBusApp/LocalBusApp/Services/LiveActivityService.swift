@@ -18,8 +18,14 @@ final class LiveActivityService {
     func startActivity(departureTime: String, direction: String, durationMinutes: Int) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
-        // 기존 활동 종료
-        endActivity()
+        // 기존 활동 종료 (참조를 먼저 분리해 레이스 컨디션 방지)
+        let oldActivity = currentActivity
+        currentActivity = nil
+        phaseTimer?.invalidate()
+        phaseTimer = nil
+        Task {
+            await oldActivity?.end(nil, dismissalPolicy: .immediate)
+        }
 
         guard let departureDate = dateFromTimeString(departureTime),
               departureDate > Date() else { return }
@@ -55,9 +61,10 @@ final class LiveActivityService {
     func endActivity() {
         phaseTimer?.invalidate()
         phaseTimer = nil
+        let activityToEnd = currentActivity
+        currentActivity = nil
         Task {
-            await currentActivity?.end(nil, dismissalPolicy: .immediate)
-            currentActivity = nil
+            await activityToEnd?.end(nil, dismissalPolicy: .immediate)
         }
     }
 

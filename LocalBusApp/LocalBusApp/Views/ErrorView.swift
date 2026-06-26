@@ -35,6 +35,7 @@ struct ErrorView: View {
                 .padding(.vertical, 14)
                 .background(Color.primary)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
+                .liquidGlass(cornerRadius: 10)
             }
             .padding(.horizontal, 48)
         }

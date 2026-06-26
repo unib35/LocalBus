@@ -39,8 +39,9 @@ struct InfoChip: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity)
-        .background(Color(uiColor: .secondarySystemBackground))
+        .background(AppTheme.Color.listCardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .liquidGlass(cornerRadius: 10)
     }
 }
 

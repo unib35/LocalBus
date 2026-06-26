@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import MessageUI
 import UIKit
 
 // MARK: - 시간표 제보 화면
@@ -9,7 +10,16 @@ struct ReportView: View {
     @State private var selectedImage: UIImage?
     @State private var description = ""
 
+    @State private var isShowingMailComposer = false
+    @State private var isShowingMailUnavailableAlert = false
+    @State private var sendResultMessage: String?
+
     private let maxCharacters = 200
+    private let recipientEmail = "jangyubus.app@gmail.com"
+
+    private var canSend: Bool {
+        selectedImage != nil || !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -30,6 +40,32 @@ struct ReportView: View {
         .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
+        .sheet(isPresented: $isShowingMailComposer) {
+            MailComposeView(
+                recipients: [recipientEmail],
+                subject: mailSubject,
+                body: mailBody,
+                attachments: mailAttachments,
+                onFinish: handleMailFinish
+            )
+            .ignoresSafeArea()
+        }
+        .alert("메일 앱을 사용할 수 없어요", isPresented: $isShowingMailUnavailableAlert) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("기본 메일 앱에 계정이 설정되어 있지 않습니다. 설정 → 메일에서 계정을 추가한 뒤 다시 시도해주세요.\n또는 \(recipientEmail) 으로 직접 보내주실 수 있어요.")
+        }
+        .alert(
+            "제보 전송 완료",
+            isPresented: Binding(
+                get: { sendResultMessage != nil },
+                set: { if !$0 { sendResultMessage = nil } }
+            )
+        ) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(sendResultMessage ?? "")
+        }
     }
 
     // MARK: - 업로드 섹션
@@ -69,6 +105,7 @@ struct ReportView: View {
             }
             .background(HomeDashboardTheme.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .liquidGlass(cornerRadius: 12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(
@@ -108,6 +145,7 @@ struct ReportView: View {
                         .frame(minHeight: 148)
                         .background(HomeDashboardTheme.cardBackground)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .liquidGlass(cornerRadius: 10)
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -159,6 +197,7 @@ struct ReportView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(HomeDashboardTheme.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .liquidGlass(cornerRadius: 8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -175,17 +214,18 @@ struct ReportView: View {
                 .frame(height: 0.5)
 
             Button {
-                sendReport()
+                presentMailComposer()
             } label: {
                 Text("제보 보내기")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.Color.primaryForeground)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(HomeDashboardTheme.primaryBlue)
+                    .background(canSend ? HomeDashboardTheme.primaryBlue : HomeDashboardTheme.primaryBlue.opacity(0.4))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
+            .disabled(!canSend)
             .padding(.horizontal, 16)
             .padding(.top, 17)
             .padding(.bottom, 32)
@@ -195,28 +235,79 @@ struct ReportView: View {
 
     // MARK: - 액션
 
-    private func sendReport() {
-        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let email = "jm.jongminlee@gmail.com"
-        let subject = "[LocalBus] 시간표 변경 제보"
-        let body: String
-        if description.isEmpty {
-            body = "\n\n---\n앱 버전: \(appVersion)\n기기: \(UIDevice.current.model)\niOS: \(UIDevice.current.systemVersion)"
+    private func presentMailComposer() {
+        guard canSend else { return }
+
+        if MailComposeView.canSendMail {
+            isShowingMailComposer = true
         } else {
-            body = "\(description)\n\n---\n앱 버전: \(appVersion)\n기기: \(UIDevice.current.model)\niOS: \(UIDevice.current.systemVersion)"
-        }
-        let encoded = "mailto:\(email)?subject=\(subject.reportURLEncoded)&body=\(body.reportURLEncoded)"
-        if let url = URL(string: encoded) {
-            UIApplication.shared.open(url)
+            isShowingMailUnavailableAlert = true
         }
     }
-}
 
-// MARK: - String Extension
+    private func handleMailFinish(_ result: MFMailComposeResult, error: Error?) {
+        switch result {
+        case .sent:
+            sendResultMessage = "소중한 제보 감사합니다. 검토 후 빠르게 반영하겠습니다."
+            selectedItem = nil
+            selectedImage = nil
+            description = ""
+        case .saved:
+            sendResultMessage = "임시 보관함에 저장되었습니다."
+        case .failed:
+            sendResultMessage = "전송에 실패했습니다.\n\(error?.localizedDescription ?? "잠시 후 다시 시도해주세요.")"
+        case .cancelled:
+            break
+        @unknown default:
+            break
+        }
+    }
 
-private extension String {
-    var reportURLEncoded: String {
-        addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? self
+    // MARK: - 메일 내용
+
+    private var mailSubject: String {
+        "[장유시외버스] 시간표 변경 제보"
+    }
+
+    private var mailBody: String {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "-"
+        let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var lines: [String] = []
+        lines.append("안녕하세요, 시간표 변경 제보드립니다.")
+        lines.append("")
+
+        if trimmedDescription.isEmpty {
+            lines.append("[추가 설명]")
+            lines.append("(작성된 설명 없음)")
+        } else {
+            lines.append("[추가 설명]")
+            lines.append(trimmedDescription)
+        }
+
+        lines.append("")
+        lines.append("---")
+        lines.append("앱 버전: \(appVersion) (\(buildNumber))")
+        lines.append("기기: \(UIDevice.current.model)")
+        lines.append("iOS: \(UIDevice.current.systemVersion)")
+
+        return lines.joined(separator: "\n")
+    }
+
+    private var mailAttachments: [MailComposeView.Attachment] {
+        guard let image = selectedImage,
+              let data = image.jpegData(compressionQuality: 0.8) else {
+            return []
+        }
+        let timestamp = Int(Date().timeIntervalSince1970)
+        return [
+            MailComposeView.Attachment(
+                data: data,
+                mimeType: "image/jpeg",
+                fileName: "timetable-\(timestamp).jpg"
+            )
+        ]
     }
 }
 

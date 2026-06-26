@@ -89,9 +89,11 @@ struct RouteData: Codable {
     let viaTimes: [String]?
     let stops: [BusStop]
     let timetable: Timetable
+    /// MKDirections로 미리 추출한 도로 경로 좌표. [[lat, lng], ...]
+    let path: [[Double]]?
 
     enum CodingKeys: String, CodingKey {
-        case name, stops, timetable, fare
+        case name, stops, timetable, fare, path
         case durationMinutes      = "duration_minutes"
         case nightFare            = "night_fare"
         case nightFareStartTime   = "night_fare_start_time"

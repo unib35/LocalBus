@@ -1,6 +1,8 @@
 import ActivityKit
+import CoreLocation
 import Foundation
 import SwiftUI
+import WidgetKit
 
 enum UpcomingBusStatusKind: Equatable {
     case onTime
@@ -337,6 +339,15 @@ final class MainViewModel: ObservableObject {
         timetableData?.routes?[direction.rawValue]?.nightFareStartTime
     }
 
+    /// 미리 추출된 도로 경로 좌표. 없으면 nil → 지도 뷰가 정류장 직선으로 폴백.
+    func getRoutePath(for direction: RouteDirection) -> [CLLocationCoordinate2D]? {
+        guard let raw = timetableData?.routes?[direction.rawValue]?.path else { return nil }
+        return raw.compactMap { pair in
+            guard pair.count == 2 else { return nil }
+            return CLLocationCoordinate2D(latitude: pair[0], longitude: pair[1])
+        }
+    }
+
     /// 시간표 데이터 로드
     func loadTimetable(with data: TimetableData) async {
         timetableData = data
@@ -660,6 +671,8 @@ final class MainViewModel: ObservableObject {
             do {
                 let remoteData: TimetableData = try await networkService.fetch(from: url)
                 timetableService.saveToCache(remoteData)
+                // App Group 캐시가 갱신됐으니 위젯도 새 시간표로 다시 그리도록 타임라인 리로드
+                WidgetCenter.shared.reloadAllTimelines()
                 await loadTimetable(with: remoteData)
                 isOffline = false
                 return

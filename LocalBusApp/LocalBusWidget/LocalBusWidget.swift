@@ -26,6 +26,9 @@ struct WidgetDataHelper {
     }
 
     static func createEntry(for date: Date, routeKey: String = defaultRouteKey, direction: String = defaultDirection) -> BusEntry {
+        // v1.0 무료 출시: IAP 미적용 상태이므로 위젯을 모두에게 개방한다.
+        // IAP 도입 시 아래 한 줄을 `EntitlementStore.shared.isPro`로 되돌리면 잠금이 복원된다.
+        let isPro = true
         let times = loadTimetable(for: date, routeKey: routeKey)
         let firstBusTime = times.first ?? "06:00"
 
@@ -40,7 +43,8 @@ struct WidgetDataHelper {
                 firstBusTime: firstBusTime,
                 upcomingBuses: [],
                 isLastBus: false,
-                isNightBus: false
+                isNightBus: false,
+                isPro: isPro
             )
         }
 
@@ -64,14 +68,33 @@ struct WidgetDataHelper {
             firstBusTime: firstBusTime,
             upcomingBuses: upcoming,
             isLastBus: (nextIndex == times.count - 1),
-            isNightBus: isNightBusTime(nextBus)
+            isNightBus: isNightBusTime(nextBus),
+            isPro: isPro
         )
     }
 
+    /// 시간표 데이터 로드.
+    /// 1순위: App Group 공유 캐시(메인 앱이 원격에서 받아 저장) → 앱 업데이트 없이 갱신 반영.
+    /// 2순위: 번들 동봉 JSON(빌드 시점 데이터) → 캐시가 아직 없을 때의 폴백.
+    static func loadTimetableData() -> WidgetTimetableData? {
+        let decoder = JSONDecoder()
+
+        if let cached = EntitlementStore.sharedDefaults.data(forKey: EntitlementStore.timetableCacheKey),
+           let json = try? decoder.decode(WidgetTimetableData.self, from: cached) {
+            return json
+        }
+
+        if let url = Bundle.main.url(forResource: "timetable", withExtension: "json"),
+           let data = try? Data(contentsOf: url),
+           let json = try? decoder.decode(WidgetTimetableData.self, from: data) {
+            return json
+        }
+
+        return nil
+    }
+
     static func loadTimetable(for date: Date, routeKey: String) -> [String] {
-        guard let url = Bundle.main.url(forResource: "timetable", withExtension: "json"),
-              let data = try? Data(contentsOf: url),
-              let json = try? JSONDecoder().decode(WidgetTimetableData.self, from: data) else {
+        guard let json = loadTimetableData() else {
             return defaultTimes
         }
 
@@ -154,7 +177,8 @@ struct Provider: TimelineProvider {
             firstBusTime: "06:00",
             upcomingBuses: [("07:20", 35), ("07:40", 55), ("08:00", 75), ("08:20", 95)],
             isLastBus: false,
-            isNightBus: false
+            isNightBus: false,
+            isPro: true
         )
     }
 
@@ -189,6 +213,7 @@ struct BusEntry: TimelineEntry {
     let upcomingBuses: [(String, Int)]
     let isLastBus: Bool
     let isNightBus: Bool
+    let isPro: Bool
 
     var remainingDisplay: String {
         remainingMinutes >= 60 ? String(remainingMinutes / 60) : String(remainingMinutes)
@@ -313,8 +338,14 @@ struct LocalBusWidgetEntryView: View {
     @Environment(\.widgetFamily) var family
 
     var body: some View {
-        currentFamilyView
-            .widgetURL(WidgetDeepLink.url(for: entry.routeKey))
+        Group {
+            if entry.isPro {
+                currentFamilyView
+            } else {
+                LockedWidgetView()
+            }
+        }
+        .widgetURL(WidgetDeepLink.url(for: entry.routeKey))
     }
 
     @ViewBuilder
@@ -335,6 +366,67 @@ struct LocalBusWidgetEntryView: View {
         default:
             SmallWidgetView(entry: entry)
         }
+    }
+}
+
+// MARK: - Locked (Non-Pro) Widget View
+
+struct LockedWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        switch family {
+        case .accessoryInline:
+            Label("Pro 업그레이드 필요", systemImage: "lock.fill")
+        case .accessoryCircular:
+            ZStack {
+                AccessoryWidgetBackground()
+                VStack(spacing: 1) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 14))
+                    Text("Pro")
+                        .font(.system(size: 9, weight: .semibold))
+                }
+            }
+        case .accessoryRectangular:
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 10))
+                    Text("장유시외버스")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundStyle(.secondary)
+                Text("위젯은 Pro 전용 기능입니다")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        default:
+            homeScreenLocked
+        }
+    }
+
+    private var homeScreenLocked: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(14)
+                .background(Circle().fill(Color.white.opacity(0.08)))
+
+            VStack(spacing: 4) {
+                Text("Pro 업그레이드")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white)
+                Text("위젯 기능을 사용하려면\n앱에서 업그레이드하세요")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(WidgetTheme.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(2)
+            }
+        }
+        .padding(14)
+        .widgetCanvas()
     }
 }
 
@@ -799,13 +891,16 @@ struct LocalBusWidget: Widget {
     BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
              isServiceEnded: false, firstBusTime: "06:00",
              upcomingBuses: [("07:40", 35), ("08:00", 55)],
-             isLastBus: false, isNightBus: false)
+             isLastBus: false, isNightBus: false, isPro: true)
     BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 2, direction: "장유 → 사상",
              isServiceEnded: false, firstBusTime: "06:00",
-             upcomingBuses: [], isLastBus: true, isNightBus: false)
+             upcomingBuses: [], isLastBus: true, isNightBus: false, isPro: true)
     BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: nil, remainingMinutes: 0, direction: "장유 → 사상",
              isServiceEnded: true, firstBusTime: "06:00",
-             upcomingBuses: [], isLastBus: false, isNightBus: false)
+             upcomingBuses: [], isLastBus: false, isNightBus: false, isPro: true)
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
+             isServiceEnded: false, firstBusTime: "06:00",
+             upcomingBuses: [], isLastBus: false, isNightBus: false, isPro: false)
 }
 
 #Preview(as: .systemMedium) {
@@ -814,13 +909,16 @@ struct LocalBusWidget: Widget {
     BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
              isServiceEnded: false, firstBusTime: "06:00",
              upcomingBuses: [("07:40", 35), ("08:00", 55), ("08:20", 75)],
-             isLastBus: false, isNightBus: false)
+             isLastBus: false, isNightBus: false, isPro: true)
     BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "21:40", remainingMinutes: 8, direction: "장유 → 사상",
              isServiceEnded: false, firstBusTime: "06:00",
-             upcomingBuses: [("22:00", 28)], isLastBus: false, isNightBus: true)
+             upcomingBuses: [("22:00", 28)], isLastBus: false, isNightBus: true, isPro: true)
     BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: nil, remainingMinutes: 0, direction: "장유 → 사상",
              isServiceEnded: true, firstBusTime: "06:00",
-             upcomingBuses: [], isLastBus: false, isNightBus: false)
+             upcomingBuses: [], isLastBus: false, isNightBus: false, isPro: true)
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
+             isServiceEnded: false, firstBusTime: "06:00",
+             upcomingBuses: [], isLastBus: false, isNightBus: false, isPro: false)
 }
 
 #Preview(as: .systemLarge) {
@@ -829,5 +927,8 @@ struct LocalBusWidget: Widget {
     BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
              isServiceEnded: false, firstBusTime: "06:00",
              upcomingBuses: [("07:40", 35), ("08:00", 55), ("08:20", 75), ("08:40", 95)],
-             isLastBus: false, isNightBus: false)
+             isLastBus: false, isNightBus: false, isPro: true)
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
+             isServiceEnded: false, firstBusTime: "06:00",
+             upcomingBuses: [], isLastBus: false, isNightBus: false, isPro: false)
 }

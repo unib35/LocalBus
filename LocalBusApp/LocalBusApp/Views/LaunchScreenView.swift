@@ -15,7 +15,7 @@ struct LaunchScreenView: View {
                     .foregroundStyle(.primary)
 
                 // 앱 이름
-                Text("LocalBus")
+                Text("장유시외버스")
                     .font(.title)
                     .fontWeight(.bold)
                     .foregroundStyle(.primary)

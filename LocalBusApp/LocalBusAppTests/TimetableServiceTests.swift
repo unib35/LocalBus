@@ -152,7 +152,8 @@ struct TimetableServiceTests {
         return Calendar.current.date(from: components)!
     }
 
-    private func clearCache(key: String = "cached_timetable_data") {
-        UserDefaults.standard.removeObject(forKey: key)
+    private func clearCache(key: String = EntitlementStore.timetableCacheKey) {
+        // 서비스가 App Group 저장소를 쓰므로 테스트도 같은 저장소를 정리한다
+        EntitlementStore.sharedDefaults.removeObject(forKey: key)
     }
 }

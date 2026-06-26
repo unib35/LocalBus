@@ -1,155 +1,7 @@
 import SwiftUI
-import UIKit
 
-enum HomeDashboardTheme {
-    static let screenBackground = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 2/255,   green: 6/255,   blue: 15/255,  alpha: 1)
-            : UIColor(red: 240/255, green: 246/255, blue: 255/255, alpha: 1)
-    })
-    static let border = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 31/255,  green: 41/255,  blue: 55/255,  alpha: 1)
-            : UIColor(red: 191/255, green: 219/255, blue: 254/255, alpha: 1)
-    })
-    static let primaryText = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? .white
-            : UIColor(red: 15/255, green: 23/255, blue: 42/255, alpha: 1)
-    })
-    static let secondaryText = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 156/255, green: 163/255, blue: 175/255, alpha: 1)
-            : UIColor(red: 55/255,  green: 65/255,  blue: 81/255,  alpha: 1)
-    })
-    static let tertiaryText = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 107/255, green: 114/255, blue: 128/255, alpha: 1)
-            : UIColor(red: 100/255, green: 116/255, blue: 139/255, alpha: 1)
-    })
-    static let segmentBackground = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 15/255,  green: 23/255,  blue: 42/255,  alpha: 1)
-            : UIColor(red: 219/255, green: 234/255, blue: 254/255, alpha: 1)
-    })
-    static let heroStart = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 6/255,   green: 18/255,  blue: 46/255,  alpha: 1)
-            : UIColor(red: 30/255,  green: 64/255,  blue: 175/255, alpha: 1)
-    })
-    static let heroEnd = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 12/255,  green: 24/255,  blue: 52/255,  alpha: 1)
-            : UIColor(red: 29/255,  green: 78/255,  blue: 216/255, alpha: 1)
-    })
-    static let heroOverlay = Color.white.opacity(0.06)
-    /// 항상 흰색 — heroStart/heroEnd 파란 그라디언트 배경 위 텍스트 전용.
-    /// 라이트/다크 모드 모두 히어로 카드 배경은 파란색이므로 흰색 글자가 올바름.
-    static let heroText = Color.white
-    static let cardBackground = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 11/255,  green: 15/255,  blue: 24/255,  alpha: 1)
-            : UIColor(red: 255/255, green: 255/255, blue: 255/255, alpha: 1)
-    })
-    static let noteBackground = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 10/255,  green: 22/255,  blue: 48/255,  alpha: 1)
-            : UIColor(red: 239/255, green: 246/255, blue: 255/255, alpha: 1)
-    })
-    static let iconBackground = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 30/255,  green: 41/255,  blue: 59/255,  alpha: 1)
-            : UIColor(red: 219/255, green: 234/255, blue: 254/255, alpha: 1)
-    })
-    static let chipBackground = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 31/255,  green: 41/255,  blue: 55/255,  alpha: 1)
-            : UIColor(red: 219/255, green: 234/255, blue: 254/255, alpha: 1)
-    })
-    static let sheetBackground = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 30/255,  green: 30/255,  blue: 30/255,  alpha: 1)
-            : UIColor(red: 248/255, green: 250/255, blue: 252/255, alpha: 1)
-    })
-    static let listCardBackground = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 28/255,  green: 28/255,  blue: 30/255,  alpha: 1)
-            : UIColor(red: 255/255, green: 255/255, blue: 255/255, alpha: 1)
-    })
-    static let listDivider = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 56/255,  green: 56/255,  blue: 58/255,  alpha: 1)
-            : UIColor(red: 229/255, green: 231/255, blue: 235/255, alpha: 1)
-    })
-    static let success = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 16/255,  green: 185/255, blue: 129/255, alpha: 1)
-            : UIColor(red: 5/255,   green: 150/255, blue: 105/255, alpha: 1)
-    })
-    static let primaryBlue = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 59/255,  green: 130/255, blue: 246/255, alpha: 1)
-            : UIColor(red: 37/255,  green: 99/255,  blue: 235/255, alpha: 1)
-    })
-    static let departureGreen = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 74/255,  green: 222/255, blue: 128/255, alpha: 1)
-            : UIColor(red: 22/255,  green: 163/255, blue: 74/255,  alpha: 1)
-    })
-    // 시간표 전용 (Zinc 팔레트)
-    static let timetablePickerBackground = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 24/255,  green: 24/255,  blue: 27/255,  alpha: 1)
-            : UIColor(red: 241/255, green: 245/255, blue: 249/255, alpha: 1)
-    })
-    static let timetablePickerBorder = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 39/255,  green: 39/255,  blue: 42/255,  alpha: 1)
-            : UIColor(red: 203/255, green: 213/255, blue: 225/255, alpha: 1)
-    })
-    static let timetablePickerSelected = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 63/255,  green: 63/255,  blue: 70/255,  alpha: 1)
-            : UIColor(red: 186/255, green: 230/255, blue: 253/255, alpha: 1)
-    })
-    static let timetableMutedText = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 113/255, green: 113/255, blue: 122/255, alpha: 1)
-            : UIColor(red: 100/255, green: 116/255, blue: 139/255, alpha: 1)
-    })
-    static let timetableSecondaryText = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 161/255, green: 161/255, blue: 170/255, alpha: 1)
-            : UIColor(red: 71/255,  green: 85/255,  blue: 105/255, alpha: 1)
-    })
-    static let timetableNextBadge = Color(UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 191/255, green: 219/255, blue: 254/255, alpha: 1)
-            : UIColor(red: 29/255,  green: 78/255,  blue: 216/255, alpha: 1)
-    })
-}
-
-enum HomeDashboardTypography {
-    static let headerLabel = Font.system(size: 14, weight: .medium)
-    static let segmentSelected = Font.system(size: 14, weight: .bold)
-    static let segmentDefault = Font.system(size: 14, weight: .medium)
-    static let heroEyebrow = Font.system(size: 12, weight: .medium)
-    static let heroValue = Font.system(size: 72, weight: .black, design: .rounded)
-    static let heroUnit = Font.system(size: 24, weight: .bold)
-    static let heroDescription = Font.system(size: 14, weight: .medium)
-    static let heroMetaLabel = Font.system(size: 10, weight: .bold)
-    static let heroMetaValue = Font.system(size: 20, weight: .bold, design: .monospaced)
-    static let heroMetaSuffix = Font.system(size: 12, weight: .medium)
-    static let sectionTitle = Font.system(size: 20, weight: .black, design: .rounded)
-    static let sectionBadge = Font.system(size: 10, weight: .bold)
-    static let busTime = Font.system(size: 18, weight: .bold, design: .monospaced)
-    static let busRelativeStrong = Font.system(size: 14, weight: .bold)
-    static let busRelativeMuted = Font.system(size: 14, weight: .medium)
-    static let busArrival = Font.system(size: 12, weight: .medium)
-    static let statusChip = Font.system(size: 12, weight: .medium)
-    static let noticeTitle = Font.system(size: 14, weight: .bold)
-    static let noticeBody = Font.system(size: 12, weight: .medium)
-}
+// HomeDashboardTheme / HomeDashboardTypography 는 DesignSystem.swift 로 이전됨.
+// typealias 를 통해 이 파일에서 기존 이름을 그대로 사용할 수 있음.
 
 struct DashboardHeaderView: View {
     let locationText: String
@@ -158,16 +10,10 @@ struct DashboardHeaderView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "location.north.line.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-
-                Text(locationText)
-                    .font(HomeDashboardTypography.headerLabel)
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-                    .lineLimit(1)
-            }
+            Text(locationText)
+                .font(HomeDashboardTypography.headerLabel)
+                .foregroundStyle(HomeDashboardTheme.secondaryText)
+                .lineLimit(1)
 
             Spacer()
 
@@ -237,7 +83,7 @@ struct NextBusHeroCard: View {
                     .fill(HomeDashboardTheme.border)
                     .frame(width: 1, height: 36)
 
-                dashboardMetaBlock(title: "도착 예정", value: arrivalTime, alignment: .center)
+                dashboardMetaBlock(title: "예상 도착", value: arrivalTime, alignment: .center)
 
                 Rectangle()
                     .fill(HomeDashboardTheme.border)
@@ -252,6 +98,7 @@ struct NextBusHeroCard: View {
         .frame(maxWidth: .infinity)
         .background(heroBackground)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .liquidGlass(cornerRadius: 20)
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(HomeDashboardTheme.border.opacity(0.9), lineWidth: 1)
@@ -338,6 +185,7 @@ struct DashboardLoadingCard: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(HomeDashboardTheme.cardBackground)
         )
+        .liquidGlass(cornerRadius: 20)
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -382,6 +230,7 @@ struct DashboardServiceEndedCard: View {
                     )
                 )
         )
+        .liquidGlass(cornerRadius: 20)
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -406,10 +255,10 @@ struct UpcomingBusesSectionView: View {
 
                 Text(badgeText)
                     .font(HomeDashboardTypography.sectionBadge)
-                    .foregroundStyle(.black)
+                    .foregroundStyle(HomeDashboardTheme.primaryText)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(.white)
+                    .background(HomeDashboardTheme.chipBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
 
@@ -438,88 +287,61 @@ struct UpcomingBusCardView: View {
     let destinationName: String
 
     var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(HomeDashboardTheme.iconBackground)
-
-                Circle()
-                    .stroke(HomeDashboardTheme.border, lineWidth: 1)
-
-                Image(systemName: "bus.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(HomeDashboardTheme.primaryBlue)
-            }
-            .frame(width: 50, height: 50)
-
-            VStack(alignment: .leading, spacing: 8) {
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(bus.departureTime)
                     .font(HomeDashboardTypography.busTime)
                     .monospacedDigit()
                     .foregroundStyle(HomeDashboardTheme.primaryText)
 
-                Text("\(destinationName) 도착 예정 ~\(bus.arrivalTime)")
+                Text("\(destinationName) 예상 도착 ~\(bus.arrivalTime)")
                     .font(HomeDashboardTypography.busArrival)
                     .foregroundStyle(HomeDashboardTheme.secondaryText)
             }
 
             Spacer(minLength: 12)
 
-            VStack(alignment: .trailing, spacing: 10) {
+            VStack(alignment: .trailing, spacing: 6) {
                 Text(bus.relativeText)
                     .font(bus.statusKind == .onTime ? HomeDashboardTypography.busRelativeStrong : HomeDashboardTypography.busRelativeMuted)
                     .foregroundStyle(bus.statusKind == .onTime ? HomeDashboardTheme.primaryText : HomeDashboardTheme.secondaryText)
 
-                statusChip
+                statusLabel
             }
         }
-        .padding(16)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(HomeDashboardTheme.cardBackground)
         )
+        .liquidGlass(cornerRadius: 14)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(bus.departureTime) 출발, \(destinationName) 도착 예정 \(bus.arrivalTime), \(bus.statusText)")
+        .accessibilityLabel("\(bus.departureTime) 출발, \(destinationName) 예상 도착 \(bus.arrivalTime), \(bus.statusText)")
     }
 
     @ViewBuilder
-    private var statusChip: some View {
-        HStack(spacing: 6) {
-            switch bus.statusKind {
-            case .delayed:
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.orange)
-            case .lastBus:
-                Image(systemName: "flag.checkered")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.orange)
-            case .nightBus:
-                Image(systemName: "moon.fill")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.purple)
-            case .nextDay:
-                Circle()
-                    .fill(HomeDashboardTheme.secondaryText)
-                    .frame(width: 7, height: 7)
-            case .onTime:
-                Circle()
-                    .fill(HomeDashboardTheme.success)
-                    .frame(width: 7, height: 7)
-            }
+    private var statusLabel: some View {
+        Text(bus.statusText)
+            .font(HomeDashboardTypography.statusChip)
+            .foregroundStyle(statusColor)
+    }
 
-            Text(bus.statusText)
-                .font(HomeDashboardTypography.statusChip)
-                .foregroundStyle(HomeDashboardTheme.primaryText)
+    private var statusColor: Color {
+        switch bus.statusKind {
+        case .delayed, .lastBus:
+            return AppTheme.Color.nightFare
+        case .nightBus:
+            return .purple
+        case .nextDay:
+            return HomeDashboardTheme.secondaryText
+        case .onTime:
+            return HomeDashboardTheme.secondaryText
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(HomeDashboardTheme.chipBackground)
-        .clipShape(Capsule())
     }
 }
 
@@ -529,33 +351,28 @@ struct FirstLastBusSectionView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            chip(icon: "sunrise.fill", label: "첫차", time: firstBusTime)
-            chip(icon: "sunset.fill", label: "막차", time: lastBusTime)
+            chip(label: "첫차", time: firstBusTime)
+            chip(label: "막차", time: lastBusTime)
         }
     }
 
-    private func chip(icon: String, label: String, time: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+    private func chip(label: String, time: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(HomeDashboardTheme.tertiaryText)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(HomeDashboardTheme.tertiaryText)
-                Text(time)
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-            }
-
-            Spacer(minLength: 0)
+            Text(time)
+                .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                .foregroundStyle(HomeDashboardTheme.primaryText)
         }
-        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(HomeDashboardTheme.cardBackground)
         )
+        .liquidGlass(cornerRadius: 12)
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -595,6 +412,7 @@ struct DashboardNoticeCard: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(HomeDashboardTheme.noteBackground)
         )
+        .liquidGlass(cornerRadius: 14)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)

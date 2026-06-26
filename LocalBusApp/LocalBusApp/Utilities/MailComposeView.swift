@@ -1,0 +1,62 @@
+import SwiftUI
+import MessageUI
+import UIKit
+
+struct MailComposeView: UIViewControllerRepresentable {
+
+    struct Attachment {
+        let data: Data
+        let mimeType: String
+        let fileName: String
+    }
+
+    let recipients: [String]
+    let subject: String
+    let body: String
+    let attachments: [Attachment]
+    let onFinish: (MFMailComposeResult, Error?) -> Void
+
+    static var canSendMail: Bool {
+        MFMailComposeViewController.canSendMail()
+    }
+
+    func makeUIViewController(context: Context) -> MFMailComposeViewController {
+        let controller = MFMailComposeViewController()
+        controller.mailComposeDelegate = context.coordinator
+        controller.setToRecipients(recipients)
+        controller.setSubject(subject)
+        controller.setMessageBody(body, isHTML: false)
+        for attachment in attachments {
+            controller.addAttachmentData(
+                attachment.data,
+                mimeType: attachment.mimeType,
+                fileName: attachment.fileName
+            )
+        }
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onFinish: onFinish)
+    }
+
+    final class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
+        private let onFinish: (MFMailComposeResult, Error?) -> Void
+
+        init(onFinish: @escaping (MFMailComposeResult, Error?) -> Void) {
+            self.onFinish = onFinish
+        }
+
+        func mailComposeController(
+            _ controller: MFMailComposeViewController,
+            didFinishWith result: MFMailComposeResult,
+            error: Error?
+        ) {
+            controller.dismiss(animated: true) { [onFinish] in
+                onFinish(result, error)
+            }
+        }
+    }
+}

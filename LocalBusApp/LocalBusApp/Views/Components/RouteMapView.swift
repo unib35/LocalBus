@@ -30,9 +30,12 @@ private enum RouteMapTheme {
 
 struct RouteMapView: UIViewRepresentable {
     let pins: [RouteMapPin]
+    /// 미리 추출한 도로 경로 좌표. nil이면 정류장 직선으로 폴백.
+    let routePath: [CLLocationCoordinate2D]?
     let selectedStopID: String?
     let selectedCoordinate: CLLocationCoordinate2D?
     @Binding var centerOnUser: Bool
+    @Binding var fitToRoute: Bool
     let colorScheme: ColorScheme
     let sheetTopY: CGFloat
     var onPinTap: (String) -> Void
@@ -46,7 +49,7 @@ struct RouteMapView: UIViewRepresentable {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
         mapView.showsCompass = false
-        mapView.showsScale = false
+        mapView.showsScale = true
         mapView.pointOfInterestFilter = .excludingAll
 
         context.coordinator.configure(mapView: mapView)
@@ -54,6 +57,7 @@ struct RouteMapView: UIViewRepresentable {
         context.coordinator.onLocationUpdate = onLocationUpdate
         context.coordinator.updateRouteIfNeeded(
             pins,
+            routePath: routePath,
             selectedStopID: selectedStopID,
             selectedCoordinate: selectedCoordinate,
             on: mapView,
@@ -71,6 +75,7 @@ struct RouteMapView: UIViewRepresentable {
 
         context.coordinator.updateRouteIfNeeded(
             pins,
+            routePath: routePath,
             selectedStopID: selectedStopID,
             selectedCoordinate: selectedCoordinate,
             on: uiView
@@ -88,6 +93,13 @@ struct RouteMapView: UIViewRepresentable {
                 centerOnUser = false
             }
         }
+
+        if fitToRoute {
+            context.coordinator.fitRoute(pins, on: uiView)
+            DispatchQueue.main.async {
+                fitToRoute = false
+            }
+        }
     }
 }
 
@@ -96,6 +108,7 @@ extension RouteMapView {
         private let locationManager = CLLocationManager()
         private weak var mapView: MKMapView?
         private var lastRouteSignature: [RouteMapPin] = []
+        private var lastPathSignature: [Double] = []
         private var lastSelectedStopID: String?
         private var pendingCenterOnUser = false
         private var lastCenteredCoordinate: CLLocationCoordinate2D?
@@ -120,15 +133,26 @@ extension RouteMapView {
 
         func updateRouteIfNeeded(
             _ pins: [RouteMapPin],
+            routePath: [CLLocationCoordinate2D]?,
             selectedStopID: String?,
             selectedCoordinate: CLLocationCoordinate2D?,
             on mapView: MKMapView,
             force: Bool = false
         ) {
-            guard force || pins != lastRouteSignature else { return }
+            let pathSignature: [Double] = routePath?.flatMap { [$0.latitude, $0.longitude] } ?? []
+            let pinsChanged = pins != lastRouteSignature
+            let pathChanged = pathSignature != lastPathSignature
+
+            guard force || pinsChanged || pathChanged else { return }
 
             lastRouteSignature = pins
-            replaceRouteAnnotations(with: pins, selectedStopID: selectedStopID, on: mapView)
+            lastPathSignature = pathSignature
+            replaceRouteAnnotations(
+                with: pins,
+                routePath: routePath,
+                selectedStopID: selectedStopID,
+                on: mapView
+            )
 
             if selectedCoordinate == nil {
                 fitRouteIfNeeded(pins, on: mapView)
@@ -186,6 +210,10 @@ extension RouteMapView {
             }
 
             mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
+        }
+
+        func fitRoute(_ pins: [RouteMapPin], on mapView: MKMapView) {
+            fitRouteIfNeeded(pins, on: mapView)
         }
 
         func centerOnUser(on mapView: MKMapView) {
@@ -279,6 +307,7 @@ extension RouteMapView {
 
         private func replaceRouteAnnotations(
             with pins: [RouteMapPin],
+            routePath: [CLLocationCoordinate2D]?,
             selectedStopID: String?,
             on mapView: MKMapView
         ) {
@@ -290,7 +319,10 @@ extension RouteMapView {
                 StopPin(pin: $0, isSelected: $0.stopID == selectedStopID)
             }
 
-            if annotations.count > 1 {
+            // routePath가 있으면 도로 경로, 없으면 정류장 직선으로 폴백
+            if let path = routePath, path.count > 1 {
+                mapView.addOverlay(MKPolyline(coordinates: path, count: path.count))
+            } else if annotations.count > 1 {
                 let coordinates = annotations.map(\.coordinate)
                 mapView.addOverlay(MKPolyline(coordinates: coordinates, count: coordinates.count))
             }
@@ -441,6 +473,9 @@ private final class StopPinAnnotationView: MKAnnotationView {
             addSubview(circle)
             frame = CGRect(x: 0, y: 0, width: size, height: size)
         }
+
+        let shouldShowLabel = pin.isDeparture || pin.isDestination || pin.isSelected
+        guard shouldShowLabel else { return }
 
         let label = UILabel()
         label.text = pin.stopName
