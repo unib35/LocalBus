@@ -8,7 +8,7 @@ final class StoreService: ObservableObject {
 
     // MARK: - Product IDs
 
-    static let proProductID = "kr.co.lee.LocalBusApp.pro"
+    static let proProductID = "kr.co.lee.jangyusasang.pro"
     private static let allProductIDs: Set<String> = [proProductID]
 
     // MARK: - Published State
