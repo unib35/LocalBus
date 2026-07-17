@@ -170,15 +170,8 @@ struct TimetableScreenView: View {
         }
         .padding(5)
         .frame(height: 48)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(HomeDashboardTheme.segmentBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(HomeDashboardTheme.border, lineWidth: 1)
-                )
-        )
-        .liquidGlass(cornerRadius: 8)
+        .glassCard(cornerRadius: 8, fallback: HomeDashboardTheme.segmentBackground)
+        .fallbackCardBorder(cornerRadius: 8, color: HomeDashboardTheme.border)
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 12)
@@ -340,9 +333,11 @@ struct TimetableRow: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(HomeDashboardTheme.primaryBlue)
-                .clipShape(Capsule())
-                .liquidGlass(in: Capsule())
+                .tintedGlass(
+                    HomeDashboardTheme.primaryBlue,
+                    in: Capsule(),
+                    fallback: HomeDashboardTheme.primaryBlue
+                )
         } else if isNightFare {
             Text("심야")
                 .font(.system(size: 11, weight: .semibold))

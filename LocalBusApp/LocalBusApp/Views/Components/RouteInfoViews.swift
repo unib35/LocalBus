@@ -248,9 +248,7 @@ struct StopsScreenView: View {
                 .font(.system(.subheadline, weight: .medium))
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
-                .background(.ultraThinMaterial)
-                .clipShape(Circle())
-                .liquidGlass(in: Circle())
+                .glassCard(in: Circle(), fallback: Material.ultraThin, interactive: true)
                 .shadow(color: .black.opacity(0.4), radius: 8)
         }
         .buttonStyle(.plain)
@@ -305,13 +303,12 @@ struct StopsScreenView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(HomeDashboardTheme.primaryBlue.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .liquidGlass(cornerRadius: 10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(HomeDashboardTheme.primaryBlue.opacity(0.3), lineWidth: 1)
+        .tintedGlass(
+            HomeDashboardTheme.primaryBlue.opacity(0.25),
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous),
+            fallback: HomeDashboardTheme.primaryBlue.opacity(0.1)
         )
+        .fallbackCardBorder(cornerRadius: 10, color: HomeDashboardTheme.primaryBlue.opacity(0.3))
     }
 
     // MARK: - 정류장 목록 섹션
@@ -422,9 +419,7 @@ struct StopsScreenView: View {
             }
         }
         .padding(16)
-        .background(HomeDashboardTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .liquidGlass(cornerRadius: 12)
+        .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(accent.opacity(0.5), lineWidth: 1)
@@ -467,9 +462,7 @@ struct StopsScreenView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
-                    .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    .liquidGlass(cornerRadius: 4)
+                    .glassCard(cornerRadius: 4, fallback: Material.ultraThin)
                     .padding(12)
             }
         }
@@ -530,13 +523,8 @@ struct StopsScreenView: View {
             }
         }
         .padding(21)
-        .background(HomeDashboardTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .liquidGlass(cornerRadius: 12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
+        .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
     }
 
     private func fareRow(label: String, amount: Int) -> some View {
