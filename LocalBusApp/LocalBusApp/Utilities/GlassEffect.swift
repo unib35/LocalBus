@@ -51,10 +51,14 @@ extension View {
     func tintedGlass<S: Shape, F: ShapeStyle>(
         _ tint: Color,
         in shape: S,
-        fallback: F
+        fallback: F,
+        interactive: Bool = false
     ) -> some View {
         if #available(iOS 26.0, *) {
-            self.glassEffect(.regular.tint(tint), in: shape)
+            self.glassEffect(
+                interactive ? .regular.tint(tint).interactive() : .regular.tint(tint),
+                in: shape
+            )
         } else {
             self.background(fallback, in: shape)
         }

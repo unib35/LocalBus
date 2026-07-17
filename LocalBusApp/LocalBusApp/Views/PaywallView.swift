@@ -153,9 +153,13 @@ struct PaywallView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(HomeDashboardTheme.primaryBlue)
             .foregroundStyle(HomeDashboardTheme.primaryForeground)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .tintedGlass(
+                HomeDashboardTheme.primaryBlue.opacity(0.85),
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                fallback: HomeDashboardTheme.primaryBlue,
+                interactive: true
+            )
         }
         .buttonStyle(.plain)
         .disabled(store.purchaseInFlight)

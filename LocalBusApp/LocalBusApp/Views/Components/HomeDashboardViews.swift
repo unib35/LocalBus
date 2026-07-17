@@ -22,6 +22,7 @@ struct DashboardHeaderView: View {
                     .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(HomeDashboardTheme.primaryText)
                     .frame(width: 44, height: 44)
+                    .glassCard(in: Circle(), fallback: HomeDashboardTheme.iconBackground, interactive: true)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(isNotificationEnabled ? "알림 켜짐" : "알림 꺼짐")
