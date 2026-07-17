@@ -88,22 +88,4 @@ extension View {
             )
         }
     }
-
-    // MARK: - Deprecated (마이그레이션 후 제거 예정)
-
-    /// 기존 API — 불투명 배경 위에 얹으면 글래스가 보이지 않는다. `glassCard`로 교체할 것.
-    @ViewBuilder
-    func liquidGlass<S: Shape>(in shape: S) -> some View {
-        if #available(iOS 26.0, *) {
-            self.glassEffect(in: shape)
-        } else {
-            self
-        }
-    }
-
-    /// 기존 API — `glassCard(cornerRadius:fallback:)`로 교체할 것.
-    @ViewBuilder
-    func liquidGlass(cornerRadius: CGFloat) -> some View {
-        self.liquidGlass(in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-    }
 }
