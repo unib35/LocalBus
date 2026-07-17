@@ -98,7 +98,6 @@ struct NextBusHeroCard: View {
         .frame(maxWidth: .infinity)
         .background(heroBackground)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .liquidGlass(cornerRadius: 20)
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(HomeDashboardTheme.border.opacity(0.9), lineWidth: 1)
@@ -181,15 +180,8 @@ struct DashboardLoadingCard: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 250)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(HomeDashboardTheme.cardBackground)
-        )
-        .liquidGlass(cornerRadius: 20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .glassCard(cornerRadius: 20, fallback: HomeDashboardTheme.cardBackground)
+        .fallbackCardBorder(cornerRadius: 20, color: HomeDashboardTheme.border)
     }
 }
 
@@ -230,7 +222,6 @@ struct DashboardServiceEndedCard: View {
                     )
                 )
         )
-        .liquidGlass(cornerRadius: 20)
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -258,8 +249,7 @@ struct UpcomingBusesSectionView: View {
                     .foregroundStyle(HomeDashboardTheme.primaryText)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(HomeDashboardTheme.chipBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .glassCard(cornerRadius: 6, fallback: HomeDashboardTheme.chipBackground)
             }
 
             if buses.isEmpty {
@@ -311,15 +301,8 @@ struct UpcomingBusCardView: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(HomeDashboardTheme.cardBackground)
-        )
-        .liquidGlass(cornerRadius: 14)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .glassCard(cornerRadius: 14, fallback: HomeDashboardTheme.cardBackground)
+        .fallbackCardBorder(cornerRadius: 14, color: HomeDashboardTheme.border)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(bus.departureTime) 출발, \(destinationName) 예상 도착 \(bus.arrivalTime), \(bus.statusText)")
     }
@@ -368,15 +351,8 @@ struct FirstLastBusSectionView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(HomeDashboardTheme.cardBackground)
-        )
-        .liquidGlass(cornerRadius: 12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
+        .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
     }
 }
 
@@ -408,15 +384,8 @@ struct DashboardNoticeCard: View {
             Spacer(minLength: 0)
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(HomeDashboardTheme.noteBackground)
-        )
-        .liquidGlass(cornerRadius: 14)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .glassCard(cornerRadius: 14, fallback: HomeDashboardTheme.noteBackground)
+        .fallbackCardBorder(cornerRadius: 14, color: HomeDashboardTheme.border)
     }
 }
 

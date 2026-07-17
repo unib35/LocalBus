@@ -15,8 +15,7 @@ struct OfflineBanner: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(AppTheme.Color.listCardBackground)
-        .liquidGlass(cornerRadius: 0)
+        .glassCard(in: Rectangle(), fallback: AppTheme.Color.listCardBackground)
     }
 }
 
@@ -37,8 +36,7 @@ struct NoticeBanner: View {
         }
         .foregroundStyle(.primary)
         .padding()
-        .background(AppTheme.Color.listCardBackground)
-        .liquidGlass(cornerRadius: 0)
+        .glassCard(in: Rectangle(), fallback: AppTheme.Color.listCardBackground)
     }
 }
 
@@ -62,11 +60,11 @@ struct ToastView: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
-        .background(
-            Capsule()
-                .fill(Color(white: 0.15, opacity: 0.95))
+        .tintedGlass(
+            Color(white: 0.15, opacity: 0.9),
+            in: Capsule(),
+            fallback: Color(white: 0.15, opacity: 0.95)
         )
-        .liquidGlass(in: Capsule())
         .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 4)
     }
 }

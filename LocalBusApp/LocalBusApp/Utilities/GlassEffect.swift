@@ -75,6 +75,20 @@ extension View {
         }
     }
 
+    /// iOS 26 미만에서만 적용되는 카드 테두리.
+    /// 글래스에는 자체 하이라이트 림이 있어 26+에서 별도 테두리는 이중선으로 보인다.
+    @ViewBuilder
+    func fallbackCardBorder(cornerRadius: CGFloat, color: Color, lineWidth: CGFloat = 1) -> some View {
+        if #available(iOS 26.0, *) {
+            self
+        } else {
+            self.overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(color, lineWidth: lineWidth)
+            )
+        }
+    }
+
     // MARK: - Deprecated (마이그레이션 후 제거 예정)
 
     /// 기존 API — 불투명 배경 위에 얹으면 글래스가 보이지 않는다. `glassCard`로 교체할 것.

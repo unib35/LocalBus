@@ -58,15 +58,8 @@ struct DirectionSelector: View {
             }
         }
         .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(HomeDashboardTheme.segmentBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(HomeDashboardTheme.border, lineWidth: 1)
-                )
-        )
-        .liquidGlass(cornerRadius: 10)
+        .glassCard(cornerRadius: 10, fallback: HomeDashboardTheme.segmentBackground)
+        .fallbackCardBorder(cornerRadius: 10, color: HomeDashboardTheme.border)
     }
 }
 
