@@ -91,18 +91,21 @@
 > 배경: `liquidGlass` 헬퍼가 45곳에 적용돼 있으나, 불투명 배경 위에 글래스를 얹는 구조라
 > iOS 26 기기에서도 글래스가 가려져 보이지 않음. 아래 순서대로 진행.
 
-- [ ] 1. **글래스 레이어링 수정** — `glassCard(cornerRadius:fallback:)` 헬퍼 도입.
+- [x] 1. **글래스 레이어링 수정** — `glassCard(cornerRadius:fallback:)` 헬퍼 도입.
   iOS 26+는 글래스만, 이하 버전은 불투명 배경 폴백.
   기존 `.background + .clipShape + .liquidGlass` 3줄 패턴 전면 교체
-  (히어로 카드는 콘텐츠 앵커로 불투명 유지)
-- [ ] 2. **시스템 크롬 복원** — iOS 26에서 `toolbarBackground` 강제 지정 제거,
-  `tabBarMinimizeBehavior(.onScrollDown)`, `scrollEdgeEffectStyle(.soft)` 적용
-- [ ] 3. **인터랙티브 글래스** — 탭 요소 `.interactive()`, CTA `.glassProminent`,
-  미사용 `liquidGlassButton()` 실제 적용, 상태 배지 tint 글래스
-- [ ] 4. **`GlassEffectContainer` 도입** — 방향 선택 칩·버스 카드 리스트 등
-  인접 글래스 요소 블렌딩/모핑
-- [ ] 5. **배경 레이어** — 플랫 단색 배경 위 은은한 그라데이션 추가 (글래스 굴절 대상 확보)
-- [ ] 6. (선택) **iOS 16~25 폴백 개선** — 불투명 색 대신 Material로 유사 질감
+  (히어로/운행종료 카드는 흰 텍스트 전제의 어두운 앵커라 불투명 유지)
+- [x] 2. **시스템 크롬 복원** — `legacyToolbarBackground` 헬퍼로 iOS 26에서는
+  시스템 글래스 바 노출, `tabBarMinimizeBehavior(.onScrollDown)`,
+  `scrollEdgeEffectStyle(.soft)` 적용
+- [x] 3. **인터랙티브 글래스** — 지도 컨트롤·결제 CTA·알림 벨 버튼 `.interactive()`,
+  NEXT 배지·탑승홈 배너·재시도 버튼 tint 글래스
+- [x] 4. **`GlassEffectContainer` 도입** — `GlassGroup` 래퍼로 홈 화면 글래스 요소 블렌딩
+- [x] 5. **배경 레이어** — `AmbientBackground` (모노크롬 명도 블롭) 전 화면 적용
+- [ ] 6. (선택) **iOS 16~25 폴백 개선** — 불투명 색 대신 Material로 유사 질감.
+  `glassCard(fallback:)` 인자만 바꾸면 되도록 구조는 준비됨. 구형 기기 시각 QA 후 결정
+- [ ] 7. (정리) 미사용 레거시 컴포넌트 삭제 검토 — `LiveCountdownCard`,
+  `LoadingCard`, `EndOfServiceCard`, `OfflineBanner`, `NoticeBanner` (사용처 없음)
 
 ---
 
