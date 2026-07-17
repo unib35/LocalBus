@@ -111,7 +111,7 @@ struct MainView: View {
                     mainContent
                 }
             }
-            .background(HomeDashboardTheme.screenBackground.ignoresSafeArea())
+            .background(AmbientBackground())
             .toolbar(.hidden, for: .navigationBar)
         }
     }

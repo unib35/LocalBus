@@ -16,7 +16,7 @@ struct TimetableScreenView: View {
 
     var body: some View {
         ZStack {
-            HomeDashboardTheme.screenBackground.ignoresSafeArea()
+            AmbientBackground()
 
             VStack(spacing: 0) {
                 directionSelector

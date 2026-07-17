@@ -103,7 +103,7 @@ struct StopsScreenView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            HomeDashboardTheme.screenBackground.ignoresSafeArea()
+            AmbientBackground()
 
             // 지도 — 화면 전체. safe area 무시
             GeometryReader { geo in

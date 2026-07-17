@@ -12,7 +12,7 @@ struct PaywallView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                HomeDashboardTheme.screenBackground.ignoresSafeArea()
+                AmbientBackground()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 28) {

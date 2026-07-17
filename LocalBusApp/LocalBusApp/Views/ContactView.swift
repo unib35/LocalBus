@@ -40,7 +40,7 @@ struct ContactView: View {
             .padding(.top, 24)
             .padding(.bottom, 24)
         }
-        .background(HomeDashboardTheme.screenBackground.ignoresSafeArea())
+        .background(AmbientBackground())
         .safeAreaInset(edge: .bottom) {
             bottomButton
         }

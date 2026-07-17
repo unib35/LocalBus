@@ -47,7 +47,7 @@ struct NoticeDetailView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            HomeDashboardTheme.screenBackground.ignoresSafeArea()
+            AmbientBackground()
 
 
             VStack(spacing: 0) {

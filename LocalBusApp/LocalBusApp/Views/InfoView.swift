@@ -77,7 +77,7 @@ struct InfoView: View {
 
     var body: some View {
         ZStack {
-            HomeDashboardTheme.screenBackground.ignoresSafeArea()
+            AmbientBackground()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 32) {
