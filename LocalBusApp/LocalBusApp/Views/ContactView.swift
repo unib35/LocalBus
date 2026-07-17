@@ -46,8 +46,7 @@ struct ContactView: View {
         }
         .navigationTitle("문의하기")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
         .toolbarColorScheme(nil, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $isShowingMailComposer) {

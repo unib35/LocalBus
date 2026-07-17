@@ -101,8 +101,7 @@ struct InfoView: View {
         }
         .navigationTitle("설정")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
         .toolbarColorScheme(nil, for: .navigationBar)
         .confirmationDialog("캐시를 삭제하면 최신 데이터를 다시 불러옵니다.", isPresented: $showClearCacheConfirm, titleVisibility: .visible) {
             Button("캐시 삭제 및 새로고침", role: .destructive) {

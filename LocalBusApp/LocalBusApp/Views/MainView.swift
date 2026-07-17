@@ -68,6 +68,7 @@ struct MainView: View {
             .tabItem { Label("설정", systemImage: "gearshape") }
             .tag(MainTab.settings)
         }
+        .glassTabBarMinimize()
         .background(
             TabBarSelectionObserver { index, isReselection in
                 guard isStopsTabEnabled,
@@ -180,6 +181,7 @@ struct MainView: View {
             .padding(.top, 16)
             .padding(.bottom, 28)
         }
+        .softScrollEdge()
         .refreshable {
             await viewModel.refresh()
         }
@@ -219,8 +221,7 @@ struct MainView: View {
         NavigationStack {
             TimetableScreenView(viewModel: viewModel)
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
+                .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
                 .toolbar {
                     ToolbarItem(placement: .principal) {
                         directionTitle(viewModel.selectedDirection)

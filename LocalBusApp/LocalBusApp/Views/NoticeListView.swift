@@ -30,8 +30,7 @@ struct NoticeListView: View {
         }
         .navigationTitle("공지사항")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(HomeDashboardTheme.screenBackground, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .legacyToolbarBackground(HomeDashboardTheme.screenBackground)
         .toolbar(.hidden, for: .tabBar)
     }
 

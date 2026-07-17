@@ -62,8 +62,7 @@ struct PrivacyPolicyView: View {
         }
         .navigationTitle("이용약관 및 개인정보")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color.black.opacity(0.95), for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .legacyToolbarBackground(Color.black.opacity(0.95))
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
     }

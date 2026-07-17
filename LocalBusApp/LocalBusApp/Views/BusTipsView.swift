@@ -103,8 +103,7 @@ struct BusTipsView: View {
         .background(HomeDashboardTheme.screenBackground.ignoresSafeArea())
         .navigationTitle("버스 이용 안내")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
         .toolbarColorScheme(nil, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
     }

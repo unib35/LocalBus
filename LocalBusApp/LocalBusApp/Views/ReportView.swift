@@ -37,8 +37,7 @@ struct ReportView: View {
         }
         .navigationTitle("시간표 제보")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
         .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $isShowingMailComposer) {
             MailComposeView(

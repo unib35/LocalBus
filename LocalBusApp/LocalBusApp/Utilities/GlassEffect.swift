@@ -75,6 +75,40 @@ extension View {
         }
     }
 
+    /// iOS 26 미만에서만 내비게이션 바 배경을 강제한다.
+    /// 26+에서는 시스템 Liquid Glass 바를 가리지 않도록 아무것도 적용하지 않는다.
+    @ViewBuilder
+    func legacyToolbarBackground<S: ShapeStyle>(_ style: S) -> some View {
+        if #available(iOS 26.0, *) {
+            self
+        } else {
+            self
+                .toolbarBackground(style, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
+        }
+    }
+
+    /// iOS 26+에서 스크롤 시 탭 바를 축소하는 동작을 적용한다.
+    @ViewBuilder
+    func glassTabBarMinimize() -> some View {
+        if #available(iOS 26.0, *) {
+            self.tabBarMinimizeBehavior(.onScrollDown)
+        } else {
+            self
+        }
+    }
+
+    /// iOS 26+에서 스크롤 상단 엣지에 soft 페이드 효과를 적용한다.
+    /// 내비게이션 바를 숨긴 화면에서 콘텐츠가 상태 바 아래로 자연스럽게 사라진다.
+    @ViewBuilder
+    func softScrollEdge(_ edges: Edge.Set = .top) -> some View {
+        if #available(iOS 26.0, *) {
+            self.scrollEdgeEffectStyle(.soft, for: edges)
+        } else {
+            self
+        }
+    }
+
     /// iOS 26 미만에서만 적용되는 카드 테두리.
     /// 글래스에는 자체 하이라이트 림이 있어 26+에서 별도 테두리는 이중선으로 보인다.
     @ViewBuilder

@@ -27,8 +27,7 @@ struct PaywallView: View {
             }
             .navigationTitle("장유시외버스 Pro")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95), for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("닫기") { dismiss() }
