@@ -3,51 +3,93 @@ import SwiftUI
 // MARK: - Liquid Glass Helper
 //
 // iOS 26.0+ Liquid Glass 디자인 언어를 점진적으로 적용하기 위한 헬퍼.
-// iOS 16~25 에서는 기존 background 그대로 사용하고,
-// iOS 26+ 에서만 `.glassEffect()` 또는 `.buttonStyle(.glass)` 를 덧입힌다.
 //
-// 빌드 호환성:
-// - iOS 26 SDK (Xcode 26 / Swift 6.2+) 에서만 API 가 존재한다.
-// - 그 이전 SDK 에서는 `#if compiler(>=6.2)` 로 컴파일 자체에서 분기되어 안전하게 폴백한다.
-// - 따라서 현재 Xcode 16 환경에서도 컴파일이 깨지지 않는다.
+// 핵심 원칙: 글래스는 뷰 "뒤"에 깔리므로, 뷰에 불투명 배경이 있으면 가려진다.
+// 따라서 iOS 26+ 에서는 글래스만 적용하고, 그 이하 버전에서만 폴백 배경을 칠한다.
+// (기존처럼 불투명 배경 위에 glassEffect를 얹으면 글래스가 전혀 보이지 않는다.)
 
 extension View {
 
-    /// 카드/배너처럼 떠 있는 컨테이너에 Liquid Glass 효과를 적용한다.
-    /// iOS 26 미만 또는 구버전 SDK 빌드 시 원본 뷰를 그대로 반환한다.
+    /// 카드·배너처럼 떠 있는 컨테이너에 Liquid Glass를 적용한다.
+    /// - iOS 26+: `glassEffect(in:)` — 배경 없이 글래스만.
+    /// - iOS 16~25: `fallback` 스타일을 같은 shape로 배경 적용.
     ///
-    /// - Parameter shape: glass 효과의 클리핑 형태.
+    /// - Parameters:
+    ///   - shape: 글래스/배경의 클리핑 형태.
+    ///   - fallback: iOS 26 미만에서 사용할 배경 스타일 (기존 불투명 카드 색 등).
+    ///   - interactive: 탭 가능한 요소면 true — 글래스가 터치에 반응한다.
+    @ViewBuilder
+    func glassCard<S: Shape, F: ShapeStyle>(
+        in shape: S,
+        fallback: F,
+        interactive: Bool = false
+    ) -> some View {
+        if #available(iOS 26.0, *) {
+            self.glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
+        } else {
+            self.background(fallback, in: shape)
+        }
+    }
+
+    /// 모서리 반지름을 받아 `RoundedRectangle(continuous)` 형태로 glassCard를 적용한다.
+    @ViewBuilder
+    func glassCard<F: ShapeStyle>(
+        cornerRadius: CGFloat,
+        fallback: F,
+        interactive: Bool = false
+    ) -> some View {
+        self.glassCard(
+            in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous),
+            fallback: fallback,
+            interactive: interactive
+        )
+    }
+
+    /// 상태 배지 등 색이 필요한 요소용 — 틴트를 입힌 Liquid Glass.
+    /// iOS 26 미만에서는 `fallback` 배경으로 대체한다.
+    @ViewBuilder
+    func tintedGlass<S: Shape, F: ShapeStyle>(
+        _ tint: Color,
+        in shape: S,
+        fallback: F
+    ) -> some View {
+        if #available(iOS 26.0, *) {
+            self.glassEffect(.regular.tint(tint), in: shape)
+        } else {
+            self.background(fallback, in: shape)
+        }
+    }
+
+    /// 버튼·캡슐 칩 같은 인터랙티브 요소에 Liquid Glass 버튼 스타일을 적용한다.
+    /// iOS 26 미만에서는 원본 뷰를 그대로 반환한다.
+    @ViewBuilder
+    func liquidGlassButton(prominent: Bool = false) -> some View {
+        if #available(iOS 26.0, *) {
+            if prominent {
+                self.buttonStyle(.glassProminent)
+            } else {
+                self.buttonStyle(.glass)
+            }
+        } else {
+            self
+        }
+    }
+
+    // MARK: - Deprecated (마이그레이션 후 제거 예정)
+
+    /// 기존 API — 불투명 배경 위에 얹으면 글래스가 보이지 않는다. `glassCard`로 교체할 것.
     @ViewBuilder
     func liquidGlass<S: Shape>(in shape: S) -> some View {
-        #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
             self.glassEffect(in: shape)
         } else {
             self
         }
-        #else
-        self
-        #endif
     }
 
-    /// 모서리 반지름을 받아 `RoundedRectangle` 형태로 glass 효과를 적용한다.
+    /// 기존 API — `glassCard(cornerRadius:fallback:)`로 교체할 것.
     @ViewBuilder
     func liquidGlass(cornerRadius: CGFloat) -> some View {
         self.liquidGlass(in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-    }
-
-    /// 버튼·캡슐 칩 같은 인터랙티브 요소에 Liquid Glass 버튼 스타일을 적용한다.
-    /// iOS 26 미만 또는 구버전 SDK 빌드 시 원본 뷰를 그대로 반환한다.
-    @ViewBuilder
-    func liquidGlassButton() -> some View {
-        #if compiler(>=6.2)
-        if #available(iOS 26.0, *) {
-            self.buttonStyle(.glass)
-        } else {
-            self
-        }
-        #else
-        self
-        #endif
     }
 }
