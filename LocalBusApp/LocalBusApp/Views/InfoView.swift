@@ -537,8 +537,7 @@ private struct NotificationInfoButton: View {
             .frame(width: 260, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
             .compactPopoverAdaptation()
-            .background(HomeDashboardTheme.cardBackground)
-            .liquidGlass(cornerRadius: 12)
+            .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
         }
     }
 }
@@ -548,13 +547,8 @@ private struct NotificationInfoButton: View {
 private struct SettingsCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(HomeDashboardTheme.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .liquidGlass(cornerRadius: 12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(HomeDashboardTheme.border, lineWidth: 1)
-            )
+            .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
+            .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
     }
 }
 

@@ -130,13 +130,8 @@ struct BusTipsView: View {
                     tipRow(item)
                 }
             }
-            .background(HomeDashboardTheme.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .liquidGlass(cornerRadius: 12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(HomeDashboardTheme.border, lineWidth: 1)
-            )
+            .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
+            .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
         }
     }
 

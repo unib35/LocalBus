@@ -33,9 +33,11 @@ struct ErrorView: View {
                 .foregroundStyle(Color(uiColor: .systemBackground))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(Color.primary)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .liquidGlass(cornerRadius: 10)
+                .tintedGlass(
+                    Color.primary.opacity(0.9),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous),
+                    fallback: Color.primary
+                )
             }
             .padding(.horizontal, 48)
         }

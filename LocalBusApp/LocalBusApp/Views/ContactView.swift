@@ -112,13 +112,8 @@ struct ContactView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 40)
                     .frame(minHeight: 180)
-                    .background(HomeDashboardTheme.cardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .liquidGlass(cornerRadius: 12)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(HomeDashboardTheme.border, lineWidth: 1)
-                    )
+                    .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
+                    .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
                     .onChange(of: content) { newValue in
                         if newValue.count > maxCharacters {
                             content = String(newValue.prefix(maxCharacters))
@@ -167,13 +162,8 @@ struct ContactView: View {
                 .autocorrectionDisabled()
                 .padding(.horizontal, 14)
                 .frame(height: 52)
-                .background(HomeDashboardTheme.cardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .liquidGlass(cornerRadius: 12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(HomeDashboardTheme.border, lineWidth: 1)
-                )
+                .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
+                .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
 
             Text("답변받을 이메일 주소를 입력하면 더 빠르게 회신받을 수 있어요.")
                 .font(.system(size: 12))
@@ -198,13 +188,8 @@ struct ContactView: View {
         .padding(.horizontal, 17)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(HomeDashboardTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .liquidGlass(cornerRadius: 8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 0.5)
-        )
+        .glassCard(cornerRadius: 8, fallback: HomeDashboardTheme.cardBackground)
+        .fallbackCardBorder(cornerRadius: 8, color: HomeDashboardTheme.border, lineWidth: 0.5)
     }
 
     // MARK: - 하단 버튼

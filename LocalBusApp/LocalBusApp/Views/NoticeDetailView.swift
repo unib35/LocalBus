@@ -162,9 +162,7 @@ struct NoticeDetailView: View {
             }
         }
         .padding(17)
-        .background(HomeDashboardTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .liquidGlass(cornerRadius: 12)
+        .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -191,9 +189,7 @@ struct NoticeDetailView: View {
                 .foregroundStyle(HomeDashboardTheme.secondaryText)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 5)
-                .background(HomeDashboardTheme.screenBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                .liquidGlass(cornerRadius: 4)
+                .glassCard(cornerRadius: 4, fallback: HomeDashboardTheme.screenBackground)
                 .overlay(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -246,7 +242,6 @@ struct NoticeDetailView: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .liquidGlass(cornerRadius: 8)
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -310,7 +305,6 @@ struct NoticeDetailView: View {
             .resizable()
             .scaledToFit()
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .liquidGlass(cornerRadius: 8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(HomeDashboardTheme.border, lineWidth: 1)
@@ -335,9 +329,7 @@ struct NoticeDetailView: View {
                 .foregroundStyle(HomeDashboardTheme.primaryText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(HomeDashboardTheme.cardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .liquidGlass(cornerRadius: 12)
+                .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground, interactive: true)
                 .shadow(color: .black.opacity(0.08), radius: 16)
             }
             .buttonStyle(.plain)

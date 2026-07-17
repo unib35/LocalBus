@@ -97,13 +97,8 @@ struct PaywallView: View {
             )
         }
         .padding(.vertical, 4)
-        .background(HomeDashboardTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .liquidGlass(cornerRadius: 12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
+        .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
     }
 
     @ViewBuilder
@@ -135,13 +130,8 @@ struct PaywallView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
-        .background(HomeDashboardTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .liquidGlass(cornerRadius: 12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
+        .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
     }
 
     private func purchaseButton(for product: Product) -> some View {

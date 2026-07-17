@@ -103,9 +103,7 @@ struct ReportView: View {
                     .padding(.vertical, 52)
                 }
             }
-            .background(HomeDashboardTheme.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .liquidGlass(cornerRadius: 12)
+            .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground, interactive: true)
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(
@@ -143,13 +141,8 @@ struct ReportView: View {
                         .padding(.top, 10)
                         .padding(.bottom, 36)
                         .frame(minHeight: 148)
-                        .background(HomeDashboardTheme.cardBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .liquidGlass(cornerRadius: 10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-                        )
+                        .glassCard(cornerRadius: 10, fallback: HomeDashboardTheme.cardBackground)
+                        .fallbackCardBorder(cornerRadius: 10, color: HomeDashboardTheme.border)
                         .onChange(of: description) { newValue in
                             if newValue.count > maxCharacters {
                                 description = String(newValue.prefix(maxCharacters))
@@ -195,13 +188,8 @@ struct ReportView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(HomeDashboardTheme.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .liquidGlass(cornerRadius: 8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(HomeDashboardTheme.border, lineWidth: 1)
-            )
+            .glassCard(cornerRadius: 8, fallback: HomeDashboardTheme.cardBackground)
+            .fallbackCardBorder(cornerRadius: 8, color: HomeDashboardTheme.border)
         }
     }
 

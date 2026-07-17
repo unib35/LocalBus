@@ -130,13 +130,8 @@ struct BusDetailView: View {
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(20)
-        .background(HomeDashboardTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .liquidGlass(cornerRadius: 12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
+        .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
     }
 
     // MARK: - 알림 카드
@@ -171,13 +166,8 @@ struct BusDetailView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 16)
-        .background(HomeDashboardTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .liquidGlass(cornerRadius: 10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 0.5)
-        )
+        .glassCard(cornerRadius: 10, fallback: HomeDashboardTheme.cardBackground)
+        .fallbackCardBorder(cornerRadius: 10, color: HomeDashboardTheme.border, lineWidth: 0.5)
     }
 
     // MARK: - 플랫폼 카드
@@ -197,13 +187,12 @@ struct BusDetailView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(HomeDashboardTheme.primaryBlue.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .liquidGlass(cornerRadius: 10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(HomeDashboardTheme.primaryBlue.opacity(0.3), lineWidth: 1)
+        .tintedGlass(
+            HomeDashboardTheme.primaryBlue.opacity(0.25),
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous),
+            fallback: HomeDashboardTheme.primaryBlue.opacity(0.1)
         )
+        .fallbackCardBorder(cornerRadius: 10, color: HomeDashboardTheme.primaryBlue.opacity(0.3))
     }
 
     // MARK: - 요금 카드
@@ -275,13 +264,8 @@ struct BusDetailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(20)
-        .background(HomeDashboardTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .liquidGlass(cornerRadius: 8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .glassCard(cornerRadius: 8, fallback: HomeDashboardTheme.cardBackground)
+        .fallbackCardBorder(cornerRadius: 8, color: HomeDashboardTheme.border)
     }
 
     private func fareRow(label: String, amount: Int, isNight: Bool = false) -> some View {
@@ -354,13 +338,8 @@ struct BusDetailView: View {
             }
         }
         .padding(20)
-        .background(HomeDashboardTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .liquidGlass(cornerRadius: 8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .glassCard(cornerRadius: 8, fallback: HomeDashboardTheme.cardBackground)
+        .fallbackCardBorder(cornerRadius: 8, color: HomeDashboardTheme.border)
     }
 }
 
