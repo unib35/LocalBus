@@ -8,6 +8,27 @@ import SwiftUI
 // 따라서 iOS 26+ 에서는 글래스만 적용하고, 그 이하 버전에서만 폴백 배경을 칠한다.
 // (기존처럼 불투명 배경 위에 glassEffect를 얹으면 글래스가 전혀 보이지 않는다.)
 
+/// iOS 26+에서 자식 글래스 요소들을 하나의 `GlassEffectContainer`로 묶는다.
+/// 인접한 글래스끼리 자연스럽게 블렌딩되고 렌더링 비용도 줄어든다.
+/// iOS 26 미만에서는 콘텐츠를 그대로 렌더링한다.
+struct GlassGroup<Content: View>: View {
+    var spacing: CGFloat?
+    @ViewBuilder var content: () -> Content
+
+    init(spacing: CGFloat? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.spacing = spacing
+        self.content = content
+    }
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: spacing, content: content)
+        } else {
+            content()
+        }
+    }
+}
+
 extension View {
 
     /// 카드·배너처럼 떠 있는 컨테이너에 Liquid Glass를 적용한다.

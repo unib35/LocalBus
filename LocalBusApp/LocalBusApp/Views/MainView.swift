@@ -118,7 +118,18 @@ struct MainView: View {
 
     private var mainContent: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
+            GlassGroup {
+                mainContentStack
+            }
+        }
+        .softScrollEdge()
+        .refreshable {
+            await viewModel.refresh()
+        }
+    }
+
+    private var mainContentStack: some View {
+        VStack(alignment: .leading, spacing: 24) {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let snapshot = viewModel.makeTimingSnapshot(at: context.date)
                     DashboardHeaderView(
@@ -176,15 +187,10 @@ struct MainView: View {
                         systemImage: "info.circle.fill"
                     )
                 }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 28)
         }
-        .softScrollEdge()
-        .refreshable {
-            await viewModel.refresh()
-        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 28)
     }
 
     @ViewBuilder
