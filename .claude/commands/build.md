@@ -15,7 +15,7 @@ LocalBusApp Xcode 프로젝트를 빌드하세요.
 xcodebuild build \
   -project LocalBusApp/LocalBusApp.xcodeproj \
   -scheme LocalBusApp \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
   -quiet
 ```
 

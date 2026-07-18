@@ -110,12 +110,12 @@ formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
 
 ### Build Errors
 ```bash
-xcodebuild build -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 15' 2>&1 | grep -E "error:|warning:"
+xcodebuild build -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 17' 2>&1 | grep -E "error:|warning:"
 ```
 
 ### Test Failures
 ```bash
-xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 15' 2>&1 | grep -E "Test Case|failed|error:"
+xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 17' 2>&1 | grep -E "Test Case|failed|error:"
 ```
 
 ### Find Symbol Usage

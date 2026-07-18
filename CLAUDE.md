@@ -105,10 +105,10 @@ Red → Green → Refactor
 
 ```bash
 # 빌드
-xcodebuild build -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild build -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 17'
 
 # 테스트
-xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
 
 ---

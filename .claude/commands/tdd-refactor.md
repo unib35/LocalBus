@@ -18,7 +18,7 @@ $ARGUMENTS
 
 ```bash
 # 모든 테스트가 통과하는지 확인
-xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:LocalBusAppTests
+xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:LocalBusAppTests
 ```
 
 **테스트가 실패하면 리팩토링을 진행하지 마세요!**
@@ -75,7 +75,7 @@ let nextBus = findNextBus()
 
 ```bash
 # 테스트 재실행
-xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:LocalBusAppTests
+xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:LocalBusAppTests
 ```
 
 테스트가 모두 통과하면 커밋:
