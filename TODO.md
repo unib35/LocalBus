@@ -70,9 +70,30 @@
 - [ ] 개인정보처리방침 URL·문의 이메일 등 메타데이터 입력
 
 ### 원격 데이터 (GitHub: unib35/LocalBus)
-- [ ] 원격 `timetable.json`의 `contact_email`도 `jangyubus.app@gmail.com`으로 수정
-  - ⚠️ 앱은 원격 JSON 우선 사용 → 안 바꾸면 앱에 옛 이메일 계속 노출
-- [ ] GitHub Pages 개인정보처리방침/이용약관 재배포
+- [x] 원격 `timetable.json`의 `contact_email`도 `jangyubus.app@gmail.com`으로 수정
+  (2026-07-19 확인: 원격 v3에 반영 완료, 로컬 번들과 동일)
+- [x] GitHub Pages 개인정보처리방침/이용약관 재배포 (2026-07-19 확인: 3개 URL 모두 200)
+
+---
+
+## 🔍 출시 전 점검 결과 (2026-07-19)
+
+### 고친 것 (커밋 완료)
+- [x] 테스트 스킴에 Testables 누락 → `xcodebuild test` 자체가 불가능했던 문제 수정
+- [x] 제품명 리네임(JangyuBus) 미반영: TEST_HOST·TEST_TARGET_NAME·`@testable import` 수정
+- [x] 깨져 있던 테스트(RouteData `path` 필드 누락) 수정 → **74개 테스트 전부 통과**
+- [x] 앱·위젯 `PrivacyInfo.xcprivacy` 추가 (UserDefaults required-reason API 신고, 번들 포함 확인)
+
+### 새로 발견 — 출시 전 결정/조치 필요
+- [ ] 🔴 `GoogleService-Info.plist`의 BUNDLE_ID가 옛 `kr.co.lee.LocalBusApp`
+  → Firebase에 새 앱 등록 후 plist 교체 전까지 FCM 동작 안 함 (기존 P1 항목과 동일 건)
+- [ ] 🟡 위젯 배포 타깃이 18.5 (앱은 16.0) → iOS 16~18.4 사용자는 위젯 사용 불가.
+  의도가 아니면 위젯 타깃을 낮출 것
+- [ ] 🟡 미커밋 WIP: `Secrets.xcconfig`를 Resources 빌드 단계에서 제외한 변경(pbxproj)
+  — 시크릿이 앱 번들에 복사되던 문제의 수정이므로 반드시 커밋할 것
+- [ ] 🟡 빈 에셋 폴더 정리: `SplashMark.imageset`, `LaunchBackground.colorset` (내용물 삭제됨)
+- [ ] 🟢 App Store Connect 개인정보 설문: 수집 데이터 "없음" 기준으로 작성
+  (FCM 토큰은 Firebase SDK 매니페스트가 커버, 앱 자체 수집 없음)
 
 ---
 
