@@ -30,8 +30,9 @@ struct LocalBusAppApp: App {
                 await storeService.loadProducts()
             }
             .onAppear {
-                // 1.5초 후 런치 스크린 숨김
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                // 타이머는 첫 프레임 렌더 전(앱 초기화 시점)부터 돌기 시작하므로,
+                // 콜드 스타트에서도 스플래시가 실제로 보이도록 여유를 둔다.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
                     withAnimation(.easeOut(duration: 0.3)) {
                         showLaunchScreen = false
                     }
