@@ -10,32 +10,37 @@ struct AmbientBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        ZStack {
-            AppTheme.Color.screenBackground
-
-            // 상단 하이라이트 — 화면 위쪽이 살짝 밝다.
-            Circle()
-                .fill(highlight)
-                .frame(width: 420, height: 420)
-                .blur(radius: 80)
-                .offset(x: -120, y: -280)
-
-            // 우측 중단 보조광
-            Circle()
-                .fill(highlight.opacity(0.6))
-                .frame(width: 360, height: 360)
-                .blur(radius: 90)
-                .offset(x: 170, y: 20)
-
-            // 하단 딤 — 아래로 갈수록 미세하게 가라앉는다.
-            Circle()
-                .fill(dim)
-                .frame(width: 480, height: 480)
-                .blur(radius: 100)
-                .offset(x: -60, y: 420)
-        }
-        .ignoresSafeArea()
-        .accessibilityHidden(true)
+        // 광원 블롭은 화면보다 커서 레이아웃에 참여하면 부모 ZStack을 넓혀버린다.
+        // 반드시 overlay로 얹어 크기 계산에서 제외한다 (배경 Color만 레이아웃에 참여).
+        AppTheme.Color.screenBackground
+            .overlay {
+                // 상단 하이라이트 — 화면 위쪽이 살짝 밝다.
+                Circle()
+                    .fill(highlight)
+                    .frame(width: 420, height: 420)
+                    .blur(radius: 80)
+                    .offset(x: -120, y: -280)
+            }
+            .overlay {
+                // 우측 중단 보조광
+                Circle()
+                    .fill(highlight.opacity(0.6))
+                    .frame(width: 360, height: 360)
+                    .blur(radius: 90)
+                    .offset(x: 170, y: 20)
+            }
+            .overlay {
+                // 하단 딤 — 아래로 갈수록 미세하게 가라앉는다.
+                Circle()
+                    .fill(dim)
+                    .frame(width: 480, height: 480)
+                    .blur(radius: 100)
+                    .offset(x: -60, y: 420)
+            }
+            .clipped()
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     private var highlight: Color {
