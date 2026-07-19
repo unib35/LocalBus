@@ -30,7 +30,7 @@ $ARGUMENTS (기본값: main)
 xcodebuild build -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 17' -quiet
 
 # 테스트 확인
-xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:LocalBusAppTests
+xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:JangyuBusTests
 ```
 
 ### 2. 푸시 (필요 시)

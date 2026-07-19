@@ -38,7 +38,7 @@ func testMethodName() {
 ### 3. 테스트 실행
 
 ```bash
-xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:LocalBusAppTests/[TestClass]/[testMethod]
+xcodebuild test -scheme LocalBusApp -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:JangyuBusTests/[TestClass]/[testMethod]
 ```
 
 ### 4. plan.md 업데이트

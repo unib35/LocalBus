@@ -23,7 +23,7 @@ xcodebuild test \
   -project LocalBusApp/LocalBusApp.xcodeproj \
   -scheme LocalBusApp \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
-  -only-testing:LocalBusAppTests \
+  -only-testing:JangyuBusTests \
   2>&1 | grep -E "(Test Case|passed|failed|error:)"
 ```
 
@@ -34,7 +34,7 @@ xcodebuild test \
   -project LocalBusApp/LocalBusApp.xcodeproj \
   -scheme LocalBusApp \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
-  -only-testing:LocalBusAppTests/$ARGUMENTS \
+  -only-testing:JangyuBusTests/$ARGUMENTS \
   2>&1 | grep -E "(Test Case|passed|failed|error:)"
 ```
 
