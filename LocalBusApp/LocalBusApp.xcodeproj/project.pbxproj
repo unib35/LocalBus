@@ -512,7 +512,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LocalBusApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LocalBusApp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/JangyuBus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/JangyuBus";
 			};
 			name = Debug;
 		};
@@ -531,7 +531,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LocalBusApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LocalBusApp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/JangyuBus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/JangyuBus";
 			};
 			name = Release;
 		};
@@ -740,7 +740,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = LocalBusApp;
+				TEST_TARGET_NAME = JangyuBus;
 			};
 			name = Debug;
 		};
@@ -758,7 +758,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = LocalBusApp;
+				TEST_TARGET_NAME = JangyuBus;
 			};
 			name = Release;
 		};
