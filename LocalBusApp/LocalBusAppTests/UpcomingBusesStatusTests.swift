@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import LocalBusApp
+@testable import JangyuBus
 
 @Suite(.serialized)
 @MainActor
@@ -26,7 +26,8 @@ struct UpcomingBusesStatusTests {
                 platformNumber: nil,
                 viaTimes: nil,
                 stops: [],
-                timetable: Timetable(weekday: times, weekend: [])
+                timetable: Timetable(weekday: times, weekend: []),
+                path: nil
             )
             data = TimetableData(
                 meta: makeMeta(),

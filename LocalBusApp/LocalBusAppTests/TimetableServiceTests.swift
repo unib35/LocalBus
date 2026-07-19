@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import LocalBusApp
+@testable import JangyuBus
 
 struct TimetableServiceTests {
 

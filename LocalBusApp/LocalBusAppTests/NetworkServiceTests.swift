@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import LocalBusApp
+@testable import JangyuBus
 
 @Suite("NetworkService 테스트", .serialized)
 struct NetworkServiceTests {

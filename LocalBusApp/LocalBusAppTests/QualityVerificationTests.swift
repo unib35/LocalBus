@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import LocalBusApp
+@testable import JangyuBus
 
 /// 품질 검증 테스트
 /// - 다양한 시간대 테스트
