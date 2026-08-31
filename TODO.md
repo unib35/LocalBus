@@ -102,8 +102,10 @@
 ### 새로 발견 — 출시 전 결정/조치 필요
 - [x] ~~🔴 `GoogleService-Info.plist`의 BUNDLE_ID가 옛 `kr.co.lee.LocalBusApp`~~
   → 2026-08-31 새 앱 등록 및 plist 교체 완료. 실제 푸시 수신은 APNs 키 등록 후 검증
-- [ ] 🟡 위젯 배포 타깃이 18.5 (앱은 16.0) → iOS 16~18.4 사용자는 위젯 사용 불가.
-  의도가 아니면 위젯 타깃을 낮출 것
+- [x] ~~🟡 위젯 배포 타깃이 18.5 (앱은 16.0)~~ → 2026-08-31 **17.0으로 하향** (`476c967`).
+  위젯이 요구하는 최신 API가 `AppIntentConfiguration`·`containerBackground(for:)`로
+  둘 다 iOS 17.0 기준이라 16.0까지는 못 내림(내리려면 위젯 구성을 폴백 구조로 재작성해야 함).
+  Live Activity 코드는 이미 `@available(iOS 16.2)` 가드됨. 빌드 검증 완료(경고 0)
 - [x] ~~🟡 미커밋 WIP: `Secrets.xcconfig`를 Resources 빌드 단계에서 제외한 변경(pbxproj)~~
   → 2026-08-31 커밋 완료 (`72f351d`)
 - [x] ~~🔴 카카오 REST API 키가 앱에 임베드됨~~ — **오판이었음. 실제로는 임베드되지 않는다.**
@@ -123,7 +125,12 @@
     단 그 순간 키가 실제로 앱에 임베드되므로 프록시/쿼터 제한 등 대책을 함께 결정할 것
 - [ ] 🟡 카카오 REST API 키 재발급 — 2026-08-31 작업 중 터미널 출력에 키 값이 노출됨.
   현재 어디서도 동작하지 않는 키라 교체 비용 없음
-- [ ] 🟡 빈 에셋 폴더 정리: `SplashMark.imageset`, `LaunchBackground.colorset` (내용물 삭제됨)
+- [x] ~~🟡 빈 에셋 폴더 정리: `SplashMark.imageset`, `LaunchBackground.colorset`~~
+  → **정리할 것 없음.** 2026-08-31 재확인 결과 둘 다 정상 상태다.
+  `SplashMark.imageset`은 `splash-mark.png`를 담고 있고,
+  `LaunchBackground.colorset`은 Contents.json에 색상값(srgb 0.067)이 인라인으로 정의돼 있다.
+  실제로 값이 비어 있는 건 `AccentColor.colorset`(앱·위젯)과 `WidgetBackground.colorset`인데,
+  셋 다 Xcode가 생성하는 기본 템플릿이고 비어 있는 게 정상 동작(시스템 기본값 사용)이라 유지.
 - [ ] 🟢 App Store Connect 개인정보 설문: 수집 데이터 "없음" 기준으로 작성
   (FCM 토큰은 Firebase SDK 매니페스트가 커버, 앱 자체 수집 없음)
 
