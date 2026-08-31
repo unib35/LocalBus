@@ -136,6 +136,15 @@
   `LaunchBackground.colorset`은 Contents.json에 색상값(srgb 0.067)이 인라인으로 정의돼 있다.
   실제로 값이 비어 있는 건 `AccentColor.colorset`(앱·위젯)과 `WidgetBackground.colorset`인데,
   셋 다 Xcode가 생성하는 기본 템플릿이고 비어 있는 게 정상 동작(시스템 기본값 사용)이라 유지.
+- [ ] 🟡 **UI 테스트 12개가 전부 실패 (기존 문제)** — 2026-08-31 확인.
+  UI 테스트는 `76c1cde`(2026-01-25) 이후 한 번도 손대지 않았는데 그 뒤
+  `Views/` 에만 80개 커밋이 쌓여 Liquid Glass 재디자인이 끝났다. 테스트가 찾는
+  네비게이션 타이틀 '시외버스', '평일 버튼' 등이 현재 UI에 존재하지 않는다.
+  - 유닛 테스트(Swift Testing) **74개는 전부 통과**하며, 앱도 시뮬레이터에서 정상 동작
+    (스플래시 → 홈 렌더링, Firebase 초기화 정상) 확인함
+  - 즉 기능 회귀가 아니라 **테스트가 낡은 것**. 현재 UI 기준으로 재작성 필요
+  - 참고: `xcodebuild test`의 레거시 출력에는 Swift Testing 결과가 안 잡힌다.
+    유닛 결과는 로그의 `✔ Test run with 74 tests in 8 suites passed` 줄로 확인할 것
 - [ ] 🟢 App Store Connect 개인정보 설문: 수집 데이터 "없음" 기준으로 작성
   (FCM 토큰은 Firebase SDK 매니페스트가 커버, 앱 자체 수집 없음)
 
