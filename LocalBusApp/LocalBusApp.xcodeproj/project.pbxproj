@@ -12,7 +12,6 @@
 		9B44DB212F1FAF4900F7AC27 /* JangyuBusWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9B44DB0D2F1FAF4700F7AC27 /* JangyuBusWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		9B8928412F8D5E4E001EE08D /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 9B8928402F8D5E4E001EE08D /* FirebaseMessaging */; };
 		9B9E29D92F6BE3190049E89C /* Secrets.xcconfig.example in Resources */ = {isa = PBXBuildFile; fileRef = 9B9E29D72F6BE3190049E89C /* Secrets.xcconfig.example */; };
-		9B9E29DA2F6BE3190049E89C /* Secrets.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 9B9E29D62F6BE3190049E89C /* Secrets.xcconfig */; };
 		9BCE24C52FC31C6C0063198A /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9BCE24C42FC31C6C0063198A /* StoreKit.framework */; };
 		AA51D19430A64FDA9D1624D9 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 036FCB026FEF4DA88E776FF8 /* Kingfisher */; };
 /* End PBXBuildFile section */
@@ -308,7 +307,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1640;
-				LastUpgradeCheck = 1640;
+				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					9B44DB0C2F1FAF4700F7AC27 = {
 						CreatedOnToolsVersion = 16.4;
@@ -372,7 +371,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				9B9E29D92F6BE3190049E89C /* Secrets.xcconfig.example in Resources */,
-				9B9E29DA2F6BE3190049E89C /* Secrets.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -595,6 +593,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -653,6 +652,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
