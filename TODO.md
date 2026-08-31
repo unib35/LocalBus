@@ -1,6 +1,6 @@
 # LocalBus → 장유사상버스 리브랜딩 / 출시 작업 추적
 
-> 마지막 업데이트: 2026-06-26
+> 마지막 업데이트: 2026-08-31
 > 상세 체크리스트(로컬 전용): `internal-docs/deploy/bundle-id-rebrand-checklist.md`
 
 식별자 변경 요약:
@@ -41,8 +41,13 @@
 - [ ] **🔴 API 키 제한** (Google Cloud Console → API/서비스 → 사용자 인증 정보)
   - 애플리케이션 제한 → iOS 앱 → 번들 ID `kr.co.lee.jangyusasang` 추가
   - API 제한 → Firebase 사용 API만 허용
-- [ ] 🟡 Firebase App Check 활성화 (DeviceCheck/App Attest)
-- [ ] 🟡 Firestore/Storage 보안 규칙 점검 (무인증 read/write 차단 여부)
+- [x] ~~🟡 Firebase App Check 활성화~~ — **해당 없음**. App Check는 Firestore·Storage·
+  Functions·RTDB를 보호하는 기능으로 FCM 전달에는 관여하지 않음. 이 앱은 FCM만 사용
+- [x] ~~🟡 Firestore/Storage 보안 규칙 점검~~ — **해당 없음**. 두 서비스 모두 미사용
+  (SPM 의존성은 `FirebaseMessaging` 하나뿐)
+
+> 2026-08-31 확인: 새 앱에도 **동일한 API 키가 재사용**됨(해시 대조 완료).
+> 노출됐던 키가 그대로 살아 있으므로 위 키 제한은 반드시 적용할 것.
 
 ---
 
@@ -55,9 +60,13 @@
 - [ ] Xcode 각 타깃 Signing & Capabilities 에러 해소 확인
 
 ### Firebase Console
-- [ ] iOS 앱 추가 (Bundle ID: `kr.co.lee.jangyusasang`)
-- [ ] 새 `GoogleService-Info.plist` 다운로드 → 기존 파일 교체
-- [ ] (FCM 사용 시) APNs 인증 키 등록 확인
+- [x] iOS 앱 추가 (Bundle ID: `kr.co.lee.jangyusasang`) — 2026-08-31 완료.
+  기존 프로젝트 `localbus-1bb75` 재사용, GOOGLE_APP_ID `1:440631868395:ios:76959c1c…`
+- [x] 새 `GoogleService-Info.plist` 다운로드 → 기존 파일 교체 — 2026-08-31 완료.
+  BUNDLE_ID·Xcode 타깃 일치, 번들 포함 위치, gitignore 처리 모두 검증
+- [ ] **APNs 인증 키 등록** — 프로젝트 설정 → Cloud Messaging → 새 iOS 앱 항목에 `.p8` 업로드
+  (`.p8`은 팀 단위라 재발급 불필요하나, 앱 항목별로 따로 등록해야 함. Key ID·Team ID 필요)
+- [ ] 옛 앱(`kr.co.lee.LocalBusApp`) 삭제 — **푸시 수신 확인 후에** 진행
 
 ---
 
@@ -85,12 +94,19 @@
 - [x] 앱·위젯 `PrivacyInfo.xcprivacy` 추가 (UserDefaults required-reason API 신고, 번들 포함 확인)
 
 ### 새로 발견 — 출시 전 결정/조치 필요
-- [ ] 🔴 `GoogleService-Info.plist`의 BUNDLE_ID가 옛 `kr.co.lee.LocalBusApp`
-  → Firebase에 새 앱 등록 후 plist 교체 전까지 FCM 동작 안 함 (기존 P1 항목과 동일 건)
+- [x] ~~🔴 `GoogleService-Info.plist`의 BUNDLE_ID가 옛 `kr.co.lee.LocalBusApp`~~
+  → 2026-08-31 새 앱 등록 및 plist 교체 완료. 실제 푸시 수신은 APNs 키 등록 후 검증
 - [ ] 🟡 위젯 배포 타깃이 18.5 (앱은 16.0) → iOS 16~18.4 사용자는 위젯 사용 불가.
   의도가 아니면 위젯 타깃을 낮출 것
-- [ ] 🟡 미커밋 WIP: `Secrets.xcconfig`를 Resources 빌드 단계에서 제외한 변경(pbxproj)
-  — 시크릿이 앱 번들에 복사되던 문제의 수정이므로 반드시 커밋할 것
+- [x] ~~🟡 미커밋 WIP: `Secrets.xcconfig`를 Resources 빌드 단계에서 제외한 변경(pbxproj)~~
+  → 2026-08-31 커밋 완료 (`72f351d`)
+- [ ] 🔴 **카카오 REST API 키가 여전히 앱에 임베드됨** — 위 수정은 원본 파일 복사만 막았고,
+  `INFOPLIST_KEY_KakaoRestAPIKey = "$(KAKAO_REST_API_KEY)"` (pbxproj Debug/Release 양쪽)가
+  키를 Info.plist에 구워 넣는다. `TrafficService.swift`가 이를 읽어 `KakaoAK` 헤더에 사용.
+  `.ipa` 압축만 풀면 노출됨. REST 키는 카카오 기준 서버용 자격증명이라 클라이언트 배치는 부적절.
+  - 다행: `Secrets.xcconfig`는 git 히스토리에 커밋된 적 없고 앱도 미출시 → **현재 실유출 없음**
+  - 출시 전 택일: ① Firebase Functions 프록시 ② 임베드 감수 + 카카오 콘솔 쿼터·알림 설정
+    ③ 실시간 교통 기능 제거
 - [ ] 🟡 빈 에셋 폴더 정리: `SplashMark.imageset`, `LaunchBackground.colorset` (내용물 삭제됨)
 - [ ] 🟢 App Store Connect 개인정보 설문: 수집 데이터 "없음" 기준으로 작성
   (FCM 토큰은 Firebase SDK 매니페스트가 커버, 앱 자체 수집 없음)
