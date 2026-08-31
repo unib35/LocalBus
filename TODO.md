@@ -38,9 +38,14 @@
 > 히스토리는 유지하기로 결정(키 제한으로 충분).
 
 - [x] git 추적 제외 + `.gitignore` 추가 (커밋 `8390f99`)
-- [ ] **🔴 API 키 제한** (Google Cloud Console → API/서비스 → 사용자 인증 정보)
-  - 애플리케이션 제한 → iOS 앱 → 번들 ID `kr.co.lee.jangyusasang` 추가
-  - API 제한 → Firebase 사용 API만 허용
+- [~] **API 키 제한** (Google Cloud Console → API/서비스 → 사용자 인증 정보)
+  - [x] 애플리케이션 제한 → iOS 앱 → 번들 ID `kr.co.lee.jangyusasang` — 2026-08-31 완료.
+    위젯은 Firebase 미사용(소스 import 없음, 타깃에 패키지 미링크)이라 `.widget`은 등록 불필요
+  - [ ] API 제한 → FCM·Installations·FCM Registration만 허용
+    - ⚠️ **실기기 토큰 발급 확인 후에 적용할 것.** 먼저 걸면 토큰 실패 시 원인이
+      App ID 설정인지 키 제한인지 구분이 안 돼 디버깅이 번거로워진다
+  - 실위험도는 낮음: 이 키로는 푸시 발송 불가(서비스 계정 자격증명 필요),
+    Firestore·Storage·Auth 미사용이라 데이터 노출 경로 없음. 위생 작업 수준
 - [x] ~~🟡 Firebase App Check 활성화~~ — **해당 없음**. App Check는 Firestore·Storage·
   Functions·RTDB를 보호하는 기능으로 FCM 전달에는 관여하지 않음. 이 앱은 FCM만 사용
 - [x] ~~🟡 Firestore/Storage 보안 규칙 점검~~ — **해당 없음**. 두 서비스 모두 미사용
