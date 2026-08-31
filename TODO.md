@@ -54,6 +54,10 @@
 ## 🔴 할 일 — 우선순위 1 (안 하면 실기기/배포 빌드 불가)
 
 ### Apple Developer Portal (developer.apple.com → Identifiers)
+
+> ⛔ 2026-08-31 현재 developer.apple.com 점검 중이라 이 섹션 전체가 진행 불가.
+> 점검 종료 후 재개할 것. 아래 항목이 막혀 있어 실기기 푸시 수신 검증까지 연쇄로 대기 중.
+
 - [ ] App Group 식별자 등록: `group.kr.co.lee.jangyusasang`
 - [ ] 앱 App ID 등록: `kr.co.lee.jangyusasang` (Push Notifications + App Groups 체크)
 - [ ] 위젯 App ID 등록: `kr.co.lee.jangyusasang.widget` (App Groups 체크)
@@ -64,8 +68,10 @@
   기존 프로젝트 `localbus-1bb75` 재사용, GOOGLE_APP_ID `1:440631868395:ios:76959c1c…`
 - [x] 새 `GoogleService-Info.plist` 다운로드 → 기존 파일 교체 — 2026-08-31 완료.
   BUNDLE_ID·Xcode 타깃 일치, 번들 포함 위치, gitignore 처리 모두 검증
-- [ ] **APNs 인증 키 등록** — 프로젝트 설정 → Cloud Messaging → 새 iOS 앱 항목에 `.p8` 업로드
-  (`.p8`은 팀 단위라 재발급 불필요하나, 앱 항목별로 따로 등록해야 함. Key ID·Team ID 필요)
+- [x] **APNs 인증 키 등록** — 2026-08-31 완료.
+  키 파일 `~/Documents/프로젝트/LocalBus/AuthKey_4BA3D656ZX.p8`,
+  Key ID `4BA3D656ZX`, Team ID `AMNS6W2AA9`
+  - ⚠️ `.p8`은 재다운로드 불가. 해당 폴더 밖에 백업 사본을 둘 것
 - [ ] 옛 앱(`kr.co.lee.LocalBusApp`) 삭제 — **푸시 수신 확인 후에** 진행
 
 ---
@@ -100,13 +106,23 @@
   의도가 아니면 위젯 타깃을 낮출 것
 - [x] ~~🟡 미커밋 WIP: `Secrets.xcconfig`를 Resources 빌드 단계에서 제외한 변경(pbxproj)~~
   → 2026-08-31 커밋 완료 (`72f351d`)
-- [ ] 🔴 **카카오 REST API 키가 여전히 앱에 임베드됨** — 위 수정은 원본 파일 복사만 막았고,
-  `INFOPLIST_KEY_KakaoRestAPIKey = "$(KAKAO_REST_API_KEY)"` (pbxproj Debug/Release 양쪽)가
-  키를 Info.plist에 구워 넣는다. `TrafficService.swift`가 이를 읽어 `KakaoAK` 헤더에 사용.
-  `.ipa` 압축만 풀면 노출됨. REST 키는 카카오 기준 서버용 자격증명이라 클라이언트 배치는 부적절.
-  - 다행: `Secrets.xcconfig`는 git 히스토리에 커밋된 적 없고 앱도 미출시 → **현재 실유출 없음**
-  - 출시 전 택일: ① Firebase Functions 프록시 ② 임베드 감수 + 카카오 콘솔 쿼터·알림 설정
-    ③ 실시간 교통 기능 제거
+- [x] ~~🔴 카카오 REST API 키가 앱에 임베드됨~~ — **오판이었음. 실제로는 임베드되지 않는다.**
+  `INFOPLIST_KEY_KakaoRestAPIKey`는 빌드 설정으로는 정상 해석되지만, Xcode의
+  `GENERATE_INFOPLIST_FILE`은 알려진 Info.plist 키만 주입하고 커스텀 키는 조용히 버린다.
+  - 2026-08-31 시뮬레이터 빌드로 검증: 생성된 Info.plist 40개 키에 `KakaoRestAPIKey` 없음,
+    앱 바이너리·번들 어느 파일에서도 키 문자열 미검출
+  - 키가 번들에 들어가던 유일한 경로는 `Secrets.xcconfig` 원본 복사였고 `72f351d`로 해소됨
+  - `Secrets.xcconfig`는 git 히스토리에 커밋된 적 없음 → **유출 없음, 보안 이슈 종결**
+- [ ] 🟡 **[보류] 실시간 교통 기능이 동작한 적 없음** — 위와 같은 이유로
+  `TrafficService.swift:45`의 `Bundle.main.object(forInfoDictionaryKey: "KakaoRestAPIKey")`가
+  항상 `nil` → `apiKey`가 빈 문자열 → `Authorization: KakaoAK ` 로 요청 → 401.
+  실패 시 `nil`만 반환하는 구조라 표면화되지 않았다.
+  - 2026-08-31 **보류 결정.** 출시에 필수가 아니므로 이번 트랙에서 다루지 않는다
+  - 되살릴 경우: `LocalBusApp/Info.plist`에 `KakaoRestAPIKey = $(KAKAO_REST_API_KEY)`를 직접 넣고
+    pbxproj의 `INFOPLIST_KEY_KakaoRestAPIKey` 2줄(Debug/Release) 제거.
+    단 그 순간 키가 실제로 앱에 임베드되므로 프록시/쿼터 제한 등 대책을 함께 결정할 것
+- [ ] 🟡 카카오 REST API 키 재발급 — 2026-08-31 작업 중 터미널 출력에 키 값이 노출됨.
+  현재 어디서도 동작하지 않는 키라 교체 비용 없음
 - [ ] 🟡 빈 에셋 폴더 정리: `SplashMark.imageset`, `LaunchBackground.colorset` (내용물 삭제됨)
 - [ ] 🟢 App Store Connect 개인정보 설문: 수집 데이터 "없음" 기준으로 작성
   (FCM 토큰은 Firebase SDK 매니페스트가 커버, 앱 자체 수집 없음)
@@ -115,7 +131,12 @@
 
 ## 🟢 할 일 — 우선순위 3 (검증)
 
+- [x] ~~시뮬레이터 Clean Build~~ — 2026-08-31 `** BUILD SUCCEEDED **` (경고 0).
+  새 `GoogleService-Info.plist` 번들 포함·Bundle ID 일치·`Secrets.xcconfig` 미포함·
+  위젯 embed 모두 확인
 - [ ] `build/` 캐시 삭제 후 Clean Build 성공 (실기기)
+  - ⚠️ `LocalBusApp/build/Release-iphoneos/LocalBusApp.app/Secrets.xcconfig`에 4월 6일자
+    빌드 잔재로 키가 평문 잔존 → `build/` 삭제 시 함께 정리됨
 - [ ] 위젯 추가 → 데이터 정상 표시 (App Group 공유 확인)
 - [ ] 위젯 탭 → 앱 열리고 해당 방향 이동 (URL Scheme `jangyusasang://`)
 - [ ] 문의/신고 화면 수신 이메일 확인
