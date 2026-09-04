@@ -216,9 +216,9 @@ struct InfoView: View {
                 )
                 .onChange(of: noticeAlertEnabled) { enabled in
                     if enabled {
-                        Messaging.messaging().subscribe(toTopic: "notices")
+                        Messaging.messaging().subscribe(toTopic: AppDelegate.noticeTopic)
                     } else {
-                        Messaging.messaging().unsubscribe(fromTopic: "notices")
+                        Messaging.messaging().unsubscribe(fromTopic: AppDelegate.noticeTopic)
                     }
                     toast = enabled
                         ? ToastMessage(icon: "megaphone.fill", message: "공지 알림이 켜졌습니다")
