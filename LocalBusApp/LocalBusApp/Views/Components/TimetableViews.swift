@@ -21,6 +21,7 @@ struct TimetableScreenView: View {
             VStack(spacing: 0) {
                 directionSelector
                 scheduleSegmentPicker
+                    .accessibilityIdentifier(AccessibilityID.Timetable.scheduleSegment)
                 columnHeader
 
                 ScrollViewReader { proxy in
@@ -57,8 +58,10 @@ struct TimetableScreenView: View {
                                         }
                                     )
                                     .id(time)
+                                    .accessibilityIdentifier(AccessibilityID.Timetable.row(time))
                                 }
                             }
+                            .accessibilityIdentifier(AccessibilityID.Timetable.list)
                         }
                         .onAppear {
                             scrollToCurrentBus(using: nextBusTime, proxy: proxy, delay: 0.1, duration: 0.4)
@@ -166,6 +169,8 @@ struct TimetableScreenView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier(AccessibilityID.schedule(type.accessibilityKey))
+                .accessibilityAddTraits(viewModel.selectedScheduleType == type ? [.isSelected] : [])
             }
         }
         .padding(5)

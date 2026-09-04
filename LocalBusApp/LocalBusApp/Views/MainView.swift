@@ -49,11 +49,11 @@ struct MainView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             homeTab
-                .tabItem { Label("홈", systemImage: "house") }
+                .tabItem { Label("홈", systemImage: "house").accessibilityIdentifier(AccessibilityID.Tab.home) }
                 .tag(MainTab.home)
 
             timetableTab
-                .tabItem { Label("전체 시간표", systemImage: "calendar") }
+                .tabItem { Label("전체 시간표", systemImage: "calendar").accessibilityIdentifier(AccessibilityID.Tab.timetable) }
                 .tag(MainTab.timetable)
 
             if isStopsTabEnabled {
@@ -64,8 +64,10 @@ struct MainView: View {
 
             NavigationStack {
                 InfoView(viewModel: viewModel)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier(AccessibilityID.Settings.root)
             }
-            .tabItem { Label("설정", systemImage: "gearshape") }
+            .tabItem { Label("설정", systemImage: "gearshape").accessibilityIdentifier(AccessibilityID.Tab.settings) }
             .tag(MainTab.settings)
         }
         .glassTabBarMinimize()
@@ -114,6 +116,8 @@ struct MainView: View {
             .background(AmbientBackground())
             .toolbar(.hidden, for: .navigationBar)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(AccessibilityID.Home.root)
     }
 
     private var mainContent: some View {
@@ -137,6 +141,7 @@ struct MainView: View {
                         isNotificationEnabled: isNextBusNotificationEnabled(for: snapshot),
                         onNotificationTap: { handleNotificationTap(for: snapshot.nextBusTime) }
                     )
+                    .accessibilityIdentifier(AccessibilityID.Home.header)
                 }
 
                 if viewModel.hasRoutes {
@@ -148,6 +153,7 @@ struct MainView: View {
                             }
                         }
                         )
+                    .accessibilityIdentifier(AccessibilityID.Home.directionSelector)
                 }
 
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -162,6 +168,7 @@ struct MainView: View {
                             buses: snapshot.upcomingBuses,
                             destinationName: viewModel.currentArrivalHubName
                         )
+                        .accessibilityIdentifier(AccessibilityID.Home.upcomingBuses)
                     }
                 }
 
@@ -170,6 +177,7 @@ struct MainView: View {
                         firstBusTime: viewModel.firstBusTime,
                         lastBusTime: viewModel.lastBusTime
                     )
+                    .accessibilityIdentifier(AccessibilityID.Home.firstLastBus)
                 }
 
                 if viewModel.isOffline {
@@ -197,11 +205,13 @@ struct MainView: View {
     private func heroSection(using snapshot: BusTimingSnapshot) -> some View {
         if viewModel.isLoading {
             DashboardLoadingCard()
+                .accessibilityIdentifier(AccessibilityID.Home.heroLoading)
         } else if snapshot.isServiceEnded {
             DashboardServiceEndedCard(
                 firstBusTime: snapshot.firstBusTime,
                 remainingText: firstBusRemainingText(for: snapshot)
             )
+            .accessibilityIdentifier(AccessibilityID.Home.heroServiceEnded)
         } else if let nextBusTime = snapshot.nextBusTime {
             NextBusHeroCard(
                 minuteText: snapshot.nextBusMinuteDisplay,
@@ -212,12 +222,14 @@ struct MainView: View {
                 arrivalTime: snapshot.nextBusArrivalTime,
                 nextBusTime: snapshot.followingBusTime
             )
+            .accessibilityIdentifier(AccessibilityID.Home.heroNextBus)
         } else {
             DashboardNoticeCard(
                 title: "운행 정보를 준비 중입니다",
                 message: "표시할 버스 정보가 없어서 잠시 후 다시 불러옵니다.",
                 systemImage: "clock.badge.questionmark"
             )
+            .accessibilityIdentifier(AccessibilityID.Home.heroUnavailable)
         }
     }
 
@@ -226,6 +238,8 @@ struct MainView: View {
     private var timetableTab: some View {
         NavigationStack {
             TimetableScreenView(viewModel: viewModel)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(AccessibilityID.Timetable.root)
                 .navigationBarTitleDisplayMode(.inline)
                 .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
                 .toolbar {

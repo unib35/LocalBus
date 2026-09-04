@@ -12,6 +12,7 @@ struct DirectionSelector: View {
                 items: RouteLine.allCases,
                 selectedID: selectedDirection.routeLine,
                 label: { $0.displayName },
+                identifier: { AccessibilityID.routeLine($0.rawValue) },
                 onTap: { line in
                     if line != selectedDirection.routeLine {
                         onDirectionChange(line.defaultDirection)
@@ -24,6 +25,7 @@ struct DirectionSelector: View {
                 items: selectedDirection.routeLine.directions,
                 selectedID: selectedDirection,
                 label: { $0.displayName },
+                identifier: { AccessibilityID.direction($0.rawValue) },
                 onTap: { onDirectionChange($0) }
             )
         }
@@ -33,6 +35,7 @@ struct DirectionSelector: View {
         items: [T],
         selectedID: T,
         label: @escaping (T) -> String,
+        identifier: @escaping (T) -> String,
         onTap: @escaping (T) -> Void
     ) -> some View {
         HStack(spacing: 0) {
@@ -54,6 +57,7 @@ struct DirectionSelector: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier(identifier(item))
                 .accessibilityAddTraits(selectedID == item ? [.isSelected] : [])
             }
         }
