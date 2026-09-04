@@ -45,7 +45,26 @@ enum AppTheme {
         static let segmentBackground = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
                 ? UIColor(white: 0.10,  alpha: 1)        // #1A1A1A
-                : UIColor(white: 0.92,  alpha: 1)        // #EBEBEB
+                : UIColor(white: 0.88,  alpha: 1)        // #E0E0E0
+        })
+        /// 세그먼트에서 선택된 항목의 배경. 트랙보다 반드시 밝아야 선택이 드러난다.
+        /// 예전에는 chipBackground를 썼는데 라이트 모드에서 트랙과 같은 #EBEBEB라
+        /// 선택 표시가 아예 보이지 않았다.
+        static let segmentSelected = SwiftUI.Color(UIColor { t in
+            t.userInterfaceStyle == .dark
+                ? UIColor(white: 0.95,  alpha: 1)        // #F2F2F2
+                : UIColor(white: 1,     alpha: 1)        // #FFFFFF
+        })
+        /// segmentSelected 위 텍스트 — 두 모드 모두 밝은 배경이므로 항상 어둡게.
+        static let segmentSelectedText = SwiftUI.Color(UIColor { _ in
+            UIColor(white: 0.05, alpha: 1)               // #0D0D0D
+        })
+        /// 세그먼트 트랙 테두리. iOS 26의 glassEffect는 fallback 색을 무시하므로
+        /// 테두리를 항상 그려야 컨트롤 경계가 배경과 구분된다.
+        static let segmentBorder = SwiftUI.Color(UIColor { t in
+            t.userInterfaceStyle == .dark
+                ? UIColor(white: 0.24,  alpha: 1)        // #3D3D3D
+                : UIColor(white: 0.78,  alpha: 1)        // #C7C7C7
         })
         static let iconBackground = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
@@ -141,7 +160,7 @@ enum AppTheme {
         // ── 시간표 전용 ───────────────────────────────────────────
         static let timetablePickerBackground  = segmentBackground
         static let timetablePickerBorder      = border
-        static let timetablePickerSelected    = chipBackground
+        static let timetablePickerSelected    = segmentSelected
         static let timetableMutedText         = tertiaryText
         static let timetableSecondaryText     = secondaryText
         /// "NEXT" 배지 텍스트 — iconBackground 위에 표시되므로 모드에 맞게 반전.

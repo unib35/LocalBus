@@ -49,10 +49,18 @@ struct DirectionSelector: View {
                         .padding(.vertical, 10)
                         .background(
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(selectedID == item ? Color.white : Color.clear)
+                                .fill(selectedID == item
+                                      ? HomeDashboardTheme.segmentSelected
+                                      : Color.clear)
+                                .shadow(
+                                    color: .black.opacity(selectedID == item ? 0.14 : 0),
+                                    radius: 2, x: 0, y: 1
+                                )
                         )
                         .foregroundStyle(
-                            selectedID == item ? Color.black : HomeDashboardTheme.secondaryText
+                            selectedID == item
+                                ? HomeDashboardTheme.segmentSelectedText
+                                : HomeDashboardTheme.secondaryText
                         )
                         .contentShape(Rectangle())
                 }
@@ -63,7 +71,7 @@ struct DirectionSelector: View {
         }
         .padding(4)
         .glassCard(cornerRadius: 10, fallback: HomeDashboardTheme.segmentBackground)
-        .fallbackCardBorder(cornerRadius: 10, color: HomeDashboardTheme.border)
+        .segmentTrackBorder(cornerRadius: 10)
     }
 }
 

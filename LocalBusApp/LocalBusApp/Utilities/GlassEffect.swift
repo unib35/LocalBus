@@ -136,6 +136,15 @@ extension View {
 
     /// iOS 26 미만에서만 적용되는 카드 테두리.
     /// 글래스에는 자체 하이라이트 림이 있어 26+에서 별도 테두리는 이중선으로 보인다.
+    /// 세그먼트 트랙 테두리 — iOS 26의 glassEffect는 fallback 색을 무시해
+    /// 밝은 배경 위에서 트랙이 사라진다. 버전과 무관하게 항상 그린다.
+    func segmentTrackBorder(cornerRadius: CGFloat, lineWidth: CGFloat = 1) -> some View {
+        overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(AppTheme.Color.segmentBorder, lineWidth: lineWidth)
+        )
+    }
+
     @ViewBuilder
     func fallbackCardBorder(cornerRadius: CGFloat, color: Color, lineWidth: CGFloat = 1) -> some View {
         if #available(iOS 26.0, *) {

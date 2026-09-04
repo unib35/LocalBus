@@ -152,15 +152,15 @@ struct TimetableScreenView: View {
                     ZStack {
                         if viewModel.selectedScheduleType == type {
                             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(HomeDashboardTheme.chipBackground)
-                                .shadow(color: .black.opacity(0.05), radius: 1, x: 0, y: 1)
+                                .fill(HomeDashboardTheme.segmentSelected)
+                                .shadow(color: .black.opacity(0.14), radius: 2, x: 0, y: 1)
                         }
 
                         Text(type.displayLabel)
                             .font(HomeDashboardTypography.segmentSelected)
                             .foregroundStyle(
                                 viewModel.selectedScheduleType == type
-                                    ? HomeDashboardTheme.primaryText
+                                    ? HomeDashboardTheme.segmentSelectedText
                                     : HomeDashboardTheme.timetableMutedText
                             )
                     }
@@ -176,7 +176,7 @@ struct TimetableScreenView: View {
         .padding(5)
         .frame(height: 48)
         .glassCard(cornerRadius: 8, fallback: HomeDashboardTheme.segmentBackground)
-        .fallbackCardBorder(cornerRadius: 8, color: HomeDashboardTheme.border)
+        .segmentTrackBorder(cornerRadius: 8)
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 12)
