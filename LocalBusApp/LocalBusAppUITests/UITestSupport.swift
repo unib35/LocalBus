@@ -22,6 +22,14 @@ enum UITest {
         line: UInt = #line
     ) -> XCUIApplication {
         let app = XCUIApplication()
+
+        // MainViewModel.init() 은 UserDefaults 에서 selectedDirection 을 복원한다.
+        // 앞선 테스트가 노선을 바꿔두면 그 값이 다음 테스트로 새어 들어와,
+        // 기대한 방향 버튼이 존재하지 않는 상태로 시작하게 된다.
+        // `-key value` 형태의 실행 인자는 NSArgumentDomain 에 들어가 저장된 값보다
+        // 우선하므로, 매번 같은 방향에서 출발하도록 고정한다.
+        app.launchArguments += ["-selectedDirection", AppFixture.Direction.jangyuToSasang]
+
         configure?(app)
         app.launch()
 

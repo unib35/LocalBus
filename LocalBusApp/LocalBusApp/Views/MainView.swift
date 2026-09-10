@@ -64,7 +64,6 @@ struct MainView: View {
 
             NavigationStack {
                 InfoView(viewModel: viewModel)
-                    .accessibilityElement(children: .contain)
                     .accessibilityIdentifier(AccessibilityID.Settings.root)
             }
             .tabItem { Label("설정", systemImage: "gearshape").accessibilityIdentifier(AccessibilityID.Tab.settings) }
@@ -116,7 +115,6 @@ struct MainView: View {
             .background(AmbientBackground())
             .toolbar(.hidden, for: .navigationBar)
         }
-        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityID.Home.root)
     }
 
@@ -153,7 +151,6 @@ struct MainView: View {
                             }
                         }
                         )
-                    .accessibilityIdentifier(AccessibilityID.Home.directionSelector)
                 }
 
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -238,8 +235,6 @@ struct MainView: View {
     private var timetableTab: some View {
         NavigationStack {
             TimetableScreenView(viewModel: viewModel)
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier(AccessibilityID.Timetable.root)
                 .navigationBarTitleDisplayMode(.inline)
                 .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
                 .toolbar {

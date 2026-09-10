@@ -23,7 +23,6 @@ enum AccessibilityID {
     enum Home {
         static let root = "home.root"
         static let header = "home.header"
-        static let directionSelector = "home.directionSelector"
         static let upcomingBuses = "home.upcomingBuses"
         static let firstLastBus = "home.firstLastBus"
 
@@ -35,8 +34,6 @@ enum AccessibilityID {
     }
 
     enum Timetable {
-        static let root = "timetable.root"
-        static let scheduleSegment = "timetable.scheduleSegment"
         static let list = "timetable.list"
 
         /// 개별 시간 행. `time` 은 `"06:20"` 형식.

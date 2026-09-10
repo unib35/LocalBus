@@ -21,7 +21,6 @@ struct TimetableScreenView: View {
             VStack(spacing: 0) {
                 directionSelector
                 scheduleSegmentPicker
-                    .accessibilityIdentifier(AccessibilityID.Timetable.scheduleSegment)
                 columnHeader
 
                 ScrollViewReader { proxy in
