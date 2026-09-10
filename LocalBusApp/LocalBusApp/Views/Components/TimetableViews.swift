@@ -175,8 +175,7 @@ struct TimetableScreenView: View {
         }
         .padding(5)
         .frame(height: 48)
-        .glassCard(cornerRadius: 8, fallback: HomeDashboardTheme.segmentBackground)
-        .segmentTrackBorder(cornerRadius: 8)
+        .segmentTrack(cornerRadius: 8)
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 12)

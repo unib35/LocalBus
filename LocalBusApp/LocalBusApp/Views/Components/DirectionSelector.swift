@@ -70,8 +70,7 @@ struct DirectionSelector: View {
             }
         }
         .padding(4)
-        .glassCard(cornerRadius: 10, fallback: HomeDashboardTheme.segmentBackground)
-        .segmentTrackBorder(cornerRadius: 10)
+        .segmentTrack(cornerRadius: 10)
     }
 }
 
