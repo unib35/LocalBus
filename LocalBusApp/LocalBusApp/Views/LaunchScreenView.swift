@@ -1,13 +1,16 @@
 import SwiftUI
 
-/// 런치 스크린 (스플래시 화면)
+/// 런치 스크린 (스플래시 화면) — 디자인 캔버스 개선안
 ///
-/// 다크 고정 배경 위에 버스 캐릭터와 장유→사상 경로 그래픽을 보여준다.
-/// 시스템 런치 스크린(Info.plist UILaunchScreen)과 같은 배경색을 사용해
-/// 시스템 → SwiftUI 스플래시 전환이 끊김 없이 이어진다.
+/// 마스코트 하나 + 워드마크 + 한 줄 부제. 시스템 런치 스크린(Info.plist UILaunchScreen)과
+/// 같은 배경색·마스코트를 써서 시스템 → SwiftUI 스플래시 전환이 끊김 없이 이어진다.
+/// 종료 시점은 `LaunchTiming`(시간표 준비 시 최소 0.6초 뒤, 늦어도 1.5초)에서 정한다.
 struct LaunchScreenView: View {
 
     private static let background = Color("LaunchBackground")
+    private static let accent = Color(red: 74/255, green: 222/255, blue: 128/255)
+
+    @State private var progressOffset: CGFloat = -1
 
     var body: some View {
         ZStack {
@@ -15,142 +18,54 @@ struct LaunchScreenView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                Spacer()
+                Image("SplashMark")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 132)
+                    .accessibilityHidden(true)
 
-                artwork
-                    .frame(width: 340, height: 380)
-
-                VStack(spacing: 14) {
-                    HStack(spacing: 16) {
-                        Text("장유")
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 30, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.45))
-                            .padding(.top, 6)
-                        Text("사상")
-                    }
-                    .font(.system(size: 44, weight: .heavy, design: .rounded))
+                Text("장유사상버스")
+                    .font(.system(size: 32, weight: .heavy))
+                    .tracking(-0.5)
                     .foregroundStyle(.white)
+                    .padding(.top, 22)
 
-                    Text("시외버스 시간표 앱")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.55))
+                Text("장유 · 율하 ↔ 사상 시외버스 시간표")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color(white: 0.64))
+                    .padding(.top, 8)
+            }
+            .padding(.bottom, 60)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("장유사상버스, 장유 율하 사상 시외버스 시간표")
+
+            VStack(spacing: 10) {
+                Spacer()
+
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color(white: 0.15))
+                        Capsule()
+                            .fill(Self.accent)
+                            .frame(width: geo.size.width * 0.45)
+                            .offset(x: progressOffset * geo.size.width)
+                    }
                 }
-                .padding(.top, 8)
+                .frame(width: 120, height: 3)
+                .clipShape(Capsule())
+                .accessibilityHidden(true)
 
-                Spacer()
-                Spacer()
+                Text("저장된 시간표를 불러오는 중")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(white: 0.478))
+            }
+            .padding(.bottom, 64)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: false)) {
+                progressOffset = 1
             }
         }
-    }
-
-    // MARK: - 아트워크 (버스 + 핀 + 점선 경로)
-
-    private var artwork: some View {
-        ZStack {
-            // 좌상 → 버스 왼쪽으로 이어지는 점선 경로
-            SplashRouteCurve(
-                start: CGPoint(x: 62, y: 96),
-                control1: CGPoint(x: 108, y: 128),
-                control2: CGPoint(x: 34, y: 196),
-                end: CGPoint(x: 92, y: 226)
-            )
-            .stroke(style: dashStyle)
-            .foregroundStyle(.white.opacity(0.55))
-
-            // 버스 오른쪽 → 우하 핀으로 이어지는 점선 경로
-            SplashRouteCurve(
-                start: CGPoint(x: 246, y: 258),
-                control1: CGPoint(x: 300, y: 246),
-                control2: CGPoint(x: 246, y: 312),
-                end: CGPoint(x: 292, y: 306)
-            )
-            .stroke(style: dashStyle)
-            .foregroundStyle(.white.opacity(0.55))
-
-            // 출발 핀 (장유) — 좌상단
-            pin(label: "장유")
-                .position(x: 58, y: 70)
-
-            // 도착 핀 (사상) — 우하단
-            pin(label: "사상")
-                .position(x: 300, y: 330)
-
-            // 버스 캐릭터
-            Image("SplashMark")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 216)
-                .position(x: 172, y: 196)
-        }
-    }
-
-    private var dashStyle: StrokeStyle {
-        StrokeStyle(lineWidth: 5, lineCap: .round, dash: [9, 11])
-    }
-
-    private func pin(label: String) -> some View {
-        VStack(spacing: 8) {
-            MapPin(size: 42)
-            Text(label)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.85))
-        }
-    }
-}
-
-// MARK: - 지도 핀
-
-/// 물방울 형태의 지도 핀 (원 + 꼬리 + 가운데 홀)
-private struct MapPin: View {
-    let size: CGFloat
-
-    var body: some View {
-        ZStack(alignment: .top) {
-            PinTail()
-                .fill(.white)
-                .frame(width: size * 0.64, height: size * 0.72)
-                .offset(y: size * 0.5)
-
-            Circle()
-                .fill(.white)
-                .frame(width: size, height: size)
-
-            Circle()
-                .fill(Color("LaunchBackground"))
-                .frame(width: size * 0.36, height: size * 0.36)
-                .offset(y: size * 0.32)
-        }
-        .frame(width: size, height: size * 1.24, alignment: .top)
-    }
-}
-
-/// 핀 아래쪽 꼬리 (아래로 뾰족한 삼각형)
-private struct PinTail: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-        path.closeSubpath()
-        return path
-    }
-}
-
-// MARK: - 점선 경로 곡선
-
-/// 고정 좌표계(340x380) 안에서 그리는 베지어 경로
-private struct SplashRouteCurve: Shape {
-    let start: CGPoint
-    let control1: CGPoint
-    let control2: CGPoint
-    let end: CGPoint
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: start)
-        path.addCurve(to: end, control1: control1, control2: control2)
-        return path
     }
 }
 
