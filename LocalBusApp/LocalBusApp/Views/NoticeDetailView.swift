@@ -39,249 +39,147 @@ struct NoticeTimetableRow: Identifiable {
     let isNew: Bool
 }
 
-// MARK: - 공지사항 상세 뷰
+// MARK: - 공지사항 상세 뷰 (디자인 캔버스 개선안)
+//
+// 시스템 내비게이션 바(뒤로가기)를 그대로 쓰고, 카드 테두리·그림자 없이
+// 제목 → 메타 → 본문 → 변경 시간표(2차 서피스) 순으로 읽힌다.
 
 struct NoticeDetailView: View {
     let notice: NoticeItem
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             AmbientBackground()
 
-
-            VStack(spacing: 0) {
-                header
-
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        titleSection
-                        separator
-                            .padding(.bottom, 32)
-                        bodySection
-                        if let summary = notice.timetableSummary {
-                            timetableCard(summary)
-                        }
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    titleSection
+                    bodySection
+                        .padding(.top, 24)
+                    if let summary = notice.timetableSummary {
+                        timetableCard(summary)
+                            .padding(.top, 28)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 24)
-                    .padding(.bottom, 96)
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 40)
             }
-
-            footerButton
+            .softScrollEdge()
         }
-        .navigationBarBackButtonHidden(true)
+        .navigationBarTitleDisplayMode(.inline)
+        .legacyToolbarBackground(AppTheme.Color.screenBackground.opacity(0.95))
         .toolbar(.hidden, for: .tabBar)
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        ZStack {
-            Text("공지사항")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(HomeDashboardTheme.primaryText)
-
-            HStack {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(HomeDashboardTheme.primaryText)
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
-                Spacer()
-            }
-        }
-        .frame(height: 60)
-        .padding(.horizontal, 8)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(HomeDashboardTheme.border)
-                .frame(height: 1)
-        }
     }
 
     // MARK: - Title Section
 
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(notice.title)
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(HomeDashboardTheme.primaryText)
-                .lineSpacing(5)
+            Text(notice.title.replacingOccurrences(of: "\n", with: " "))
+                .font(AppTheme.Typography.sheetTitle)
+                .foregroundStyle(AppTheme.Color.primaryText)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 8) {
-                Text(notice.date)
-                    .font(.system(size: 14))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-
-                Rectangle()
-                    .fill(HomeDashboardTheme.border)
-                    .frame(width: 1, height: 12)
-
-                Text(notice.author)
-                    .font(.system(size: 14))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-            }
-            .padding(.top, 4)
+            Text("\(notice.date) · \(notice.category)")
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Color.secondaryText)
         }
-        .padding(.bottom, 24)
-    }
-
-    private var separator: some View {
-        Rectangle()
-            .fill(HomeDashboardTheme.border)
-            .frame(height: 1)
     }
 
     // MARK: - Body
 
     private var bodySection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             ForEach(Array(notice.body.enumerated()), id: \.offset) { _, paragraph in
                 Text(paragraph)
-                    .font(.system(size: 16))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
+                    .font(AppTheme.Typography.rowBody)
+                    .foregroundStyle(AppTheme.Color.primaryText)
                     .lineSpacing(6)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.bottom, 32)
     }
 
     // MARK: - Timetable Card
 
     private func timetableCard(_ summary: NoticeTimetableSummary) -> some View {
-        VStack(spacing: 16) {
-            cardHeader(summary)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("변경 시간표")
+                    .font(AppTheme.Typography.groupTitle)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                Spacer()
+                LabelChip(text: "\(summary.effectiveDate) 시행")
+            }
+
             scheduleTable(summary)
+
+            if let note = summary.note {
+                Text(note)
+                    .font(AppTheme.Typography.footnote)
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if let url = summary.fullScheduleImageURL {
                 fullScheduleImage(url: url)
             }
-        }
-        .padding(17)
-        .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-        .padding(.bottom, 24)
-    }
-
-    private func cardHeader(_ summary: NoticeTimetableSummary) -> some View {
-        HStack {
-            HStack(spacing: 8) {
-                Image(systemName: "clock")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-                Text("변경 시간표 요약")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-            }
-
-            Spacer()
-
-            Text("\(summary.effectiveDate) 시행")
-                .font(.system(size: 12))
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .glassCard(cornerRadius: 4, fallback: HomeDashboardTheme.screenBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .stroke(HomeDashboardTheme.border, lineWidth: 1)
-                )
         }
     }
 
     private func scheduleTable(_ summary: NoticeTimetableSummary) -> some View {
         VStack(spacing: 0) {
-            // Column headers
             HStack(spacing: 0) {
                 Text(summary.departureLabel)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 Text(summary.arrivalLabel)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .background(HomeDashboardTheme.timetablePickerBackground)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(HomeDashboardTheme.border)
-                    .frame(height: 1)
-            }
+            .font(AppTheme.Typography.footnote.weight(.semibold))
+            .foregroundStyle(AppTheme.Color.secondaryText)
+            .padding(.horizontal, 16)
+            .frame(height: 36)
 
-            // Data rows
-            ForEach(summary.rows) { row in
+            RowDivider()
+
+            ForEach(Array(summary.rows.enumerated()), id: \.element.id) { index, row in
                 scheduleRow(row)
-            }
-
-            // Note footer
-            if let note = summary.note {
-                Text(note)
-                    .font(.system(size: 12))
-                    .foregroundStyle(HomeDashboardTheme.tertiaryText)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 12)
-                    .background(HomeDashboardTheme.timetablePickerBackground.opacity(0.5))
-                    .overlay(alignment: .top) {
-                        Rectangle()
-                            .fill(HomeDashboardTheme.border)
-                            .frame(height: 1)
-                    }
+                if index < summary.rows.count - 1 {
+                    RowDivider()
+                }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .surfaceCard()
     }
 
     private func scheduleRow(_ row: NoticeTimetableRow) -> some View {
-        let accentBlue = HomeDashboardTheme.primaryBlue
-        let highlightBg = HomeDashboardTheme.primaryBlue.opacity(0.1)
-
-        return HStack(spacing: 0) {
-            // Departure (with optional new-time indicator)
-            ZStack {
+        HStack(spacing: 0) {
+            HStack(spacing: 8) {
                 Text(row.departure)
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundStyle(row.isNew ? accentBlue : HomeDashboardTheme.primaryText)
-
+                    .font(AppTheme.Typography.rowTime)
+                    .monospacedDigit()
+                    .foregroundStyle(row.isNew ? AppTheme.Color.accent : AppTheme.Color.primaryText)
                 if row.isNew {
-                    Circle()
-                        .fill(AppTheme.Color.destructive)
-                        .frame(width: 6, height: 6)
-                        .offset(x: 22, y: -8)
+                    Text("변경")
+                        .font(AppTheme.Typography.footnote.weight(.bold))
+                        .foregroundStyle(AppTheme.Color.accent)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Arrival
             Text(row.arrival)
-                .font(.system(size: 14, design: .monospaced))
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+                .font(AppTheme.Typography.rowValue)
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.Color.secondaryText)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .background(row.isNew ? highlightBg : Color.clear)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(HomeDashboardTheme.border.opacity(0.6))
-                .frame(height: 1)
-        }
+        .padding(.horizontal, 16)
+        .frame(height: 48)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(row.departure) 출발, \(row.arrival) 도착\(row.isNew ? ", 변경된 시간" : "")")
     }
 
     // MARK: - Full Schedule Image
@@ -290,59 +188,18 @@ struct NoticeDetailView: View {
         KFImage(url)
             .placeholder {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(HomeDashboardTheme.cardBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-                        )
+                    RoundedRectangle(cornerRadius: AppTheme.Radius.surface, style: .continuous)
+                        .fill(AppTheme.Color.surface)
                     ProgressView()
-                        .tint(HomeDashboardTheme.secondaryText)
+                        .tint(AppTheme.Color.secondaryText)
                 }
                 .frame(height: 200)
             }
             .fade(duration: 0.3)
             .resizable()
             .scaledToFit()
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(HomeDashboardTheme.border, lineWidth: 1)
-            )
-    }
-
-    // MARK: - Footer
-
-    private var footerButton: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(HomeDashboardTheme.border)
-                .frame(height: 1)
-
-            Button(action: { dismiss() }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "list.bullet")
-                        .font(.system(size: 14, weight: .medium))
-                    Text("목록으로")
-                        .font(.system(size: 16, weight: .bold))
-                }
-                .foregroundStyle(HomeDashboardTheme.primaryText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground, interactive: true)
-                .shadow(color: .black.opacity(0.08), radius: 16)
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 16)
-            .padding(.top, 17)
-            .padding(.bottom, 16)
-        }
-        .background(HomeDashboardTheme.screenBackground)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(HomeDashboardTheme.border)
-                .frame(height: 1)
-        }
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.surface, style: .continuous))
+            .accessibilityLabel("전체 시간표 이미지")
     }
 }
 
