@@ -167,6 +167,10 @@ struct StopsScreenView: View {
         .onChange(of: viewModel.selectedDirection) { _ in
             selectDefaultStopIfNeeded(force: true)
         }
+        .onChange(of: stops.map(\.id)) { _ in
+            // 시간표가 뒤늦게 로드되면 그때 기본 정류장을 고른다.
+            selectDefaultStopIfNeeded()
+        }
         .onChange(of: presentationToken) { _ in
             isSheetPresented = true
             sheetDetent = .medium
@@ -261,7 +265,7 @@ struct StopsScreenView: View {
         return VStack(alignment: .leading, spacing: 0) {
             if let stop = selectedStop {
                 selectedStopSummary(stop: stop, stops: currentStops)
-            } else {
+            } else if currentStops.isEmpty {
                 emptyStopsView
             }
 
