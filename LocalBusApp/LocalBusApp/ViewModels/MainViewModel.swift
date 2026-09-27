@@ -401,6 +401,7 @@ final class MainViewModel: ObservableObject {
     /// 시간표 데이터 로드
     func loadTimetable(with data: TimetableData) async {
         timetableData = data
+        errorMessage = nil
         holidays = data.holidays
         noticeMessage = data.meta.noticeMessage
 
