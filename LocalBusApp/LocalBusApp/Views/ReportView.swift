@@ -174,14 +174,14 @@ struct ReportView: View {
                 .font(AppTheme.Typography.caption)
                 .foregroundStyle(AppTheme.Color.secondaryText)
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+            FlowLayout(spacing: 8) {
                 ForEach(RouteDirection.allCases, id: \.self) { direction in
                     SelectableChip(
                         title: direction.displayName,
                         isSelected: selectedDirection == direction,
+                        height: 36,
                         action: { selectedDirection = direction }
                     )
-                    .frame(maxWidth: .infinity)
                 }
             }
         }
