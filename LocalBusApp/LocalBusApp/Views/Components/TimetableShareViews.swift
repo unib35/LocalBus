@@ -60,13 +60,7 @@ struct TimetableShareCard: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
-        .background(
-            LinearGradient(
-                colors: [AppTheme.Color.heroStart, AppTheme.Color.heroEnd],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
+        .background(AppTheme.Color.surface)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(AppTheme.Color.border)
@@ -147,7 +141,8 @@ struct TimetableShareCard: View {
 
         return VStack(spacing: 3) {
             Text(time)
-                .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                .font(.system(size: 15, weight: .semibold))
+                .monospacedDigit()
                 .foregroundStyle(isNight ? AppTheme.Color.nightFare : AppTheme.Color.primaryText)
 
             if isNight {
