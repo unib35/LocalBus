@@ -3,7 +3,11 @@ import UIKit
 import MapKit
 import CoreLocation
 
-// MARK: - 정류장 화면
+// MARK: - 정류장 화면 (디자인 캔버스 개선안)
+//
+// 지도 위 플로팅 노선 바(노선 칩 + 방향 스왑 + 현재 위치), 아래 시트는 요약형:
+// 선택 정류장 · 탑승홈 · 도보 거리 · 다음 버스 · 길 찾기. 펼치면 정류장 목록(통과 시각).
+// 요금 카드는 버스 상세 시트로 이관.
 
 // 좌표 없는 노선의 임시 폴백 (율하 노선 등)
 private let fallbackCoordinates: [String: CLLocationCoordinate2D] = [
@@ -30,22 +34,13 @@ struct StopsScreenView: View {
 
     private var stopsDirection: RouteDirection { viewModel.selectedDirection }
     private var stops: [BusStop] { viewModel.getStops(for: stopsDirection) }
-    private var adultFare: Int { viewModel.getFare(for: stopsDirection) }
     private var platform: String? { viewModel.getPlatformNumber(for: stopsDirection) }
-    private var nightFare: Int? { viewModel.getNightFare(for: stopsDirection) }
-    private var nightFareStartTime: String? { viewModel.getNightFareStartTime(for: stopsDirection) }
     private var selectedStopID: String? { selectedStop?.id }
     private var defaultStop: BusStop? { stops.first(where: \.isDeparture) ?? stops.first }
 
     private var selectedCoordinate: CLLocationCoordinate2D? {
         selectedStop.flatMap { coordinate(for: $0) }
     }
-
-    private static let fareFormatter: NumberFormatter = {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        return f
-    }()
 
     /// JSON 좌표 우선, 없으면 폴백 사용
     private func coordinate(for stop: BusStop) -> CLLocationCoordinate2D? {
@@ -64,6 +59,7 @@ struct StopsScreenView: View {
                 coordinate: coord,
                 stopID: stop.id,
                 stopName: stop.name,
+                subtitle: stop.isDeparture ? platform : nil,
                 isDeparture: stop.isDeparture,
                 isDestination: index == count - 1
             )
@@ -72,10 +68,6 @@ struct StopsScreenView: View {
 
     private var mapRoutePath: [CLLocationCoordinate2D]? {
         viewModel.getRoutePath(for: stopsDirection)
-    }
-
-    private func formattedFare(_ amount: Int) -> String {
-        Self.fareFormatter.string(from: NSNumber(value: amount)) ?? "\(amount)"
     }
 
     private func handleStopSelection(_ stop: BusStop) {
@@ -103,7 +95,7 @@ struct StopsScreenView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            AmbientBackground()
+            AppTheme.Color.screenBackground.ignoresSafeArea()
 
             // 지도 — 화면 전체. safe area 무시
             GeometryReader { geo in
@@ -135,44 +127,9 @@ struct StopsScreenView: View {
             }
             .ignoresSafeArea()
 
-            // 우상단 고정 컨트롤 — safe area 안에 자동 위치 (시계 아래)
-            VStack(spacing: 10) {
-                mapControlButton(
-                    systemName: "arrow.up.left.and.arrow.down.right",
-                    accessibilityLabel: "노선 전체 보기"
-                ) {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    fitToRoute = true
-                }
-
-                mapControlButton(
-                    systemName: "location.fill",
-                    accessibilityLabel: "현재 위치로 이동"
-                ) {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    centerOnUser = true
-                }
-
-                #if DEBUG
-                mapControlButton(
-                    systemName: "square.and.arrow.down.on.square",
-                    accessibilityLabel: "경로 추출 (DEBUG)"
-                ) {
-                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-                    let direction = stopsDirection
-                    let currentStops = stops
-                    Task {
-                        await RoutePathExporter.exportPath(
-                            for: direction,
-                            stops: currentStops
-                        )
-                    }
-                }
-                #endif
-            }
-            .padding(.top, 16)
-            .padding(.trailing, 16)
-            .frame(maxWidth: .infinity, alignment: .topTrailing)
+            floatingBar
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
 
             // 시트 닫혔을 때 다시 열기 버튼
             if !isSheetPresented {
@@ -184,20 +141,18 @@ struct StopsScreenView: View {
                         sheetDetent = .medium
                     } label: {
                         HStack(spacing: 6) {
-                            Text("정류장 목록")
-                                .font(.system(.subheadline, weight: .semibold))
+                            Text("정류장 정보")
+                                .font(AppTheme.Typography.buttonLabel)
                             Image(systemName: "chevron.up")
-                                .font(.system(.caption, weight: .bold))
+                                .font(.system(size: 12, weight: .bold))
                         }
-                        .foregroundStyle(AppTheme.Color.primaryForeground)
+                        .foregroundStyle(AppTheme.Color.primaryText)
                         .padding(.horizontal, 18)
-                        .padding(.vertical, 11)
-                        .background(HomeDashboardTheme.primaryBlue)
-                        .clipShape(Capsule())
-                        .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 4)
+                        .frame(height: 44)
+                        .glassCard(in: Capsule(), fallback: AppTheme.Color.surface, interactive: true)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("정류장 목록 열기")
+                    .accessibilityLabel("정류장 정보 열기")
                     .padding(.bottom, 24)
                 }
                 .transition(.asymmetric(
@@ -222,13 +177,14 @@ struct StopsScreenView: View {
                 sheetContent
                     .padding(.bottom, 40)
             }
+            .background(AppTheme.Color.sheetBackground)
             .presentationDetents([peekDetent, .medium, .large], selection: $sheetDetent)
             .presentationDragIndicator(.visible)
             .sheetEnhancements()
         }
     }
 
-    // MARK: - Sheet 높이 추정 (지도 핀 centering 보정용)
+    // MARK: - Sheet 높이 추정 (지도 핀 centering / 노선 fit 보정용)
 
     private func estimatedSheetTopY(for screenHeight: CGFloat) -> CGFloat {
         if sheetDetent == .large { return screenHeight * 0.10 }
@@ -236,7 +192,51 @@ struct StopsScreenView: View {
         return screenHeight * 0.85
     }
 
-    // MARK: - 지도 컨트롤 버튼
+    // MARK: - 플로팅 노선 바
+
+    private var floatingBar: some View {
+        HStack(spacing: 8) {
+            RouteLineMenu(selectedLine: stopsDirection.routeLine) { line in
+                viewModel.changeDirection(to: line.defaultDirection)
+            }
+            .frame(height: 44)
+
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                viewModel.changeDirection(to: stopsDirection.opposite)
+            } label: {
+                HStack(spacing: 8) {
+                    Text(stopsDirection.departureName)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(AppTheme.Color.tertiaryText)
+                    Text(stopsDirection.arrivalName)
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                        .padding(.leading, 2)
+                }
+                .font(AppTheme.Typography.buttonLabelStrong)
+                .foregroundStyle(AppTheme.Color.primaryText)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .glassCard(in: Capsule(), fallback: AppTheme.Color.surface, interactive: true)
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("방향 바꾸기: 현재 \(stopsDirection.displayName)")
+
+            mapControlButton(systemName: "location.fill", accessibilityLabel: "현재 위치로 이동") {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                centerOnUser = true
+            }
+
+            mapControlButton(systemName: "arrow.up.left.and.arrow.down.right", accessibilityLabel: "노선 전체 보기") {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                fitToRoute = true
+            }
+        }
+    }
 
     private func mapControlButton(
         systemName: String,
@@ -245,11 +245,10 @@ struct StopsScreenView: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(.subheadline, weight: .medium))
-                .foregroundStyle(.white)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(AppTheme.Color.primaryText)
                 .frame(width: 44, height: 44)
-                .glassCard(in: Circle(), fallback: Material.ultraThin, interactive: true)
-                .shadow(color: .black.opacity(0.4), radius: 8)
+                .glassCard(in: Circle(), fallback: AppTheme.Color.surface, interactive: true)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
@@ -259,291 +258,209 @@ struct StopsScreenView: View {
 
     private var sheetContent: some View {
         let currentStops = stops
-        let adult = adultFare
-        return VStack(spacing: 20) {
-            DirectionSelector(selectedDirection: stopsDirection) { newDirection in
-                viewModel.changeDirection(to: newDirection)
-            }
-            .padding(.horizontal, 24)
-
-            if let platformNum = platform {
-                platformBanner(platformNum)
-                    .padding(.horizontal, 24)
-            }
-
-            stopListSection(currentStops)
-
+        return VStack(alignment: .leading, spacing: 0) {
             if let stop = selectedStop {
-                selectedStopCard(stop: stop, stops: currentStops)
-                    .padding(.horizontal, 24)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-
-            fareCard(adult: adult)
-                .padding(.horizontal, 24)
-        }
-        .padding(.top, 8)
-        .padding(.bottom, 8)
-    }
-
-    // MARK: - 탑승홈 배너
-
-    private func platformBanner(_ platformNum: String) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("탑승홈")
-                    .font(.system(.caption2, weight: .medium))
-                    .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-                Text(platformNum)
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .tintedGlass(
-            HomeDashboardTheme.primaryBlue.opacity(0.25),
-            in: RoundedRectangle(cornerRadius: 10, style: .continuous),
-            fallback: HomeDashboardTheme.primaryBlue.opacity(0.1)
-        )
-        .fallbackCardBorder(cornerRadius: 10, color: HomeDashboardTheme.primaryBlue.opacity(0.3))
-    }
-
-    // MARK: - 정류장 목록 섹션
-
-    private func stopListSection(_ currentStops: [BusStop]) -> some View {
-        Group {
-            if currentStops.isEmpty {
-                emptyStopsView
-                    .padding(.horizontal, 24)
+                selectedStopSummary(stop: stop, stops: currentStops)
             } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(currentStops.enumerated()), id: \.element.id) { index, stop in
-                        StopRowView(
-                            stop: stop,
-                            isFirst: index == 0,
-                            isLast: index == currentStops.count - 1,
-                            isSelected: stop.id == selectedStop?.id,
-                            onTap: { handleStopSelection(stop) }
-                        )
+                emptyStopsView
+            }
+
+            if !currentStops.isEmpty {
+                stopListSection(currentStops)
+                    .padding(.top, 28)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+    }
+
+    // MARK: - 선택 정류장 요약
+
+    private func selectedStopSummary(stop: BusStop, stops currentStops: [BusStop]) -> some View {
+        let isLast = currentStops.last?.id == stop.id
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 8) {
+                Text(stop.name)
+                    .font(AppTheme.Typography.sheetTitle)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                if stop.isDeparture {
+                    LabelChip(text: platform.map { "출발 · \($0)" } ?? "출발")
+                } else if isLast {
+                    LabelChip(text: "종점")
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            Text(stopMetaText(for: stop))
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Color.secondaryText)
+                .lineLimit(1)
+                .padding(.top, 4)
+
+            if stop.isDeparture {
+                nextBusRow
+                    .padding(.top, 12)
+            }
+
+            HStack(spacing: 10) {
+                if coordinate(for: stop) != nil {
+                    Button {
+                        openMapsNavigation(for: stop)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "map")
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("길 찾기")
+                        }
+                    }
+                    .buttonStyle(PrimaryButtonStyle(height: 46))
+                }
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        sheetDetent = sheetDetent == .large ? .medium : .large
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("정류장 \(currentStops.count)곳")
+                        Image(systemName: sheetDetent == .large ? "chevron.down" : "chevron.up")
+                            .font(.system(size: 12, weight: .bold))
                     }
                 }
-                .padding(.horizontal, 24)
+                .buttonStyle(SecondaryButtonStyle(height: 46))
+            }
+            .padding(.top, 12)
+        }
+    }
+
+    private func stopMetaText(for stop: BusStop) -> String {
+        var parts: [String] = []
+        if let address = stop.description { parts.append(address) }
+        if let userLoc = userLocation, let coord = coordinate(for: stop) {
+            let meters = userLoc.distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
+            let distanceText = meters < 1000 ? "\(Int(meters))m" : String(format: "%.1fkm", meters / 1000)
+            let walkMinutes = max(1, Int((meters / 80).rounded()))   // 약 80m/분
+            parts.append("도보 \(walkMinutes)분 (\(distanceText))")
+        }
+        return parts.isEmpty ? stopsDirection.displayName : parts.joined(separator: " · ")
+    }
+
+    /// 출발 정류장일 때 다음 버스 한 줄
+    private var nextBusRow: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            let snapshot = viewModel.makeTimingSnapshot(at: context.date)
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(snapshot.isServiceEnded ? "오늘 운행 종료" : "다음 버스")
+                        .font(AppTheme.Typography.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                    if snapshot.isServiceEnded {
+                        Text("내일 첫차 \(snapshot.firstBusTime)")
+                            .font(AppTheme.Typography.rowTime)
+                            .monospacedDigit()
+                            .foregroundStyle(AppTheme.Color.primaryText)
+                    } else if let next = snapshot.nextBusTime {
+                        Text("\(next) 출발 · \(snapshot.nextBusArrivalTime) \(viewModel.currentArrivalHubName) 도착")
+                            .font(AppTheme.Typography.rowTime)
+                            .monospacedDigit()
+                            .foregroundStyle(AppTheme.Color.primaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                if !snapshot.isServiceEnded {
+                    Text(snapshot.nextBusMinuteDisplay.isEmpty
+                         ? snapshot.nextBusCountdownDescription
+                         : "\(snapshot.nextBusMinuteDisplay)\(snapshot.nextBusUnitDisplay) 후")
+                        .font(.system(size: 20, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(AppTheme.Color.accent)
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 56)
+            .secondarySurface(cornerRadius: 14)
+        }
+    }
+
+    // MARK: - 정류장 목록
+
+    private func stopListSection(_ currentStops: [BusStop]) -> some View {
+        let snapshot = viewModel.makeTimingSnapshot(at: Date())
+        let departure = snapshot.nextBusTime
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("정류장")
+                    .font(AppTheme.Typography.groupTitle)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                Spacer()
+                if let departure {
+                    Text("\(departure) 버스 기준")
+                        .font(AppTheme.Typography.footnote)
+                        .monospacedDigit()
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                }
+            }
+
+            VStack(spacing: 0) {
+                ForEach(Array(currentStops.enumerated()), id: \.element.id) { index, stop in
+                    let isSelected = stop.id == selectedStop?.id
+                    Button {
+                        handleStopSelection(stop)
+                    } label: {
+                        StopTimelineRow(
+                            name: stop.name,
+                            time: estimatedPassTime(index: index, count: currentStops.count, departure: departure, arrival: snapshot.nextBusArrivalTime),
+                            role: index == 0 ? .departure : (index == currentStops.count - 1 ? .destination : .intermediate)
+                        )
+                        .padding(.horizontal, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(isSelected ? AppTheme.Color.surfaceSecondary : Color.clear)
+                        )
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                    .accessibilityHint("탭하면 지도에서 정류장 위치를 확인합니다")
+                }
+            }
+
+            if currentStops.count > 2 {
+                Text("중간 정류장 시각은 출발 기준 예상값입니다 · 도로 사정에 따라 달라질 수 있어요")
+                    .font(AppTheme.Typography.footnote)
+                    .foregroundStyle(AppTheme.Color.tertiaryText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private func estimatedPassTime(index: Int, count: Int, departure: String?, arrival: String) -> String {
+        guard let departure else { return "--:--" }
+        if index == 0 { return departure }
+        if index == count - 1 { return arrival }
+        return DateService.timeByAdding(minutes: index, to: departure) ?? "--:--"
     }
 
     private var emptyStopsView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "bus.fill")
-                .font(.system(.title3, weight: .light))
-                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+        VStack(alignment: .leading, spacing: 6) {
             Text("정류장 정보를 불러올 수 없습니다")
-                .font(.system(.subheadline, weight: .medium))
-                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
+                .font(AppTheme.Typography.rowTitle)
+                .foregroundStyle(AppTheme.Color.primaryText)
             Text("네트워크 연결을 확인하고 다시 시도해 주세요")
-                .font(.system(.caption, weight: .regular))
-                .foregroundStyle(HomeDashboardTheme.timetableMutedText)
-                .multilineTextAlignment(.center)
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Color.secondaryText)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 16)
         .accessibilityElement(children: .combine)
-    }
-
-    // MARK: - 선택된 정류장 상세 카드
-
-    private func selectedStopCard(stop: BusStop, stops currentStops: [BusStop]) -> some View {
-        let isLast = currentStops.last?.id == stop.id
-        let accent: Color = stop.isDeparture
-            ? HomeDashboardTheme.departureGreen
-            : HomeDashboardTheme.primaryBlue
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Text(stop.name)
-                    .font(.system(.title3, weight: .bold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-
-                StopBadge(isDeparture: stop.isDeparture, isDestination: isLast)
-
-                Spacer()
-            }
-
-            stopImageView(for: stop)
-
-            HStack(spacing: 12) {
-                if let address = stop.description {
-                    Text(address)
-                        .font(.system(.footnote, weight: .medium))
-                        .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-                }
-
-                if let userLoc = userLocation, let coord = coordinate(for: stop) {
-                    let stopLoc = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
-                    let meters = userLoc.distance(from: stopLoc)
-                    let distanceText = meters < 1000
-                        ? "\(Int(meters))m"
-                        : String(format: "%.1fkm", meters / 1000)
-                    Spacer()
-                    HStack(spacing: 3) {
-                        Image(systemName: "figure.walk")
-                            .font(.system(.caption2, weight: .medium))
-                        Text(distanceText)
-                            .font(.system(.caption, weight: .semibold))
-                    }
-                    .foregroundStyle(HomeDashboardTheme.primaryBlue)
-                    .accessibilityLabel("도보 \(distanceText)")
-                    .accessibilityElement(children: .ignore)
-                }
-            }
-
-            if coordinate(for: stop) != nil {
-                Button {
-                    openMapsNavigation(for: stop)
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "map.fill")
-                            .font(.system(.subheadline, weight: .medium))
-                        Text("길 찾기")
-                            .font(.system(.subheadline, weight: .bold))
-                    }
-                    .foregroundStyle(AppTheme.Color.primaryForeground)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(16)
-        .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(accent.opacity(0.5), lineWidth: 1)
-        )
-    }
-
-    // MARK: - 정류장 이미지
-
-    private func stopImageView(for stop: BusStop) -> some View {
-        let uiImage = UIImage(named: stop.id)
-        return ZStack(alignment: .bottomLeading) {
-            if let uiImage {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                ZStack {
-                    Rectangle()
-                        .fill(HomeDashboardTheme.iconBackground)
-                    VStack(spacing: 6) {
-                        Image(systemName: "camera.slash")
-                            .font(.system(.title3, weight: .light))
-                            .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-                        Text("사진 준비 중")
-                            .font(.system(.caption, weight: .medium))
-                            .foregroundStyle(HomeDashboardTheme.timetableMutedText)
-                    }
-                }
-            }
-
-            if uiImage != nil {
-                LinearGradient(
-                    colors: [.black.opacity(0.8), .clear],
-                    startPoint: .bottom,
-                    endPoint: .center
-                )
-
-                Text("정류장 전경")
-                    .font(.system(.caption2, weight: .medium))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .glassCard(cornerRadius: 4, fallback: Material.ultraThin)
-                    .padding(12)
-            }
-        }
-        .frame(height: 140)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
-    }
-
-    // MARK: - 요금 카드
-
-    private func fareCard(adult: Int) -> some View {
-        VStack(spacing: 16) {
-            Text("요금 정보")
-                .font(.system(.subheadline, weight: .bold))
-                .foregroundStyle(HomeDashboardTheme.primaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 4)
-                .overlay(alignment: .bottom) {
-                    Rectangle()
-                        .fill(HomeDashboardTheme.border)
-                        .frame(height: 1)
-                }
-
-            VStack(spacing: 12) {
-                fareRow(label: "성인", amount: adult)
-                fareRow(label: "청소년 (13-18세)", amount: Int(Double(adult) * 0.8))
-                fareRow(label: "어린이 (6-12세)", amount: Int(Double(adult) * 0.52))
-
-                if let nFare = nightFare, let startTime = nightFareStartTime {
-                    Rectangle()
-                        .fill(HomeDashboardTheme.border)
-                        .frame(height: 1)
-                    HStack {
-                        HStack(spacing: 4) {
-                            Text("심야")
-                                .font(.system(.caption2, weight: .bold))
-                                .foregroundStyle(AppTheme.Color.nightFare)
-                            Text("(\(startTime) 이후 성인 기준)")
-                                .font(.system(.caption, weight: .medium))
-                                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-                        }
-                        Spacer()
-                        HStack(alignment: .lastTextBaseline, spacing: 2) {
-                            Text(formattedFare(nFare))
-                                .font(.system(.callout, weight: .bold))
-                                .foregroundStyle(HomeDashboardTheme.primaryText)
-                            Text("원")
-                                .font(.system(.caption))
-                                .foregroundStyle(HomeDashboardTheme.timetableMutedText)
-                        }
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("심야 성인 \(nFare)원 (\(startTime) 이후)")
-                    }
-                }
-            }
-        }
-        .padding(21)
-        .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
-        .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
-    }
-
-    private func fareRow(label: String, amount: Int) -> some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-            Spacer()
-            HStack(alignment: .lastTextBaseline, spacing: 2) {
-                Text(formattedFare(amount))
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-                Text("원")
-                    .font(.system(size: 12))
-                    .foregroundStyle(HomeDashboardTheme.timetableMutedText)
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(label) \(amount)원")
-        }
     }
 
     private func openMapsNavigation(for stop: BusStop) {
