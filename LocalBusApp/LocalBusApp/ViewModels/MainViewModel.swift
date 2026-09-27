@@ -326,8 +326,10 @@ final class MainViewModel: ObservableObject {
             nightFare: nightFare,
             platformNumber: platformNumber,
             stops: currentStops,
+            direction: selectedDirection,
             directionDisplayName: selectedDirection.displayName,
             scheduleTypeLabel: selectedScheduleType.displayLabel,
+            nightFareStartTime: nightFareStartTime,
             isNotificationEnabled: isNotificationScheduled(for: time)
         )
     }

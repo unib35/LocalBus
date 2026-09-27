@@ -184,8 +184,10 @@ struct BusDetailInfo: Identifiable {
     let nightFare: Int?
     let platformNumber: String?
     let stops: [BusStop]
+    let direction: RouteDirection
     let directionDisplayName: String
     let scheduleTypeLabel: String
+    let nightFareStartTime: String?
     var isNotificationEnabled: Bool
 }
 
