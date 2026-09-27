@@ -5,12 +5,23 @@ import UIKit
 // MARK: - 문의 유형
 
 private enum ContactType: String, CaseIterable {
-    case schedule = "버스 시간 관련"
-    case feature = "앱 기능 문의"
+    case schedule = "버스 시간"
+    case feature = "앱 기능"
     case other = "기타"
+
+    /// 메일 제목에 쓰는 정식 이름
+    var mailLabel: String {
+        switch self {
+        case .schedule: return "버스 시간 관련"
+        case .feature: return "앱 기능 문의"
+        case .other: return "기타"
+        }
+    }
 }
 
-// MARK: - 문의하기 화면
+// MARK: - 문의하기 화면 (디자인 캔버스 개선안)
+//
+// 세그먼트 대신 짧은 라벨의 칩, 안내 박스 대신 한 줄 설명. 전송 방식(메일 앱)을 부제에서 먼저 알린다.
 
 struct ContactView: View {
     @State private var selectedType: ContactType = .schedule
@@ -30,24 +41,22 @@ struct ContactView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
+            VStack(alignment: .leading, spacing: 24) {
+                header
                 typeSection
                 contentSection
                 replyEmailSection
-                infoBox
             }
             .padding(.horizontal, 20)
-            .padding(.top, 24)
+            .padding(.top, 8)
             .padding(.bottom, 24)
         }
         .background(AmbientBackground())
         .safeAreaInset(edge: .bottom) {
             bottomButton
         }
-        .navigationTitle("문의하기")
         .navigationBarTitleDisplayMode(.inline)
-        .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
-        .toolbarColorScheme(nil, for: .navigationBar)
+        .legacyToolbarBackground(AppTheme.Color.screenBackground.opacity(0.95))
         .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $isShowingMailComposer) {
             MailComposeView(
@@ -77,42 +86,57 @@ struct ContactView: View {
         }
     }
 
+    // MARK: - 헤더
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("문의하기")
+                .font(AppTheme.Typography.screenTitle)
+                .foregroundStyle(AppTheme.Color.primaryText)
+            Text("메일 앱으로 보내지며, 답장은 입력한 이메일로 드려요")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(AppTheme.Color.secondaryText)
+        }
+    }
+
     // MARK: - 문의 유형 섹션
 
     private var typeSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("문의 유형")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Color.secondaryText)
 
-            Picker("문의 유형", selection: $selectedType) {
+            HStack(spacing: 8) {
                 ForEach(ContactType.allCases, id: \.self) { type in
-                    Text(type.rawValue).tag(type)
+                    SelectableChip(
+                        title: type.rawValue,
+                        isSelected: selectedType == type,
+                        action: { selectedType = type }
+                    )
                 }
             }
-            .pickerStyle(.segmented)
         }
     }
 
     // MARK: - 내용 섹션
 
     private var contentSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("내용")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Color.secondaryText)
 
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $content)
-                    .font(.system(size: 16))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
+                    .font(AppTheme.Typography.rowBody)
+                    .foregroundStyle(AppTheme.Color.primaryText)
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal, 11)
                     .padding(.top, 8)
-                    .padding(.bottom, 40)
-                    .frame(minHeight: 180)
-                    .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
-                    .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
+                    .padding(.bottom, 36)
+                    .frame(minHeight: 160)
+                    .surfaceCard()
                     .onChange(of: content) { newValue in
                         if newValue.count > maxCharacters {
                             content = String(newValue.prefix(maxCharacters))
@@ -120,26 +144,23 @@ struct ContactView: View {
                     }
 
                 if content.isEmpty {
-                    Text("문의 내용을 입력해주세요.")
-                        .font(.system(size: 16))
-                        .foregroundStyle(HomeDashboardTheme.secondaryText)
+                    Text("예: 07:20 버스가 실제로는 07:25에 출발해요")
+                        .font(AppTheme.Typography.rowBody)
+                        .foregroundStyle(AppTheme.Color.secondaryText)
                         .padding(.horizontal, 16)
                         .padding(.top, 16)
                         .allowsHitTesting(false)
                 }
 
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Text("\(content.count)/\(maxCharacters)")
-                            .font(.system(size: 12))
-                            .foregroundStyle(HomeDashboardTheme.secondaryText)
-                            .padding(.trailing, 12)
-                            .padding(.bottom, 12)
-                    }
-                }
-                .frame(minHeight: 180)
+                Text("\(content.count) / \(maxCharacters)")
+                    .font(AppTheme.Typography.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 14)
+                    .padding(.bottom, 12)
+                    .frame(minHeight: 160)
+                    .allowsHitTesting(false)
             }
         }
     }
@@ -147,76 +168,48 @@ struct ContactView: View {
     // MARK: - 회신받을 이메일 섹션
 
     private var replyEmailSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("회신받을 이메일 (선택)")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Color.secondaryText)
 
-            TextField("", text: $replyEmail, prompt: Text("example@email.com").foregroundColor(HomeDashboardTheme.secondaryText))
-                .font(.system(size: 16))
-                .foregroundStyle(HomeDashboardTheme.primaryText)
+            TextField("", text: $replyEmail, prompt: Text("example@email.com").foregroundColor(AppTheme.Color.secondaryText))
+                .font(AppTheme.Typography.rowBody)
+                .foregroundStyle(AppTheme.Color.primaryText)
                 .keyboardType(.emailAddress)
                 .textContentType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .padding(.horizontal, 14)
                 .frame(height: 52)
-                .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
-                .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
+                .surfaceCard(cornerRadius: 14)
 
-            Text("답변받을 이메일 주소를 입력하면 더 빠르게 회신받을 수 있어요.")
-                .font(.system(size: 12))
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
+            Text("검토 후 이메일로 답변 드려요. 빠른 답변을 위해 유형을 정확히 골라 주세요.")
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Color.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    // MARK: - 안내 박스
-
-    private var infoBox: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "info.circle")
-                .font(.system(size: 14))
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
-                .padding(.top, 2)
-
-            Text("문의 내용은 검토 후 이메일로 답변 드립니다. 빠른 답변을 위해 문의 유형을 정확히 선택해 주세요.")
-                .font(.system(size: 14))
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
-                .lineSpacing(3)
-        }
-        .padding(.horizontal, 17)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(cornerRadius: 8, fallback: HomeDashboardTheme.cardBackground)
-        .fallbackCardBorder(cornerRadius: 8, color: HomeDashboardTheme.border, lineWidth: 0.5)
     }
 
     // MARK: - 하단 버튼
 
     private var bottomButton: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(HomeDashboardTheme.border)
-                .frame(height: 0.5)
-
-            Button {
-                presentMailComposer()
-            } label: {
-                Text("보내기")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(AppTheme.Color.primaryForeground)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(canSend ? HomeDashboardTheme.primaryBlue : HomeDashboardTheme.primaryBlue.opacity(0.4))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        Button {
+            presentMailComposer()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "envelope")
+                    .font(.system(size: 16, weight: .semibold))
+                Text("메일로 보내기")
             }
-            .buttonStyle(.plain)
-            .disabled(!canSend)
-            .padding(.horizontal, 16)
-            .padding(.top, 17)
-            .padding(.bottom, 32)
         }
-        .background(HomeDashboardTheme.screenBackground)
+        .buttonStyle(PrimaryButtonStyle(height: 52))
+        .disabled(!canSend)
+        .opacity(canSend ? 1 : 0.45)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .background(AppTheme.Color.screenBackground.opacity(0.95))
     }
 
     // MARK: - 액션
@@ -251,7 +244,7 @@ struct ContactView: View {
     // MARK: - 메일 내용
 
     private var mailSubject: String {
-        "[장유시외버스] \(selectedType.rawValue)"
+        "[장유시외버스] \(selectedType.mailLabel)"
     }
 
     private var mailBody: String {
@@ -261,7 +254,7 @@ struct ContactView: View {
         let trimmedEmail = replyEmail.trimmingCharacters(in: .whitespacesAndNewlines)
 
         var lines: [String] = []
-        lines.append("[문의 유형] \(selectedType.rawValue)")
+        lines.append("[문의 유형] \(selectedType.mailLabel)")
         lines.append("")
         lines.append("[문의 내용]")
         lines.append(trimmedContent.isEmpty ? "(작성된 내용 없음)" : trimmedContent)
