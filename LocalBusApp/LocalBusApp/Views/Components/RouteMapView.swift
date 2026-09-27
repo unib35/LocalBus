@@ -7,12 +7,15 @@ struct RouteMapPin: Equatable {
     let coordinate: CLLocationCoordinate2D
     let stopID: String
     let stopName: String
+    /// 라벨에 덧붙일 정보 (출발 정류장의 탑승홈 등)
+    var subtitle: String? = nil
     let isDeparture: Bool
     let isDestination: Bool
 
     static func == (lhs: RouteMapPin, rhs: RouteMapPin) -> Bool {
         lhs.stopID == rhs.stopID &&
         lhs.stopName == rhs.stopName &&
+        lhs.subtitle == rhs.subtitle &&
         lhs.isDeparture == rhs.isDeparture &&
         lhs.isDestination == rhs.isDestination &&
         lhs.coordinate.latitude == rhs.coordinate.latitude &&
@@ -20,12 +23,14 @@ struct RouteMapPin: Equatable {
     }
 }
 
+/// 지도 위 요소 색. 앱 토큰(AppTheme)과 같은 값 — 경로만 강조색, 핀은 흰/검.
 private enum RouteMapTheme {
-    static let primaryBlue = UIColor(red: 59 / 255, green: 130 / 255, blue: 246 / 255, alpha: 1)
-    static let departureGreen = UIColor(red: 74 / 255, green: 222 / 255, blue: 128 / 255, alpha: 1)
-    static let stopBackground = UIColor(red: 51 / 255, green: 65 / 255, blue: 85 / 255, alpha: 1)
-    static let labelBackground = UIColor(red: 30 / 255, green: 41 / 255, blue: 59 / 255, alpha: 0.9)
-    static let selectedLabelBackground = UIColor(red: 30 / 255, green: 50 / 255, blue: 100 / 255, alpha: 0.95)
+    static let accent = UIColor(red: 74 / 255, green: 222 / 255, blue: 128 / 255, alpha: 1)
+    static let pinFill = UIColor.white
+    static let pinRing = UIColor(white: 0.04, alpha: 1)
+    static let labelBackground = UIColor(white: 0.08, alpha: 1)
+    static let labelText = UIColor.white
+    static let labelSecondaryText = UIColor(white: 0.64, alpha: 1)
 }
 
 struct RouteMapView: UIViewRepresentable {
@@ -37,6 +42,7 @@ struct RouteMapView: UIViewRepresentable {
     @Binding var centerOnUser: Bool
     @Binding var fitToRoute: Bool
     let colorScheme: ColorScheme
+    /// 시트 상단 y (지도 좌표계). 시트에 가려지지 않는 영역 기준으로 fit/센터링한다.
     let sheetTopY: CGFloat
     var onPinTap: (String) -> Void
     var onLocationUpdate: ((CLLocation) -> Void)?
@@ -55,6 +61,7 @@ struct RouteMapView: UIViewRepresentable {
         context.coordinator.configure(mapView: mapView)
         context.coordinator.onPinTap = onPinTap
         context.coordinator.onLocationUpdate = onLocationUpdate
+        context.coordinator.sheetTopY = sheetTopY
         context.coordinator.updateRouteIfNeeded(
             pins,
             routePath: routePath,
@@ -70,6 +77,7 @@ struct RouteMapView: UIViewRepresentable {
     func updateUIView(_ uiView: MKMapView, context: Context) {
         context.coordinator.onPinTap = onPinTap
         context.coordinator.onLocationUpdate = onLocationUpdate
+        context.coordinator.sheetTopY = sheetTopY
 
         uiView.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
 
@@ -83,7 +91,6 @@ struct RouteMapView: UIViewRepresentable {
         context.coordinator.updateSelectionIfNeeded(selectedStopID, on: uiView)
         context.coordinator.centerOnSelectedStopIfNeeded(
             selectedCoordinate,
-            sheetTopY: sheetTopY,
             on: uiView
         )
 
@@ -115,6 +122,7 @@ extension RouteMapView {
 
         var onPinTap: ((String) -> Void)?
         var onLocationUpdate: ((CLLocation) -> Void)?
+        var sheetTopY: CGFloat = 0
 
         override init() {
             super.init()
@@ -176,9 +184,9 @@ extension RouteMapView {
             }
         }
 
+        /// 선택 정류장을 시트 위 영역의 가운데에 놓는다.
         func centerOnSelectedStopIfNeeded(
             _ coordinate: CLLocationCoordinate2D?,
-            sheetTopY: CGFloat,
             on mapView: MKMapView
         ) {
             guard let coordinate else {
@@ -277,8 +285,10 @@ extension RouteMapView {
             }
 
             let renderer = MKPolylineRenderer(polyline: polyline)
-            renderer.strokeColor = RouteMapTheme.primaryBlue.withAlphaComponent(0.7)
-            renderer.lineWidth = 2.5
+            renderer.strokeColor = RouteMapTheme.accent
+            renderer.lineWidth = 4
+            renderer.lineCap = .round
+            renderer.lineJoin = .round
             return renderer
         }
 
@@ -331,31 +341,26 @@ extension RouteMapView {
             lastSelectedStopID = selectedStopID
         }
 
+        /// 시트에 가려지는 아래쪽을 제외한 영역에 노선 전체가 들어오도록 맞춘다.
         private func fitRouteIfNeeded(_ pins: [RouteMapPin], on mapView: MKMapView) {
             guard pins.isEmpty == false else { return }
 
-            let latitudes = pins.map(\.coordinate.latitude)
-            let longitudes = pins.map(\.coordinate.longitude)
-
-            guard
-                let minLatitude = latitudes.min(),
-                let maxLatitude = latitudes.max(),
-                let minLongitude = longitudes.min(),
-                let maxLongitude = longitudes.max()
-            else {
-                return
+            var rect = MKMapRect.null
+            for pin in pins {
+                let point = MKMapPoint(pin.coordinate)
+                rect = rect.union(MKMapRect(x: point.x, y: point.y, width: 0, height: 0))
             }
 
-            let center = CLLocationCoordinate2D(
-                latitude: (minLatitude + maxLatitude) / 2,
-                longitude: (minLongitude + maxLongitude) / 2
-            )
-            let span = MKCoordinateSpan(
-                latitudeDelta: max((maxLatitude - minLatitude) * 1.4, 0.01),
-                longitudeDelta: max((maxLongitude - minLongitude) * 1.4, 0.01)
+            let mapHeight = mapView.frame.height
+            let coveredBySheet = (mapHeight > 0 && sheetTopY > 0) ? max(mapHeight - sheetTopY, 0) : 0
+            let padding = UIEdgeInsets(
+                top: 120,
+                left: 48,
+                bottom: coveredBySheet + 40,
+                right: 48
             )
 
-            mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
+            mapView.setVisibleMapRect(rect, edgePadding: padding, animated: true)
         }
 
         private func centerMap(on coordinate: CLLocationCoordinate2D, in mapView: MKMapView) {
@@ -369,6 +374,7 @@ private final class StopPin: NSObject, MKAnnotation {
     let coordinate: CLLocationCoordinate2D
     let stopID: String
     let stopName: String
+    let subtitleText: String?
     let isDeparture: Bool
     let isDestination: Bool
     var isSelected: Bool
@@ -378,12 +384,14 @@ private final class StopPin: NSObject, MKAnnotation {
         self.coordinate = pin.coordinate
         self.stopID = pin.stopID
         self.stopName = pin.stopName
+        self.subtitleText = pin.subtitle
         self.isDeparture = pin.isDeparture
         self.isDestination = pin.isDestination
         self.isSelected = isSelected
     }
 }
 
+/// 핀: 출발 = 강조색 원, 종점 = 흰 링, 중간 = 작은 흰 점. 선택 시 조금 커지고 라벨이 붙는다.
 private final class StopPinAnnotationView: MKAnnotationView {
     static let reuseIdentifier = "StopPin"
 
@@ -406,94 +414,38 @@ private final class StopPinAnnotationView: MKAnnotationView {
 
         subviews.forEach { $0.removeFromSuperview() }
 
+        let pinSize: CGFloat
+        let dot: UIView
+
         if pin.isDeparture {
-            let size: CGFloat = pin.isSelected ? 28 : 20
-            let circle = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
-            circle.backgroundColor = RouteMapTheme.departureGreen
-            circle.layer.cornerRadius = size / 2
-            circle.layer.borderColor = UIColor.white.cgColor
-            circle.layer.borderWidth = pin.isSelected ? 2.5 : 2
-
-            if pin.isSelected {
-                circle.layer.shadowColor = RouteMapTheme.departureGreen.withAlphaComponent(0.8).cgColor
-                circle.layer.shadowRadius = 10
-                circle.layer.shadowOpacity = 1
-                circle.layer.shadowOffset = .zero
-            }
-
-            addSubview(circle)
-            frame = CGRect(x: 0, y: 0, width: size, height: size)
+            pinSize = pin.isSelected ? 22 : 18
+            dot = UIView(frame: CGRect(x: 0, y: 0, width: pinSize, height: pinSize))
+            dot.backgroundColor = RouteMapTheme.accent
+            dot.layer.borderColor = RouteMapTheme.pinRing.cgColor
+            dot.layer.borderWidth = 3
         } else if pin.isDestination {
-            let size: CGFloat = pin.isSelected ? 36 : 32
-            let outer = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
-            outer.backgroundColor = RouteMapTheme.primaryBlue
-            outer.layer.cornerRadius = size / 2
-            outer.layer.borderColor = UIColor.white.cgColor
-            outer.layer.borderWidth = pin.isSelected ? 2.5 : 2
-            outer.layer.shadowColor = RouteMapTheme.primaryBlue.withAlphaComponent(pin.isSelected ? 0.8 : 0.5).cgColor
-            outer.layer.shadowRadius = pin.isSelected ? 10 : 8
-            outer.layer.shadowOpacity = 1
-            outer.layer.shadowOffset = .zero
-
-            let dotSize: CGFloat = size / 3
-            let dot = UIView(
-                frame: CGRect(
-                    x: (size - dotSize) / 2,
-                    y: (size - dotSize) / 2,
-                    width: dotSize,
-                    height: dotSize
-                )
-            )
-            dot.backgroundColor = .white
-            dot.layer.cornerRadius = dotSize / 2
-
-            outer.addSubview(dot)
-            addSubview(outer)
-            frame = CGRect(x: 0, y: 0, width: size, height: size)
-        } else if pin.isSelected {
-            let size: CGFloat = 28
-            let outer = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
-            outer.backgroundColor = RouteMapTheme.primaryBlue
-            outer.layer.cornerRadius = size / 2
-            outer.layer.borderColor = UIColor.white.cgColor
-            outer.layer.borderWidth = 2.5
-            outer.layer.shadowColor = RouteMapTheme.primaryBlue.withAlphaComponent(0.8).cgColor
-            outer.layer.shadowRadius = 10
-            outer.layer.shadowOpacity = 1
-            outer.layer.shadowOffset = .zero
-            addSubview(outer)
-            frame = CGRect(x: 0, y: 0, width: size, height: size)
+            pinSize = pin.isSelected ? 22 : 18
+            dot = UIView(frame: CGRect(x: 0, y: 0, width: pinSize, height: pinSize))
+            dot.backgroundColor = RouteMapTheme.pinRing
+            dot.layer.borderColor = RouteMapTheme.pinFill.cgColor
+            dot.layer.borderWidth = 3
         } else {
-            let size: CGFloat = 16
-            let circle = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
-            circle.backgroundColor = RouteMapTheme.stopBackground
-            circle.layer.cornerRadius = size / 2
-            circle.layer.borderColor = UIColor.white.cgColor
-            circle.layer.borderWidth = 2
-            addSubview(circle)
-            frame = CGRect(x: 0, y: 0, width: size, height: size)
+            pinSize = pin.isSelected ? 14 : 10
+            dot = UIView(frame: CGRect(x: 0, y: 0, width: pinSize, height: pinSize))
+            dot.backgroundColor = RouteMapTheme.pinFill
+            dot.layer.borderColor = RouteMapTheme.pinRing.cgColor
+            dot.layer.borderWidth = 2
         }
+        dot.layer.cornerRadius = pinSize / 2
+        addSubview(dot)
+        frame = CGRect(x: 0, y: 0, width: pinSize, height: pinSize)
 
         let shouldShowLabel = pin.isDeparture || pin.isDestination || pin.isSelected
         guard shouldShowLabel else { return }
 
-        let label = UILabel()
-        label.text = pin.stopName
-        label.textColor = .white
-        label.font = pin.isDestination || pin.isDeparture
-            ? UIFont.boldSystemFont(ofSize: 12)
-            : UIFont.systemFont(ofSize: 10, weight: .medium)
-        label.sizeToFit()
-        label.backgroundColor = pin.isSelected
-            ? RouteMapTheme.selectedLabelBackground
-            : RouteMapTheme.labelBackground
-        label.textAlignment = .center
-        label.layer.cornerRadius = 4
-        label.layer.masksToBounds = true
-
-        let labelWidth = label.intrinsicContentSize.width + 16
-        let labelHeight: CGFloat = 20
-        let pinSize = frame.width
+        let label = makeLabel(for: pin)
+        let labelWidth = label.intrinsicContentSize.width + 20
+        let labelHeight: CGFloat = 26
         let totalWidth = max(pinSize, labelWidth)
 
         label.frame = CGRect(
@@ -502,7 +454,37 @@ private final class StopPinAnnotationView: MKAnnotationView {
             width: labelWidth,
             height: labelHeight
         )
+        dot.frame.origin.x = (totalWidth - pinSize) / 2
         addSubview(label)
         frame = CGRect(x: 0, y: 0, width: totalWidth, height: pinSize + 6 + labelHeight)
+        // 앵커는 핀 중심에 두고 라벨은 아래로 늘어난다.
+        centerOffset = CGPoint(x: 0, y: (6 + labelHeight) / 2)
+    }
+
+    private func makeLabel(for pin: StopPin) -> UILabel {
+        let label = UILabel()
+        let name = NSMutableAttributedString(
+            string: pin.stopName,
+            attributes: [
+                .font: UIFont.systemFont(ofSize: 12, weight: .bold),
+                .foregroundColor: RouteMapTheme.labelText
+            ]
+        )
+        if let subtitle = pin.subtitleText {
+            name.append(NSAttributedString(
+                string: "  \(subtitle)",
+                attributes: [
+                    .font: UIFont.systemFont(ofSize: 12, weight: .semibold),
+                    .foregroundColor: RouteMapTheme.labelSecondaryText
+                ]
+            ))
+        }
+        label.attributedText = name
+        label.backgroundColor = RouteMapTheme.labelBackground
+        label.textAlignment = .center
+        label.layer.cornerRadius = 8
+        label.layer.masksToBounds = true
+        label.sizeToFit()
+        return label
     }
 }
