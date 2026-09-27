@@ -1,6 +1,9 @@
 import SwiftUI
 
-// MARK: - 공지사항 목록 뷰
+// MARK: - 공지사항 목록 뷰 (디자인 캔버스 개선안)
+//
+// 제목은 두 줄까지 허용, NEW 캡슐 대신 읽지 않음 점, 작성자 대신 카테고리 라벨.
+// 최신 공지는 본문 첫 문장을 미리 보여준다.
 
 struct NoticeListView: View {
     let notices: [NoticeItem]
@@ -10,78 +13,95 @@ struct NoticeListView: View {
             AmbientBackground()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("공지사항")
+                        .font(AppTheme.Typography.screenTitle)
+                        .foregroundStyle(AppTheme.Color.primaryText)
+                        .padding(.top, 8)
+                        .padding(.bottom, 16)
+
                     ForEach(Array(notices.enumerated()), id: \.element.id) { index, notice in
                         NavigationLink(destination: NoticeDetailView(notice: notice)) {
-                            noticeRow(notice)
+                            noticeRow(notice, showsPreview: index == 0)
                         }
                         .buttonStyle(.plain)
 
                         if index < notices.count - 1 {
-                            rowDivider
+                            RowDivider(leadingInset: 0)
                         }
                     }
+
+                    Text("시간표가 바뀌면 여기와 푸시 알림으로 알려드려요")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(AppTheme.Color.tertiaryText)
+                        .padding(.top, 24)
                 }
-                .glassCard(cornerRadius: 10, fallback: HomeDashboardTheme.listCardBackground)
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.horizontal, 20)
                 .padding(.bottom, 40)
             }
+            .softScrollEdge()
         }
-        .navigationTitle("공지사항")
         .navigationBarTitleDisplayMode(.inline)
-        .legacyToolbarBackground(HomeDashboardTheme.screenBackground)
+        .legacyToolbarBackground(AppTheme.Color.screenBackground)
         .toolbar(.hidden, for: .tabBar)
     }
 
     // MARK: - Notice Row
 
-    private func noticeRow(_ notice: NoticeItem) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text(notice.title)
-                        .font(.system(size: 16))
-                        .foregroundStyle(HomeDashboardTheme.primaryText)
-                        .lineLimit(1)
+    private func noticeRow(_ notice: NoticeItem, showsPreview: Bool) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Circle()
+                .fill(notice.isNew ? AppTheme.Color.accent : Color.clear)
+                .frame(width: 6, height: 6)
+                .padding(.top, 8)
+                .accessibilityHidden(true)
 
-                    if notice.isNew {
-                        newBadge
-                    }
+            VStack(alignment: .leading, spacing: 6) {
+                Text(notice.title.replacingOccurrences(of: "\n", with: " "))
+                    .font(AppTheme.Typography.rowTitle)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("\(notice.date) · \(notice.category)")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+
+                if showsPreview, let preview = notice.body.first, !preview.isEmpty {
+                    Text(preview)
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
                 }
-
-                Text(notice.date)
-                    .font(.system(size: 13))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(HomeDashboardTheme.tertiaryText)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppTheme.Color.secondaryText)
+                .padding(.top, 4)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.vertical, 16)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(notice.isNew ? "읽지 않음, " : "")\(notice.title), \(notice.date), \(notice.category)")
     }
+}
 
-    private var newBadge: some View {
-        Text("NEW")
-            .font(.system(size: 10, weight: .bold))
-            .tracking(0.5)
-            .foregroundStyle(.black)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
-            .background(.white)
-            .clipShape(Capsule())
-    }
+// MARK: - 카테고리 라벨
 
-    private var rowDivider: some View {
-        Rectangle()
-            .fill(HomeDashboardTheme.listDivider)
-            .frame(height: 0.5)
-            .padding(.leading, 16)
+extension NoticeItem {
+    /// 제목에서 유추한 카테고리. 데이터에 카테고리가 생기면 그 값으로 바꾼다.
+    var category: String {
+        if title.contains("시간표") { return "시간표 변경" }
+        if title.contains("점검") { return "점검 안내" }
+        if title.contains("연휴") || title.contains("운행") { return "운행 안내" }
+        return "공지"
     }
 }
 
@@ -97,7 +117,7 @@ struct NoticeListView: View {
                     date: "2025.08.14",
                     author: "관리자",
                     isNew: true,
-                    body: ["시간표가 변경됩니다."],
+                    body: ["장유-사상 시외버스 운행 시간표가 2025년 8월 25일부로 일부 변경됩니다."],
                     timetableSummary: nil
                 ),
                 NoticeItem(
