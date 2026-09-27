@@ -1,89 +1,46 @@
 import SwiftUI
 import UIKit
 
-// MARK: - 시간표 화면 전체
+// MARK: - 시간표 화면 전체 (시간대별 그리드)
+//
+// 세로 리스트(화면당 6대) 대신 시간대별 그리드로 52회 시간표를 한두 화면에 훑을 수 있게 한다.
+// 다음 버스 셀만 강조색. 알림은 셀을 탭해 여는 상세 시트에서 켠다.
 
 struct TimetableScreenView: View {
     @ObservedObject var viewModel: MainViewModel
+    var isPreparingShare: Bool = false
+    var onShare: (() -> Void)? = nil
+
     @State private var showNotificationDeniedAlert = false
     @State private var selectedBusInfo: BusDetailInfo?
-    @State private var notificationToast: ToastMessage?
-
-    private func nextBusIndex(at referenceDate: Date) -> Int? {
-        guard let nextTime = viewModel.nextBusTime(at: referenceDate) else { return nil }
-        return viewModel.currentTimes.firstIndex(of: nextTime)
-    }
 
     var body: some View {
         ZStack {
             AmbientBackground()
 
-            VStack(spacing: 0) {
-                directionSelector
-                scheduleSegmentPicker
-                columnHeader
-
-                ScrollViewReader { proxy in
-
-                    TimelineView(.periodic(from: .now, by: 5)) { context in
-                        let nextBusTime = viewModel.nextBusTime(at: context.date)
-                        let nextBusIndex = nextBusIndex(at: context.date)
-
-                        ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 0) {
-                                ForEach(Array(viewModel.currentTimes.enumerated()), id: \.element) { index, time in
-                                    TimetableRow(
-                                        time: time,
-                                        destinationName: viewModel.currentArrivalHubName,
-                                        isNextBus: time == nextBusTime,
-                                        isPast: nextBusIndex.map { index < $0 } ?? false,
-                                        isNightFare: viewModel.isNightFare(for: time),
-                                        isVia: viewModel.isViaBus(for: time),
-                                        isNotificationEnabled: viewModel.isNotificationScheduled(for: time),
-                                        onNotificationTap: {
-                                            Task {
-                                                let status = await NotificationService.shared.authorizationStatus()
-                                                if status == .denied {
-                                                    showNotificationDeniedAlert = true
-                                                } else {
-                                                    await viewModel.toggleNotification(for: time)
-                                                    presentNotificationToast(for: time)
-                                                }
-                                            }
-                                        },
-                                        onRowTap: {
-                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                            selectedBusInfo = viewModel.makeBusDetailInfo(for: time)
-                                        }
-                                    )
-                                    .id(time)
-                                }
-                            }
-                        }
-                        .onAppear {
-                            scrollToCurrentBus(using: nextBusTime, proxy: proxy, delay: 0.1, duration: 0.4)
-                        }
-                        .onChange(of: nextBusTime) { newValue in
-                            scrollToCurrentBus(using: newValue, proxy: proxy, duration: 0.4)
-                        }
-                        .onChange(of: viewModel.selectedScheduleType) { _ in
-                            scrollToCurrentBus(
-                                using: viewModel.nextBusTime(at: Date()),
-                                proxy: proxy,
-                                delay: 0.05,
-                                duration: 0.3
-                            )
-                        }
-                        .onChange(of: viewModel.selectedDirection) { _ in
-                            scrollToCurrentBus(
-                                using: viewModel.nextBusTime(at: Date()),
-                                proxy: proxy,
-                                delay: 0.05,
-                                duration: 0.3
-                            )
+            VStack(alignment: .leading, spacing: 0) {
+                RouteHeaderView(
+                    direction: viewModel.selectedDirection,
+                    titleFont: .system(size: 28, weight: .heavy),
+                    trailing: shareButton,
+                    onDirectionChange: { direction in
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            viewModel.changeDirection(to: direction)
                         }
                     }
-                }
+                )
+                .padding(.horizontal, 20)
+
+                scheduleSegment
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+
+                legend
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+
+                grid
+                    .padding(.top, 6)
             }
         }
         .alert("알림 권한이 필요합니다", isPresented: $showNotificationDeniedAlert) {
@@ -95,7 +52,6 @@ struct TimetableScreenView: View {
         } message: {
             Text("버스 출발 알림을 받으려면\n설정 > 장유시외버스 > 알림을 허용해주세요.")
         }
-        .toast(item: $notificationToast)
         .sheet(item: $selectedBusInfo) { info in
             BusDetailView(
                 info: info,
@@ -112,237 +68,275 @@ struct TimetableScreenView: View {
         }
     }
 
-    private func presentNotificationToast(for time: String) {
-        let isEnabled = viewModel.isNotificationScheduled(for: time)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        notificationToast = isEnabled
-            ? ToastMessage(icon: "bell.fill", message: "\(time) 버스 알림이 켜졌습니다")
-            : ToastMessage(icon: "bell.slash.fill", message: "\(time) 버스 알림이 꺼졌습니다")
+    // MARK: - 헤더 공유 버튼
+
+    private var shareButton: AnyView? {
+        guard let onShare else { return nil }
+        return AnyView(
+            Button(action: onShare) {
+                if isPreparingShare {
+                    ProgressView()
+                        .tint(AppTheme.Color.secondaryText)
+                } else {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                }
+            }
+            .frame(width: 44, height: 44)
+            .buttonStyle(.plain)
+            .disabled(isPreparingShare)
+            .accessibilityLabel("시간표 이미지 공유")
+        )
     }
 
-    // MARK: - 노선/방향 선택
+    // MARK: - 평일 / 주말 세그먼트
 
-    private var directionSelector: some View {
-        DirectionSelector(
-            selectedDirection: viewModel.selectedDirection,
-            onDirectionChange: { direction in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    viewModel.changeDirection(to: direction)
+    private var scheduleSegment: some View {
+        let today = viewModel.todayScheduleType()
+        return PillSegment(
+            items: ScheduleType.allCases,
+            selected: viewModel.selectedScheduleType,
+            label: { type in
+                let base = type == .weekday ? "평일" : "주말 · 공휴일"
+                return type == today ? "\(base) · 오늘" : base
+            },
+            onSelect: { type in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    viewModel.selectedScheduleType = type
                 }
             }
         )
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 4)
     }
 
-    // MARK: - 세그먼트 피커
+    // MARK: - 범례
 
-    private var scheduleSegmentPicker: some View {
-        HStack(spacing: 0) {
-            ForEach(ScheduleType.allCases, id: \.self) { type in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        viewModel.selectedScheduleType = type
-                    }
-                } label: {
-                    ZStack {
-                        if viewModel.selectedScheduleType == type {
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(HomeDashboardTheme.chipBackground)
-                                .shadow(color: .black.opacity(0.05), radius: 1, x: 0, y: 1)
-                        }
+    private var legend: some View {
+        HStack(spacing: 14) {
+            HStack(spacing: 5) {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(AppTheme.Color.accent)
+                    .frame(width: 10, height: 10)
+                Text("다음 버스")
+            }
 
-                        Text(type.displayLabel)
-                            .font(HomeDashboardTypography.segmentSelected)
-                            .foregroundStyle(
-                                viewModel.selectedScheduleType == type
-                                    ? HomeDashboardTheme.primaryText
-                                    : HomeDashboardTheme.timetableMutedText
-                            )
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 38)
-                    .contentShape(Rectangle())
+            if !viewModel.currentViaTimes.isEmpty {
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(AppTheme.Color.secondaryText)
+                        .frame(width: 5, height: 5)
+                    Text("경유")
                 }
-                .buttonStyle(.plain)
+            }
+
+            if let start = viewModel.nightFareStartTime {
+                HStack(spacing: 3) {
+                    Text(start)
+                        .foregroundStyle(AppTheme.Color.nightFare)
+                        .fontWeight(.bold)
+                    Text("부터 심야 요금")
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Text("총 \(viewModel.currentTimes.count)회")
+                .monospacedDigit()
+        }
+        .font(AppTheme.Typography.footnote)
+        .foregroundStyle(AppTheme.Color.secondaryText)
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+    }
+
+    // MARK: - 시간대별 그리드
+
+    private var hourGroups: [(hour: String, times: [String])] {
+        var order: [String] = []
+        var groups: [String: [String]] = [:]
+        for time in viewModel.currentTimes {
+            let hour = String(time.prefix(2))
+            if groups[hour] == nil { order.append(hour) }
+            groups[hour, default: []].append(time)
+        }
+        return order.map { ($0, groups[$0] ?? []) }
+    }
+
+    private var grid: some View {
+        ScrollViewReader { proxy in
+            TimelineView(.periodic(from: .now, by: 5)) { context in
+                let nextBusTime = viewModel.nextBusTime(at: context.date)
+
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(hourGroups, id: \.hour) { group in
+                            TimetableHourRow(
+                                hour: group.hour,
+                                times: group.times,
+                                nextBusTime: nextBusTime,
+                                isVia: { viewModel.isViaBus(for: $0) },
+                                isNightFare: { viewModel.isNightFare(for: $0) },
+                                isNotificationEnabled: { viewModel.isNotificationScheduled(for: $0) },
+                                onTap: { time in
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    selectedBusInfo = viewModel.makeBusDetailInfo(for: time)
+                                }
+                            )
+                            .id(group.hour)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 32)
+                }
+                .softScrollEdge()
+                .onAppear {
+                    scrollToNextBus(nextBusTime, proxy: proxy, delay: 0.1)
+                }
+                .onChange(of: nextBusTime) { newValue in
+                    scrollToNextBus(newValue, proxy: proxy)
+                }
+                .onChange(of: viewModel.selectedScheduleType) { _ in
+                    scrollToNextBus(viewModel.nextBusTime(at: Date()), proxy: proxy, delay: 0.05)
+                }
+                .onChange(of: viewModel.selectedDirection) { _ in
+                    scrollToNextBus(viewModel.nextBusTime(at: Date()), proxy: proxy, delay: 0.05)
+                }
             }
         }
-        .padding(5)
-        .frame(height: 48)
-        .glassCard(cornerRadius: 8, fallback: HomeDashboardTheme.segmentBackground)
-        .fallbackCardBorder(cornerRadius: 8, color: HomeDashboardTheme.border)
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 12)
     }
 
-    // MARK: - 컬럼 헤더
-
-    private var columnHeader: some View {
-        HStack {
-            Text("출발 시간 / 노선")
-                .font(.system(size: 12, weight: .medium))
-                .tracking(0.4)
-                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-
-            Spacer()
-
-            Text("알림")
-                .font(.system(size: 12, weight: .medium))
-                .tracking(0.4)
-                .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(HomeDashboardTheme.border.opacity(0.6))
-                .frame(height: 0.5)
-        }
-    }
-
-    private func scrollToCurrentBus(
-        using nextBusTime: String?,
-        proxy: ScrollViewProxy,
-        delay: Double = 0,
-        duration: Double
-    ) {
+    private func scrollToNextBus(_ nextBusTime: String?, proxy: ScrollViewProxy, delay: Double = 0) {
         guard let nextBusTime else { return }
-
-        let scrollAction = {
-            withAnimation(.easeInOut(duration: duration)) {
-                proxy.scrollTo(nextBusTime, anchor: .center)
+        let hour = String(nextBusTime.prefix(2))
+        let action = {
+            withAnimation(.easeInOut(duration: 0.35)) {
+                proxy.scrollTo(hour, anchor: .top)
             }
         }
-
         if delay > 0 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: scrollAction)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: action)
         } else {
-            scrollAction()
+            action()
         }
     }
 }
 
-// MARK: - 시간표 행
+// MARK: - 시간대 행
 
-struct TimetableRow: View {
-    let time: String
-    let destinationName: String
-    let isNextBus: Bool
-    let isPast: Bool
-    let isNightFare: Bool
-    let isVia: Bool
-    let isNotificationEnabled: Bool
-    let onNotificationTap: () -> Void
-    var onRowTap: (() -> Void)? = nil
+struct TimetableHourRow: View {
+    let hour: String
+    let times: [String]
+    let nextBusTime: String?
+    let isVia: (String) -> Bool
+    let isNightFare: (String) -> Bool
+    let isNotificationEnabled: (String) -> Bool
+    let onTap: (String) -> Void
+
+    private let columns = [GridItem(.adaptive(minimum: 56, maximum: 56), spacing: 8, alignment: .leading)]
+
+    /// 이 시간대가 모두 지났는지 (다음 버스보다 앞선 시간대)
+    private var isPastHour: Bool {
+        guard let nextBusTime, let last = times.last else { return false }
+        return last < nextBusTime
+    }
 
     var body: some View {
-        HStack(spacing: 0) {
-            // 좌측 강조 bar (다음 버스에만)
-            Rectangle()
-                .fill(isNextBus ? HomeDashboardTheme.primaryBlue : Color.clear)
-                .frame(width: 3)
+        HStack(alignment: .top, spacing: 8) {
+            Text("\(hour)시")
+                .font(AppTheme.Typography.caption.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(isPastHour ? AppTheme.Color.tertiaryText : AppTheme.Color.secondaryText)
+                .frame(width: 40, height: 40, alignment: .leading)
 
-            HStack(alignment: .center, spacing: 14) {
-                // 시간
-                Text(time)
-                    .font(.system(size: 22, weight: .bold, design: .monospaced))
-                    .tracking(-0.5)
-                    .monospacedDigit()
-                    .foregroundStyle(
-                        isNextBus ? HomeDashboardTheme.primaryBlue : HomeDashboardTheme.primaryText
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                ForEach(times, id: \.self) { time in
+                    TimetableCell(
+                        time: time,
+                        isNext: time == nextBusTime,
+                        isPast: nextBusTime.map { time < $0 } ?? false,
+                        isVia: isVia(time),
+                        isNightFare: isNightFare(time),
+                        isNotificationEnabled: isNotificationEnabled(time),
+                        onTap: { onTap(time) }
                     )
-                    .frame(width: 78, alignment: .leading)
-
-                // 노선 타입 + 목적지
-                VStack(alignment: .leading, spacing: 4) {
-                    routeTypeBadge
-                    Text(destinationName)
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
                 }
-
-                Spacer()
-
-                // 상태 라벨 (다음 / 심야)
-                statusBadge
-
-                // 알림 버튼
-                Button(action: onNotificationTap) {
-                    Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(
-                            isNotificationEnabled
-                                ? HomeDashboardTheme.primaryBlue
-                                : HomeDashboardTheme.timetableMutedText
-                        )
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(isNotificationEnabled ? "알림 켜짐" : "알림 꺼짐")
-                .accessibilityHint(isNotificationEnabled ? "탭하여 알림을 끕니다" : "탭하여 버스 출발 알림을 설정합니다")
             }
-            .padding(.leading, 17)
-            .padding(.trailing, 8)
-            .padding(.vertical, 14)
-        }
-        .background(isNextBus ? HomeDashboardTheme.primaryBlue.opacity(0.06) : Color.clear)
-        .opacity(isPast ? 0.4 : 1.0)
-        .contentShape(Rectangle())
-        .onTapGesture { onRowTap?() }
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(HomeDashboardTheme.border.opacity(0.5))
-                .frame(height: 0.5)
-                .padding(.leading, 20)
         }
     }
+}
 
-    // MARK: - 노선 타입 배지
+// MARK: - 시간 셀
 
-    @ViewBuilder
-    private var routeTypeBadge: some View {
-        let label = isVia ? "경유" : "직행"
-        Text(label)
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(
-                isVia
-                    ? AppTheme.Color.nightFare
-                    : HomeDashboardTheme.timetableSecondaryText
-            )
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
+struct TimetableCell: View {
+    let time: String
+    let isNext: Bool
+    let isPast: Bool
+    let isVia: Bool
+    let isNightFare: Bool
+    let isNotificationEnabled: Bool
+    let onTap: () -> Void
+
+    private var minuteText: String { String(time.suffix(2)) }
+
+    var body: some View {
+        Button(action: onTap) {
+            ZStack {
+                Text(minuteText)
+                    .font(AppTheme.Typography.gridCell.weight(isNext ? .heavy : .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(textColor)
+
+                if isNotificationEnabled {
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(isNext ? AppTheme.Color.accentForeground : AppTheme.Color.accent)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(.top, 4)
+                        .padding(.trailing, 5)
+                }
+
+                if isVia {
+                    Circle()
+                        .fill(isNext ? AppTheme.Color.accentForeground : AppTheme.Color.secondaryText)
+                        .frame(width: 5, height: 5)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .padding(.bottom, 5)
+                }
+            }
+            .frame(width: 56, height: 40)
             .background(
-                Capsule()
-                    .fill(
-                        isVia
-                            ? AppTheme.Color.nightFare.opacity(0.12)
-                            : HomeDashboardTheme.chipBackground
-                    )
+                RoundedRectangle(cornerRadius: AppTheme.Radius.gridCell, style: .continuous)
+                    .fill(backgroundColor)
             )
+            .contentShape(RoundedRectangle(cornerRadius: AppTheme.Radius.gridCell, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityText)
+        .accessibilityAddTraits(isNext ? [.isSelected] : [])
     }
 
-    // MARK: - 상태 배지
+    private var textColor: Color {
+        if isNext { return AppTheme.Color.accentForeground }
+        if isPast { return AppTheme.Color.tertiaryText }
+        if isNightFare { return AppTheme.Color.nightFare }
+        return AppTheme.Color.primaryText
+    }
 
-    @ViewBuilder
-    private var statusBadge: some View {
-        if isNextBus {
-            Text("다음")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .tintedGlass(
-                    HomeDashboardTheme.primaryBlue,
-                    in: Capsule(),
-                    fallback: HomeDashboardTheme.primaryBlue
-                )
-        } else if isNightFare {
-            Text("심야")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppTheme.Color.nightFare)
-        }
+    private var backgroundColor: Color {
+        if isNext { return AppTheme.Color.accent }
+        if isPast { return Color.clear }
+        return AppTheme.Color.surface
+    }
+
+    private var accessibilityText: String {
+        var parts = ["\(time) 출발"]
+        if isNext { parts.append("다음 버스") }
+        if isPast { parts.append("지난 버스") }
+        if isVia { parts.append("경유") }
+        if isNightFare { parts.append("심야 요금") }
+        if isNotificationEnabled { parts.append("알림 설정됨") }
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -352,7 +346,7 @@ struct TimetableRow: View {
     struct PreviewWrapper: View {
         @StateObject var viewModel = MainViewModel()
         var body: some View {
-            TimetableScreenView(viewModel: viewModel)
+            TimetableScreenView(viewModel: viewModel, onShare: {})
                 .preferredColorScheme(.dark)
         }
     }

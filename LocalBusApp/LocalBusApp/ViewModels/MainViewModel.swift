@@ -256,6 +256,11 @@ final class MainViewModel: ObservableObject {
         return isWeekday ? "\(dateText) · 평일 시간표" : "\(dateText) · 주말 시간표"
     }
 
+    /// 오늘 자동 적용되는 시간표 타입 (사용자가 세그먼트로 바꾼 값과 무관)
+    func todayScheduleType(at date: Date = Date()) -> ScheduleType {
+        DateService.shouldUseWeekdaySchedule(date, holidays: holidays) ? .weekday : .weekend
+    }
+
     /// 큰 제목 아래 한 줄 노선 요약. 예: "장유 터미널 출발 · 26분 소요 · 2,500원"
     var routeSummaryText: String {
         var parts = ["\(currentTerminalName) 출발"]

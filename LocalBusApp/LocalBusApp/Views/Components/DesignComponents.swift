@@ -198,6 +198,8 @@ struct RouteHeaderView: View {
     var contextText: String? = nil
     var subtitle: String? = nil
     var titleFont: Font = AppTheme.Typography.screenTitle
+    /// 첫 줄 오른쪽에 컨텍스트 텍스트 대신 놓을 요소 (공유 버튼 등).
+    var trailing: AnyView? = nil
     let onDirectionChange: (RouteDirection) -> Void
 
     var body: some View {
@@ -209,13 +211,16 @@ struct RouteHeaderView: View {
 
                 Spacer(minLength: 8)
 
-                if let contextText {
+                if let trailing {
+                    trailing
+                } else if let contextText {
                     Text(contextText)
                         .font(AppTheme.Typography.caption)
                         .foregroundStyle(AppTheme.Color.secondaryText)
                         .lineLimit(1)
                 }
             }
+            .frame(minHeight: 44)
 
             HStack(alignment: .center, spacing: 10) {
                 Text(direction.departureName)

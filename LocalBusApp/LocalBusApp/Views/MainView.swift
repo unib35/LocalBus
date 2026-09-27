@@ -69,6 +69,7 @@ struct MainView: View {
             .tag(MainTab.settings)
         }
         .glassTabBarMinimize()
+        .tint(AppTheme.Color.primaryText)
         .background(
             TabBarSelectionObserver { index, isReselection in
                 guard isStopsTabEnabled,
@@ -230,35 +231,19 @@ struct MainView: View {
 
     private var timetableTab: some View {
         NavigationStack {
-            TimetableScreenView(viewModel: viewModel)
-                .navigationBarTitleDisplayMode(.inline)
-                .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
-                .toolbar {
-                    ToolbarItem(placement: .principal) {
-                        directionTitle(viewModel.selectedDirection)
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button {
-                            guard !isPreparingShare else { return }
-                            Task {
-                                isPreparingShare = true
-                                await prepareTimetableShare()
-                                isPreparingShare = false
-                            }
-                        } label: {
-                            if isPreparingShare {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                    .tint(HomeDashboardTheme.secondaryText)
-                            } else {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-                            }
-                        }
-                        .disabled(isPreparingShare)
+            TimetableScreenView(
+                viewModel: viewModel,
+                isPreparingShare: isPreparingShare,
+                onShare: {
+                    guard !isPreparingShare else { return }
+                    Task {
+                        isPreparingShare = true
+                        await prepareTimetableShare()
+                        isPreparingShare = false
                     }
                 }
+            )
+            .toolbar(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $showTimetableShareSheet) {
             if let image = timetableShareImage {
@@ -281,21 +266,6 @@ struct MainView: View {
         )
         guard timetableShareImage != nil else { return }
         showTimetableShareSheet = true
-    }
-
-    private func directionTitle(_ direction: RouteDirection) -> some View {
-        let parts = direction.displayName.components(separatedBy: " → ")
-        return HStack(spacing: 0) {
-            Text(parts.first ?? "")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(HomeDashboardTheme.primaryText)
-            Text(" → ")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(HomeDashboardTheme.tertiaryText)
-            Text(parts.last ?? "")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(HomeDashboardTheme.primaryText)
-        }
     }
 
     // MARK: - 정류장 탭
