@@ -235,16 +235,19 @@ struct UpcomingBusRow: View {
                 if let statusLabel {
                     Text(statusLabel)
                         .font(AppTheme.Typography.footnote.weight(.semibold))
-                        .foregroundStyle(AppTheme.Color.nightFare)
+                        .foregroundStyle(bus.statusKind == .nextDay ? AppTheme.Color.secondaryText : AppTheme.Color.nightFare)
                 }
             }
 
             Spacer(minLength: 8)
 
-            Text(bus.relativeText)
-                .font(AppTheme.Typography.rowValue)
-                .monospacedDigit()
-                .foregroundStyle(bus.statusKind == .nextDay ? AppTheme.Color.secondaryText : AppTheme.Color.primaryText)
+            // 내일 운행분은 왼쪽 라벨("내일 첫차")로 충분하므로 오른쪽 남은 시간은 비운다.
+            if bus.statusKind != .nextDay {
+                Text(bus.relativeText)
+                    .font(AppTheme.Typography.rowValue)
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.primaryText)
+            }
         }
         .padding(.horizontal, 16)
         .frame(height: 52)
