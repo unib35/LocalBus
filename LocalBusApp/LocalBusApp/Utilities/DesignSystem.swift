@@ -64,15 +64,53 @@ enum AppTheme {
                 ? .white
                 : UIColor(white: 0.05, alpha: 1)         // #0D0D0D
         })
+        /// 보조 텍스트. 다크 #A3A3A3 on #141414 = 7.3:1, 라이트 #666666 on #FFFFFF = 5.7:1.
         static let secondaryText = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
-                ? UIColor(white: 0.54, alpha: 1)         // #8A8A8A
+                ? UIColor(white: 0.64, alpha: 1)         // #A3A3A3
                 : UIColor(white: 0.40, alpha: 1)         // #666666
         })
+        /// 3차 텍스트(푸터·캡션). 다크 #7A7A7A on #000000 = 4.5:1, 라이트 #767676 on #FFFFFF = 4.5:1.
+        /// 서피스(#141414) 위에서는 4.5:1 미만이므로 화면 배경 위에서만 사용한다.
         static let tertiaryText = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
-                ? UIColor(white: 0.33, alpha: 1)         // #555555 — ~6.5:1 WCAG AA
-                : UIColor(white: 0.60, alpha: 1)         // #999999
+                ? UIColor(white: 0.478, alpha: 1)        // #7A7A7A
+                : UIColor(white: 0.463, alpha: 1)        // #767676
+        })
+
+        // ── 서피스 (테두리 없는 평면 컨테이너) ─────────────────────
+        /// 히어로·그룹 리스트 등 화면 배경 위에 놓이는 기본 서피스.
+        static let surface = cardBackground
+        /// 서피스 안의 한 단계 더 올라온 요소 (칩, 인라인 카드).
+        static let surfaceSecondary = SwiftUI.Color(UIColor { t in
+            t.userInterfaceStyle == .dark
+                ? UIColor(white: 0.11,  alpha: 1)        // #1C1C1C
+                : UIColor(white: 0.92,  alpha: 1)        // #EBEBEB
+        })
+        /// 보조 버튼 배경.
+        static let secondaryButton = SwiftUI.Color(UIColor { t in
+            t.userInterfaceStyle == .dark
+                ? UIColor(white: 0.15,  alpha: 1)        // #262626
+                : UIColor(white: 0.94,  alpha: 1)        // #EFEFEF
+        })
+        /// 서피스 안 행 사이 구분선.
+        static let divider = SwiftUI.Color(UIColor { t in
+            t.userInterfaceStyle == .dark
+                ? UIColor(white: 0.133, alpha: 1)        // #222222
+                : UIColor(white: 0.925, alpha: 1)        // #ECECEC
+        })
+
+        // ── 강조색 (앱 전체에서 하나) ─────────────────────────────
+        /// "지금 탈 버스" 신호에만 쓰는 단일 강조색. 다른 용도(장식·경고)에는 쓰지 않는다.
+        /// 다크 #4ADE80 위 검정 = 12:1, 라이트 #15803D 위 흰색 = 5.0:1.
+        static let accent = SwiftUI.Color(UIColor { t in
+            t.userInterfaceStyle == .dark
+                ? UIColor(red: 74/255,  green: 222/255, blue: 128/255, alpha: 1)
+                : UIColor(red: 21/255,  green: 128/255, blue: 61/255,  alpha: 1)
+        })
+        /// accent 배경 위 텍스트 색.
+        static let accentForeground = SwiftUI.Color(UIColor { t in
+            t.userInterfaceStyle == .dark ? .black : .white
         })
 
         // ── 히어로 카드 (항상 어두운 배경 — 라이트/다크 모두 동일) ──
@@ -179,6 +217,38 @@ enum AppTheme {
         static let statusChip       = Font.system(size: 12, weight: .medium)
         static let noticeTitle      = Font.system(size: 14, weight: .bold)
         static let noticeBody       = Font.system(size: 12, weight: .medium)
+
+        // ── 개선안 스케일 (디자인 캔버스 기준) ───────────────────
+        /// 화면 큰 제목 ("장유 → 사상", "설정")
+        static let screenTitle      = Font.system(size: 32, weight: .heavy)
+        /// 시트·보조 화면 제목
+        static let sheetTitle       = Font.system(size: 22, weight: .heavy)
+        /// 큰 제목 아래 한 줄 메타 ("장유 터미널 출발 · 26분 소요 · 2,500원")
+        static let screenSubtitle   = Font.system(size: 13, weight: .medium)
+        /// 섹션 제목 ("이어지는 버스")
+        static let groupTitle       = Font.system(size: 17, weight: .bold)
+        /// 히어로 남은 시간 숫자
+        static let heroNumber       = Font.system(size: 76, weight: .heavy, design: .rounded)
+        /// 히어로 단위 ("분 후")
+        static let heroUnitLabel    = Font.system(size: 22, weight: .bold)
+        /// 리스트 행 시각
+        static let rowTime          = Font.system(size: 17, weight: .semibold)
+        /// 리스트 행 제목
+        static let rowTitle         = Font.system(size: 16, weight: .semibold)
+        /// 리스트 행 본문
+        static let rowBody          = Font.system(size: 16, weight: .regular)
+        /// 리스트 행 보조 (오른쪽 "27분 후")
+        static let rowValue         = Font.system(size: 15, weight: .medium)
+        /// 캡션 (칩, 설명)
+        static let caption          = Font.system(size: 13, weight: .medium)
+        /// 각주 (푸터, 범례)
+        static let footnote         = Font.system(size: 12, weight: .medium)
+        /// 버튼 라벨
+        static let buttonLabel      = Font.system(size: 15, weight: .semibold)
+        /// 강조 버튼 라벨
+        static let buttonLabelStrong = Font.system(size: 15, weight: .bold)
+        /// 시간표 그리드 셀
+        static let gridCell         = Font.system(size: 16, weight: .semibold)
     }
 
     // MARK: - Spacing
@@ -246,6 +316,14 @@ enum AppTheme {
         static let busCard: CGFloat = 14
         /// 20pt — 히어로 카드
         static let hero: CGFloat    = 20
+        /// 16pt — 그룹 리스트 서피스
+        static let surface: CGFloat = 16
+        /// 12pt — 기본/보조 버튼
+        static let primaryButton: CGFloat = 12
+        /// 10pt — 시간표 그리드 셀
+        static let gridCell: CGFloat = 10
+        /// 22pt — 칩·필 버튼 (높이 44 기준 완전한 캡슐)
+        static let pill: CGFloat    = 22
     }
 }
 
