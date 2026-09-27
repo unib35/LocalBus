@@ -173,14 +173,15 @@ final class LocalBusAppUITests: XCTestCase {
 
     // MARK: - 설정
 
-    /// 설정 탭에 알림·화면·정보·데이터 그룹이 표시된다
+    /// 설정 탭에 시간표 데이터 카드와 알림·디스플레이·정보 그룹이 표시된다
     func testSettingsTabShowsGroups() throws {
         XCTAssertTrue(waitForHome())
         openTab("설정")
 
         XCTAssertTrue(app.staticTexts["설정"].waitForExistence(timeout: 5), "설정 제목이 있어야 합니다")
+        XCTAssertTrue(app.staticTexts["시간표 데이터"].exists || app.buttons["업데이트 확인"].exists, "시간표 데이터 카드가 있어야 합니다")
         XCTAssertTrue(app.staticTexts["알림"].exists, "알림 그룹이 있어야 합니다")
-        XCTAssertTrue(app.staticTexts["화면"].exists, "화면 그룹이 있어야 합니다")
+        XCTAssertTrue(app.staticTexts["디스플레이"].exists, "디스플레이 그룹이 있어야 합니다")
         XCTAssertTrue(app.staticTexts["정보"].exists, "정보 그룹이 있어야 합니다")
         XCTAssertGreaterThanOrEqual(app.switches.count, 3, "알림 토글이 3개 이상 있어야 합니다")
     }

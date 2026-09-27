@@ -13,6 +13,8 @@ struct UpcomingBusesStatusTests {
         currentTime: Date,
         nightFareStartTime: String? = nil
     ) async -> MainViewModel {
+        // 다른 테스트(온보딩 UI 테스트 등)가 저장한 방향이 남아 있으면 장유 노선 데이터만 있는 이 테스트가 깨진다.
+        UserDefaults.standard.removeObject(forKey: "selectedDirection")
         let vm = MainViewModel()
 
         let data: TimetableData
