@@ -32,7 +32,11 @@ struct MainView: View {
     // 정류장 위치 탭은 다음 버전에 도입 예정. 활성화하려면 true 로 변경.
     private let isStopsTabEnabled = false
 
-    @StateObject private var viewModel = MainViewModel()
+    @StateObject private var viewModel: MainViewModel
+
+    init(viewModel: MainViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
     @State private var selectedTab: MainTab = .home
     @State private var stopsSheetPresentationToken = 0
@@ -319,7 +323,7 @@ struct MainView: View {
 }
 
 #Preview {
-    MainView()
+    MainView(viewModel: MainViewModel())
 }
 
 private extension MainTab {
