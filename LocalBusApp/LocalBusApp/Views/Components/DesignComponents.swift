@@ -108,10 +108,20 @@ extension ButtonStyle where Self == CircleIconButtonStyle {
 
 /// 흰 알약이 선택을 표시하는 세그먼트. 라벨은 잘리지 않도록 짧게 유지한다.
 struct PillSegment<Item: Hashable>: View {
+    enum Style {
+        /// 화면 폭을 채우는 40pt 세그먼트 (시간표 평일/주말)
+        case regular
+        /// 행 오른쪽에 붙는 36pt 세그먼트 (설정 화면 모드)
+        case compact
+    }
+
     let items: [Item]
     let selected: Item
+    var style: Style = .regular
     let label: (Item) -> String
     let onSelect: (Item) -> Void
+
+    private var isCompact: Bool { style == .compact }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -122,14 +132,15 @@ struct PillSegment<Item: Hashable>: View {
                     onSelect(item)
                 } label: {
                     Text(label(item))
-                        .font(.system(size: 14, weight: isSelected ? .bold : .semibold))
+                        .font(.system(size: isCompact ? 13 : 14, weight: isSelected ? .bold : .semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                         .foregroundStyle(isSelected ? AppTheme.Color.screenBackground : AppTheme.Color.secondaryText)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 34)
+                        .padding(.horizontal, isCompact ? 12 : 0)
+                        .frame(maxWidth: isCompact ? nil : .infinity)
+                        .frame(height: isCompact ? 30 : 34)
                         .background(
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            RoundedRectangle(cornerRadius: isCompact ? 8 : 9, style: .continuous)
                                 .fill(isSelected ? AppTheme.Color.primaryText : Color.clear)
                         )
                         .contentShape(Rectangle())
@@ -139,11 +150,55 @@ struct PillSegment<Item: Hashable>: View {
             }
         }
         .padding(3)
-        .frame(height: 40)
+        .frame(height: isCompact ? 36 : 40)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.Color.surface)
+            RoundedRectangle(cornerRadius: isCompact ? 10 : 12, style: .continuous)
+                .fill(isCompact ? AppTheme.Color.secondaryButton : AppTheme.Color.surface)
         )
+    }
+}
+
+// MARK: - FlowLayout
+
+/// 칩처럼 폭이 제각각인 항목을 줄바꿈하며 배치한다.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        return arrange(subviews: subviews, width: width).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = arrange(subviews: subviews, width: bounds.width)
+        for (index, origin) in result.origins.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y),
+                proposal: .unspecified
+            )
+        }
+    }
+
+    private func arrange(subviews: Subviews, width: CGFloat) -> (size: CGSize, origins: [CGPoint]) {
+        var origins: [CGPoint] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var maxX: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > width {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            origins.append(CGPoint(x: x, y: y))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+            maxX = max(maxX, x - spacing)
+        }
+        return (CGSize(width: maxX, height: y + rowHeight), origins)
     }
 }
 
@@ -153,15 +208,16 @@ struct PillSegment<Item: Hashable>: View {
 struct SelectableChip: View {
     let title: String
     let isSelected: Bool
+    var height: CGFloat = 40
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 14, weight: isSelected ? .bold : .semibold))
+                .font(.system(size: height < 40 ? 13 : 14, weight: isSelected ? .bold : .semibold))
                 .foregroundStyle(isSelected ? AppTheme.Color.screenBackground : AppTheme.Color.primaryText)
-                .padding(.horizontal, 16)
-                .frame(height: 40)
+                .padding(.horizontal, height < 40 ? 14 : 16)
+                .frame(height: height)
                 .background(
                     Capsule().fill(isSelected ? AppTheme.Color.primaryText : AppTheme.Color.surfaceSecondary)
                 )

@@ -36,8 +36,8 @@ enum AppColorScheme: Int, CaseIterable {
 
 // MARK: - 설정 화면 (디자인 캔버스 개선안)
 //
-// 알림 토글은 그룹 하나에 모으고 ⓘ 팝오버 대신 항목 아래 한 줄 설명을 둔다.
-// 화면 모드는 체크 행 3개 대신 세그먼트 하나. 카드 테두리 없이 구분선만.
+// 맨 위 "시간표 데이터" 카드에서 업데이트를 확인하고, 아래로 알림·디스플레이·정보 그룹.
+// 카드 테두리 없이 평면 서피스와 구분선만. 섹션 제목은 13px 보조 텍스트.
 
 struct InfoView: View {
     @ObservedObject var viewModel: MainViewModel
@@ -48,8 +48,16 @@ struct InfoView: View {
     @AppStorage("noticeAlertEnabled") private var noticeAlertEnabled = true
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
 
-    @State private var showClearCacheConfirm = false
-    @State private var isRefreshing = false
+    /// 시간표 데이터 카드의 상태
+    private enum UpdatePhase: Equatable {
+        case idle
+        case checking
+        case latest
+        case updated(from: String, to: String)
+        case failed
+    }
+
+    @State private var updatePhase: UpdatePhase = .idle
     @State private var toast: ToastMessage?
     @State private var showPaywall = false
 
@@ -65,41 +73,188 @@ struct InfoView: View {
             AmbientBackground()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 28) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text("설정")
                         .font(AppTheme.Typography.screenTitle)
                         .foregroundStyle(AppTheme.Color.primaryText)
-                        .padding(.top, 8)
+                        .frame(height: 44)
+
+                    timetableDataCard
+                        .padding(.top, 20)
 
                     // v1.0 무료 출시: IAP 미적용 상태이므로 Pro 업그레이드 진입점을 숨긴다.
                     // IAP 도입 시 아래 줄의 주석을 해제하면 결제 화면 진입점이 복원된다.
-                    // proSection
-                    notificationSection
-                    displaySection
-                    infoSection
-                    dataSection
+                    // proSection.padding(.top, 24)
+
+                    sectionHeader("알림")
+                    notificationGroup
+
+                    sectionHeader("디스플레이")
+                    displayGroup
+
+                    sectionHeader("정보")
+                    infoGroup
+
                     footer
+                        .padding(.top, 20)
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 40)
+                .padding(.bottom, 32)
             }
             .softScrollEdge()
         }
         .toolbar(.hidden, for: .navigationBar)
-        .confirmationDialog("캐시를 삭제하면 최신 데이터를 다시 불러옵니다.", isPresented: $showClearCacheConfirm, titleVisibility: .visible) {
-            Button("캐시 삭제 및 새로고침", role: .destructive) {
-                Task {
-                    isRefreshing = true
-                    await viewModel.clearCacheAndRefresh()
-                    isRefreshing = false
-                }
-            }
-            Button("취소", role: .cancel) {}
-        }
         .toast(item: $toast)
         .sheet(isPresented: $showPaywall) {
             PaywallView()
                 .environmentObject(storeService)
+        }
+    }
+
+    // MARK: - 시간표 데이터 카드
+
+    private var timetableDataCard: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 12) {
+                updateIcon
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(updateTitle)
+                        .font(AppTheme.Typography.rowTitle)
+                        .foregroundStyle(AppTheme.Color.primaryText)
+                    Text(updateSubtitle)
+                        .font(AppTheme.Typography.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 14)
+            .accessibilityElement(children: .combine)
+
+            RowDivider()
+
+            if case .updated = updatePhase {
+                NavigationLink(destination: noticeList) {
+                    HStack(spacing: 6) {
+                        Text("바뀐 내용 보기")
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .font(AppTheme.Typography.buttonLabel)
+                    .foregroundStyle(AppTheme.Color.accent)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    runUpdateCheck()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 14, weight: .bold))
+                        Text(updatePhase == .checking ? "확인 중…" : (updatePhase == .failed ? "다시 시도" : "업데이트 확인"))
+                    }
+                    .font(AppTheme.Typography.buttonLabel)
+                    .foregroundStyle(updatePhase == .checking ? AppTheme.Color.tertiaryText : AppTheme.Color.accent)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(updatePhase == .checking)
+            }
+        }
+        .surfaceCard()
+    }
+
+    private var updateIcon: some View {
+        let (background, foreground): (Color, Color) = {
+            switch updatePhase {
+            case .latest, .updated:
+                return (AppTheme.Color.accent.opacity(0.16), AppTheme.Color.accent)
+            case .failed:
+                return (AppTheme.Color.nightFare.opacity(0.16), AppTheme.Color.nightFare)
+            default:
+                return (AppTheme.Color.secondaryButton, AppTheme.Color.primaryText)
+            }
+        }()
+
+        return ZStack {
+            Circle().fill(background)
+            switch updatePhase {
+            case .checking:
+                ProgressView()
+                    .tint(foreground)
+            case .latest, .updated:
+                Image(systemName: "checkmark")
+                    .font(.system(size: 16, weight: .heavy))
+                    .foregroundStyle(foreground)
+            case .failed:
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(foreground)
+            case .idle:
+                Image(systemName: "calendar")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(foreground)
+            }
+        }
+        .frame(width: 40, height: 40)
+        .accessibilityHidden(true)
+    }
+
+    private var baselineDate: String {
+        viewModel.updatedAtText.replacingOccurrences(of: "-", with: ".")
+    }
+
+    private var updateTitle: String {
+        switch updatePhase {
+        case .idle: return "시간표 데이터"
+        case .checking: return "새 시간표 확인 중…"
+        case .latest: return "이미 최신 시간표예요"
+        case .updated: return "새 시간표를 적용했어요"
+        case .failed: return "업데이트를 확인하지 못했어요"
+        }
+    }
+
+    private var updateSubtitle: String {
+        switch updatePhase {
+        case .idle:
+            if let checked = viewModel.lastUpdateCheckAt {
+                return "기준일 \(baselineDate) · 마지막 확인 \(LastCheckedFormatter.text(for: checked))"
+            }
+            return "기준일 \(baselineDate)"
+        case .checking:
+            return "기준일 \(baselineDate)"
+        case .latest:
+            return "기준일 \(baselineDate) · 방금 확인"
+        case .updated(let from, let to):
+            return "기준일 \(from.replacingOccurrences(of: "-", with: ".")) → \(to.replacingOccurrences(of: "-", with: "."))"
+        case .failed:
+            return "저장된 시간표(\(baselineDate))는 계속 쓸 수 있어요"
+        }
+    }
+
+    private func runUpdateCheck() {
+        guard updatePhase != .checking else { return }
+        updatePhase = .checking
+        Task {
+            let result = await viewModel.checkForTimetableUpdate()
+            withAnimation(.easeInOut(duration: 0.2)) {
+                switch result {
+                case .latest: updatePhase = .latest
+                case .updated(let from, let to): updatePhase = .updated(from: from, to: to)
+                case .failed: updatePhase = .failed
+                }
+            }
         }
     }
 
@@ -140,8 +295,8 @@ struct InfoView: View {
 
     // MARK: - 알림
 
-    private var notificationSection: some View {
-        settingsGroup("알림") {
+    private var notificationGroup: some View {
+        VStack(spacing: 0) {
             toggleRow(
                 title: "막차 30분 전 알림",
                 description: "매일 막차 출발 30분 전에 알려드려요",
@@ -164,7 +319,7 @@ struct InfoView: View {
 
             toggleRow(
                 title: "Live Activity",
-                description: "알림 설정한 버스가 20분 안에 출발하면 잠금 화면과 Dynamic Island에 카운트다운",
+                description: "출발 20분 전부터 잠금 화면에 카운트다운 표시",
                 isOn: $liveActivityEnabled
             )
             .onChange(of: liveActivityEnabled) { enabled in
@@ -177,7 +332,7 @@ struct InfoView: View {
 
             toggleRow(
                 title: "공지사항 알림",
-                description: "시간표 변경·임시 운휴 같은 공지를 푸시로 받아요",
+                description: "시간표 변경·임시 운휴를 푸시로 받기",
                 isOn: $noticeAlertEnabled
             )
             .onChange(of: noticeAlertEnabled) { enabled in
@@ -191,6 +346,7 @@ struct InfoView: View {
                     : ToastMessage(icon: "megaphone.fill", message: "공지 알림이 꺼졌습니다")
             }
         }
+        .surfaceCard()
     }
 
     private func toggleRow(title: String, description: String, isOn: Binding<Bool>) -> some View {
@@ -215,34 +371,40 @@ struct InfoView: View {
         .padding(.vertical, 12)
     }
 
-    // MARK: - 화면
+    // MARK: - 디스플레이
 
-    private var displaySection: some View {
-        settingsGroup("화면") {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("화면 모드")
-                    .font(AppTheme.Typography.rowBody)
-                    .foregroundStyle(AppTheme.Color.primaryText)
+    private var displayGroup: some View {
+        HStack(spacing: 12) {
+            Text("화면 모드")
+                .font(AppTheme.Typography.rowBody)
+                .foregroundStyle(AppTheme.Color.primaryText)
 
-                PillSegment(
-                    items: AppColorScheme.allCases,
-                    selected: colorScheme,
-                    label: { $0.shortLabel },
-                    onSelect: { colorSchemeRaw = $0.rawValue }
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(AppTheme.Color.surfaceSecondary)
-                )
-            }
-            .padding(16)
+            Spacer(minLength: 8)
+
+            PillSegment(
+                items: AppColorScheme.allCases,
+                selected: colorScheme,
+                style: .compact,
+                label: { $0.shortLabel },
+                onSelect: { colorSchemeRaw = $0.rawValue }
+            )
         }
+        .padding(.horizontal, 16)
+        .frame(height: 52)
+        .surfaceCard()
     }
 
     // MARK: - 정보
 
-    private var infoSection: some View {
-        settingsGroup("정보") {
+    private var infoGroup: some View {
+        VStack(spacing: 0) {
+            NavigationLink(destination: noticeList) {
+                navigationRow("공지사항", badge: viewModel.unreadNoticeCount > 0 ? "\(viewModel.unreadNoticeCount)" : nil)
+            }
+            .buttonStyle(.plain)
+
+            RowDivider()
+
             NavigationLink(destination: BusTipsView()) {
                 navigationRow("버스 이용 안내")
             }
@@ -265,53 +427,16 @@ struct InfoView: View {
             RowDivider()
 
             ShareLink(item: shareMessage) {
-                navigationRow("앱 공유", systemImage: "square.and.arrow.up")
+                navigationRow("앱 공유")
             }
             .buttonStyle(.plain)
         }
+        .surfaceCard()
     }
 
-    // MARK: - 데이터
-
-    private var dataSection: some View {
-        settingsGroup("데이터") {
-            HStack {
-                Text("시간표 기준일")
-                    .font(AppTheme.Typography.rowBody)
-                    .foregroundStyle(AppTheme.Color.primaryText)
-                Spacer()
-                Text(viewModel.updatedAtText)
-                    .font(AppTheme.Typography.rowValue)
-                    .monospacedDigit()
-                    .foregroundStyle(AppTheme.Color.secondaryText)
-            }
-            .padding(.horizontal, 16)
-            .frame(height: 52)
-
-            RowDivider()
-
-            Button {
-                showClearCacheConfirm = true
-            } label: {
-                HStack(spacing: 10) {
-                    if isRefreshing {
-                        ProgressView()
-                            .tint(AppTheme.Color.secondaryText)
-                    }
-                    Text(isRefreshing ? "새로고침 중..." : "최신 데이터로 새로고침")
-                        .font(AppTheme.Typography.rowBody)
-                        .foregroundStyle(isRefreshing ? AppTheme.Color.secondaryText : AppTheme.Color.primaryText)
-                    Spacer()
-                    if viewModel.isOffline {
-                        LabelChip(text: "오프라인")
-                    }
-                }
-                .padding(.horizontal, 16)
-                .frame(height: 52)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(isRefreshing)
+    private var noticeList: some View {
+        NoticeListView(notices: viewModel.notices) { notice in
+            viewModel.markNoticeRead(notice.id)
         }
     }
 
@@ -322,8 +447,12 @@ struct InfoView: View {
             Text("v\(appVersion)")
             Text("·")
             NavigationLink(destination: PrivacyPolicyView()) {
-                Text("이용약관 및 개인정보 처리방침")
-                    .underline()
+                Text("이용약관")
+            }
+            .buttonStyle(.plain)
+            Text("·")
+            NavigationLink(destination: PrivacyPolicyView()) {
+                Text("개인정보 처리방침")
             }
             .buttonStyle(.plain)
         }
@@ -331,37 +460,35 @@ struct InfoView: View {
         .foregroundStyle(AppTheme.Color.tertiaryText)
         .frame(maxWidth: .infinity)
         .frame(minHeight: 44)
-        .padding(.top, 4)
     }
 
     // MARK: - 헬퍼 뷰
 
-    private func settingsGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(AppTheme.Typography.groupTitle)
-                .foregroundStyle(AppTheme.Color.primaryText)
-
-            VStack(spacing: 0) {
-                content()
-            }
-            .surfaceCard()
-        }
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(AppTheme.Typography.caption.weight(.semibold))
+            .foregroundStyle(AppTheme.Color.secondaryText)
+            .padding(.horizontal, 4)
+            .padding(.top, 24)
+            .padding(.bottom, 8)
     }
 
-    private func navigationRow(_ title: String, systemImage: String? = nil) -> some View {
-        HStack {
+    private func navigationRow(_ title: String, badge: String? = nil) -> some View {
+        HStack(spacing: 8) {
             Text(title)
                 .font(AppTheme.Typography.rowBody)
                 .foregroundStyle(AppTheme.Color.primaryText)
-            Spacer()
-            if let systemImage {
-                Image(systemName: systemImage)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(AppTheme.Color.secondaryText)
-            } else {
-                chevron
+            if let badge {
+                Text(badge)
+                    .font(AppTheme.Typography.footnote.weight(.bold))
+                    .foregroundStyle(AppTheme.Color.accentForeground)
+                    .padding(.horizontal, 7)
+                    .frame(height: 20)
+                    .background(Capsule().fill(AppTheme.Color.accent))
+                    .accessibilityLabel("읽지 않은 공지 \(badge)개")
             }
+            Spacer()
+            chevron
         }
         .padding(.horizontal, 16)
         .frame(height: 52)
@@ -371,7 +498,7 @@ struct InfoView: View {
     private var chevron: some View {
         Image(systemName: "chevron.right")
             .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(AppTheme.Color.secondaryText)
+            .foregroundStyle(AppTheme.Color.tertiaryText)
     }
 }
 
