@@ -10,33 +10,30 @@ final class LocalBusAppUITestsLaunchTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 앱이 정상적으로 실행되는지 확인
+    /// 앱이 정상적으로 실행되어 탭 바가 나타나는지 확인
     func testLaunch() throws {
         let app = XCUIApplication()
         app.launch()
 
-        // 앱 실행 후 메인 화면이 표시되는지 확인
-        let navigationBar = app.navigationBars["시외버스"]
-        XCTAssertTrue(navigationBar.waitForExistence(timeout: 5), "앱이 정상적으로 실행되어야 합니다")
+        let homeTab = app.tabBars.buttons["홈"]
+        XCTAssertTrue(homeTab.waitForExistence(timeout: 10), "앱이 정상적으로 실행되어야 합니다")
 
-        // 스크린샷 첨부
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Launch Screen"
         attachment.lifetime = .keepAlways
         add(attachment)
     }
 
-    /// 다크 모드에서 앱이 정상적으로 실행되는지 확인
+    /// 다크 모드 설정으로 앱이 정상적으로 실행되는지 확인
     func testLaunchInDarkMode() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-UIUserInterfaceStyle", "Dark"]
+        // AppStorage("colorSchemePreference")를 실행 인자로 덮어쓴다 (1 = 다크)
+        app.launchArguments = ["-colorSchemePreference", "1"]
         app.launch()
 
-        // 앱 실행 확인
-        let navigationBar = app.navigationBars["시외버스"]
-        XCTAssertTrue(navigationBar.waitForExistence(timeout: 5), "다크 모드에서 앱이 정상적으로 실행되어야 합니다")
+        let homeTab = app.tabBars.buttons["홈"]
+        XCTAssertTrue(homeTab.waitForExistence(timeout: 10), "다크 모드에서 앱이 정상적으로 실행되어야 합니다")
 
-        // 스크린샷 첨부
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Launch Screen (Dark Mode)"
         attachment.lifetime = .keepAlways
