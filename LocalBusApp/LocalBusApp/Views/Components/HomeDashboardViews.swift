@@ -36,8 +36,13 @@ struct NextBusHeroCard: View {
             countdown
                 .padding(.top, 10)
 
-            journeyStrip
-                .padding(.top, 18)
+            JourneyStripView(
+                departureTime: departureTime,
+                arrivalTime: arrivalTime,
+                destinationName: destinationName,
+                durationMinutes: durationMinutes
+            )
+            .padding(.top, 18)
 
             notificationButton
                 .padding(.top, 18)
@@ -80,52 +85,6 @@ struct NextBusHeroCard: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(minuteText)\(unitText) 후 출발")
-        }
-    }
-
-    private var journeyStrip: some View {
-        HStack(alignment: .center, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("출발")
-                    .font(AppTheme.Typography.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.Color.secondaryText)
-                Text(departureTime)
-                    .font(AppTheme.Typography.rowTime.weight(.bold))
-                    .monospacedDigit()
-                    .foregroundStyle(AppTheme.Color.primaryText)
-            }
-
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(AppTheme.Color.primaryText)
-                    .frame(width: 6, height: 6)
-                Rectangle()
-                    .fill(AppTheme.Color.divider)
-                    .frame(height: 2)
-                if durationMinutes > 0 {
-                    Text("\(durationMinutes)분")
-                        .font(AppTheme.Typography.footnote.weight(.semibold))
-                        .foregroundStyle(AppTheme.Color.secondaryText)
-                }
-                Rectangle()
-                    .fill(AppTheme.Color.divider)
-                    .frame(height: 2)
-                Circle()
-                    .stroke(AppTheme.Color.primaryText, lineWidth: 1.5)
-                    .frame(width: 6, height: 6)
-            }
-            .frame(maxWidth: .infinity)
-            .accessibilityHidden(true)
-
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(destinationName) 도착 예상")
-                    .font(AppTheme.Typography.footnote.weight(.semibold))
-                    .foregroundStyle(AppTheme.Color.secondaryText)
-                Text(arrivalTime)
-                    .font(AppTheme.Typography.rowTime.weight(.bold))
-                    .monospacedDigit()
-                    .foregroundStyle(AppTheme.Color.primaryText)
-            }
         }
     }
 

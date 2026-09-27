@@ -298,6 +298,64 @@ struct RouteLineMenu: View {
     }
 }
 
+// MARK: - JourneyStrip
+
+/// 출발 ●──26분──○ 도착 한 줄. 히어로와 상세 시트에서 같이 쓴다.
+struct JourneyStripView: View {
+    let departureTime: String
+    let arrivalTime: String
+    let destinationName: String
+    let durationMinutes: Int
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("출발")
+                    .font(AppTheme.Typography.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                Text(departureTime)
+                    .font(AppTheme.Typography.rowTime.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.primaryText)
+            }
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(AppTheme.Color.primaryText)
+                    .frame(width: 6, height: 6)
+                Rectangle()
+                    .fill(AppTheme.Color.divider)
+                    .frame(height: 2)
+                if durationMinutes > 0 {
+                    Text("\(durationMinutes)분")
+                        .font(AppTheme.Typography.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                }
+                Rectangle()
+                    .fill(AppTheme.Color.divider)
+                    .frame(height: 2)
+                Circle()
+                    .stroke(AppTheme.Color.primaryText, lineWidth: 1.5)
+                    .frame(width: 6, height: 6)
+            }
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(destinationName) 도착 예상")
+                    .font(AppTheme.Typography.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                Text(arrivalTime)
+                    .font(AppTheme.Typography.rowTime.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.primaryText)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(departureTime) 출발, \(destinationName) \(arrivalTime) 도착 예상, \(durationMinutes)분 소요")
+    }
+}
+
 // MARK: - InlineBanner
 
 /// 한 줄 상태 배너 (오프라인, 공지). 아이콘 + 문구 + 선택적 텍스트 버튼.
