@@ -72,6 +72,17 @@ final class MainViewModel: ObservableObject {
     /// 알림 예약 상태
     @Published private(set) var scheduledNotifications: Set<String> = []
 
+    /// 공지사항 (원격 JSON의 notices)
+    @Published private(set) var notices: [NoticeItem] = []
+
+    /// 읽은 공지 id (UserDefaults에 저장)
+    @Published private(set) var readNoticeIDs: Set<String> = Set(
+        UserDefaults.standard.stringArray(forKey: "readNoticeIDs") ?? []
+    )
+
+    /// 마지막으로 원격 시간표를 확인한 시각
+    @Published private(set) var lastUpdateCheckAt: Date? = UserDefaults.standard.object(forKey: "lastUpdateCheckAt") as? Date
+
     // MARK: - Private Properties
 
     /// 전체 시간표 데이터 (routes 포함)
@@ -403,6 +414,7 @@ final class MainViewModel: ObservableObject {
         timetableData = data
         errorMessage = nil
         holidays = data.holidays
+        rebuildNotices(from: data)
         noticeMessage = data.meta.noticeMessage
 
         // 현재 선택된 방향에 맞는 시간표 로드
@@ -755,5 +767,58 @@ final class MainViewModel: ObservableObject {
     func refresh() async {
         isLoading = true
         await onAppear()
+    }
+
+    // MARK: - 시간표 업데이트 확인 (설정 화면)
+
+    /// 원격 시간표를 받아 기준일이 바뀌었으면 적용한다. 확인 시각은 저장한다.
+    func checkForTimetableUpdate() async -> TimetableUpdateResult {
+        guard let url = remoteURL else { return .failed }
+        let networkService = NetworkService()
+        let timetableService = TimetableService()
+
+        do {
+            let remoteData: TimetableData = try await networkService.fetch(from: url)
+            markUpdateChecked()
+            isOffline = false
+
+            let current = timetableData?.meta.updatedAt ?? "--"
+            let result = TimetableUpdateResult.evaluate(current: current, fetched: remoteData.meta.updatedAt)
+
+            // 기준일이 같아도 공지 등 부속 데이터는 최신으로 맞춘다.
+            timetableService.saveToCache(remoteData)
+            WidgetCenter.shared.reloadAllTimelines()
+            await loadTimetable(with: remoteData)
+            return result
+        } catch {
+            print("⚠️ [MainViewModel] 업데이트 확인 실패: \(error)")
+            isOffline = true
+            return .failed
+        }
+    }
+
+    private func markUpdateChecked() {
+        let now = Date()
+        lastUpdateCheckAt = now
+        UserDefaults.standard.set(now, forKey: "lastUpdateCheckAt")
+    }
+
+    // MARK: - 공지사항
+
+    var unreadNoticeCount: Int {
+        notices.filter { $0.isNew }.count
+    }
+
+    func markNoticeRead(_ id: String) {
+        guard !readNoticeIDs.contains(id) else { return }
+        readNoticeIDs.insert(id)
+        UserDefaults.standard.set(Array(readNoticeIDs), forKey: "readNoticeIDs")
+        if let data = timetableData { rebuildNotices(from: data) }
+    }
+
+    private func rebuildNotices(from data: TimetableData) {
+        // 원격 JSON에 notices가 아직 없으면 번들 JSON의 공지를 쓴다.
+        let source = data.notices ?? TimetableService().loadLocalData()?.notices ?? []
+        notices = source.map { $0.asNoticeItem(isUnread: !readNoticeIDs.contains($0.id)) }
     }
 }

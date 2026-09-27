@@ -140,12 +140,88 @@ struct TimetableData: Codable {
     let holidays: [String]
     let timetable: Timetable?
     let routes: [String: RouteData]?
+    /// 공지사항. 원격 JSON으로 갱신되며, 없으면 nil (하위호환).
+    let notices: [NoticeData]?
 
-    init(meta: Meta, holidays: [String], timetable: Timetable?, routes: [String: RouteData]? = nil) {
+    init(
+        meta: Meta,
+        holidays: [String],
+        timetable: Timetable?,
+        routes: [String: RouteData]? = nil,
+        notices: [NoticeData]? = nil
+    ) {
         self.meta = meta
         self.holidays = holidays
         self.timetable = timetable
         self.routes = routes
+        self.notices = notices
+    }
+}
+
+// MARK: - 공지사항 데이터 (JSON)
+
+/// JSON의 공지 항목. 화면 모델(NoticeItem)로 변환해 쓴다.
+struct NoticeData: Codable, Equatable {
+    let id: String
+    let title: String
+    let date: String
+    let category: String?
+    let body: [String]
+    let timetableSummary: NoticeSummaryData?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, date, category, body
+        case timetableSummary = "timetable_summary"
+    }
+
+    func asNoticeItem(isUnread: Bool) -> NoticeItem {
+        NoticeItem(
+            id: id,
+            title: title,
+            date: date,
+            author: "관리자",
+            isNew: isUnread,
+            body: body,
+            timetableSummary: timetableSummary.map { summary in
+                NoticeTimetableSummary(
+                    effectiveDate: summary.effectiveDate,
+                    departureLabel: summary.departureLabel,
+                    arrivalLabel: summary.arrivalLabel,
+                    rows: summary.rows.map { NoticeTimetableRow(departure: $0.departure, arrival: $0.arrival, isNew: $0.isNew) },
+                    note: summary.note,
+                    fullScheduleImageURL: summary.fullScheduleImageURL.flatMap(URL.init(string:))
+                )
+            },
+            categoryLabel: category
+        )
+    }
+}
+
+struct NoticeSummaryData: Codable, Equatable {
+    let effectiveDate: String
+    let departureLabel: String
+    let arrivalLabel: String
+    let rows: [NoticeSummaryRowData]
+    let note: String?
+    let fullScheduleImageURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case rows, note
+        case effectiveDate = "effective_date"
+        case departureLabel = "departure_label"
+        case arrivalLabel = "arrival_label"
+        case fullScheduleImageURL = "full_schedule_image_url"
+    }
+}
+
+struct NoticeSummaryRowData: Codable, Equatable {
+    let departure: String
+    let arrival: String
+    let isNew: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case departure, arrival
+        case isNew = "is_new"
     }
 }
 

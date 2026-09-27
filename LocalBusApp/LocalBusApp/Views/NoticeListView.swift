@@ -7,6 +7,8 @@ import SwiftUI
 
 struct NoticeListView: View {
     let notices: [NoticeItem]
+    /// 공지를 열었을 때 읽음 처리 등에 쓰는 콜백
+    var onOpen: ((NoticeItem) -> Void)? = nil
 
     var body: some View {
         ZStack {
@@ -20,8 +22,15 @@ struct NoticeListView: View {
                         .padding(.top, 8)
                         .padding(.bottom, 16)
 
+                    if notices.isEmpty {
+                        Text("아직 공지가 없어요")
+                            .font(AppTheme.Typography.rowBody)
+                            .foregroundStyle(AppTheme.Color.secondaryText)
+                            .padding(.vertical, 24)
+                    }
+
                     ForEach(Array(notices.enumerated()), id: \.element.id) { index, notice in
-                        NavigationLink(destination: NoticeDetailView(notice: notice)) {
+                        NavigationLink(destination: NoticeDetailView(notice: notice).onAppear { onOpen?(notice) }) {
                             noticeRow(notice, showsPreview: index == 0)
                         }
                         .buttonStyle(.plain)
@@ -36,6 +45,7 @@ struct NoticeListView: View {
                         .foregroundStyle(AppTheme.Color.tertiaryText)
                         .padding(.top, 24)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 40)
             }
@@ -98,6 +108,7 @@ struct NoticeListView: View {
 extension NoticeItem {
     /// 제목에서 유추한 카테고리. 데이터에 카테고리가 생기면 그 값으로 바꾼다.
     var category: String {
+        if let categoryLabel, !categoryLabel.isEmpty { return categoryLabel }
         if title.contains("시간표") { return "시간표 변경" }
         if title.contains("점검") { return "점검 안내" }
         if title.contains("연휴") || title.contains("운행") { return "운행 안내" }

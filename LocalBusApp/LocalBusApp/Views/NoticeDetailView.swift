@@ -11,15 +11,19 @@ struct NoticeItem: Identifiable {
     let isNew: Bool
     let body: [String]
     let timetableSummary: NoticeTimetableSummary?
+    /// 데이터에 명시된 카테고리. 없으면 제목에서 유추한다 (`category`).
+    let categoryLabel: String?
 
     init(
         id: String, title: String, date: String, author: String,
         isNew: Bool = false, body: [String],
-        timetableSummary: NoticeTimetableSummary? = nil
+        timetableSummary: NoticeTimetableSummary? = nil,
+        categoryLabel: String? = nil
     ) {
         self.id = id; self.title = title; self.date = date
         self.author = author; self.isNew = isNew
         self.body = body; self.timetableSummary = timetableSummary
+        self.categoryLabel = categoryLabel
     }
 }
 
