@@ -136,7 +136,7 @@
   `LaunchBackground.colorset`은 Contents.json에 색상값(srgb 0.067)이 인라인으로 정의돼 있다.
   실제로 값이 비어 있는 건 `AccentColor.colorset`(앱·위젯)과 `WidgetBackground.colorset`인데,
   셋 다 Xcode가 생성하는 기본 템플릿이고 비어 있는 게 정상 동작(시스템 기본값 사용)이라 유지.
-- [ ] 🟡 **UI 테스트 12개가 전부 실패 (기존 문제)** — 2026-08-31 확인.
+- [x] 🟡 **UI 테스트 12개가 전부 실패 (기존 문제)** — 2026-08-31 확인. → 2026-09-27 `design/ui-overhaul`에서 현재 UI 기준 18개로 재작성, 전부 통과.
   UI 테스트는 `76c1cde`(2026-01-25) 이후 한 번도 손대지 않았는데 그 뒤
   `Views/` 에만 80개 커밋이 쌓여 Liquid Glass 재디자인이 끝났다. 테스트가 찾는
   네비게이션 타이틀 '시외버스', '평일 버튼' 등이 현재 UI에 존재하지 않는다.
@@ -194,7 +194,7 @@
 > 원칙: 모노크롬 유지 + 강조색 하나(`accent`, departureGreen 재사용)를 "지금 탈 버스" 신호에만 사용.
 > Liquid Glass 헬퍼(`glassCard`)는 유지하되 폴백은 평면 서피스, 테두리·그라데이션·그림자·장식 원은 제거.
 > 각 단계는 빌드·테스트 통과 후 마이크로 커밋. 2026-09-27 전 단계 구현 완료(유닛 테스트 77개 통과).
-> 남은 것: 정류장 탭은 여전히 `isStopsTabEnabled = false`(켜면 개선안 그대로 동작), UI 테스트 재작성(기존 노후화 항목 참고).
+> 남은 것: 정류장 탭은 여전히 `isStopsTabEnabled = false`(켜면 개선안 그대로 동작). UI 테스트는 재작성 완료(18개 통과).
 
 - [x] 1. **토큰** — `AppTheme`에 `accent`·`accentForeground`·`surface`·`surfaceSecondary`·`divider` 추가,
   보조/3차 텍스트 대비 보정(다크 #A3A3A3/#7A7A7A, 라이트 #666/#767676), 타이포 스케일 추가
