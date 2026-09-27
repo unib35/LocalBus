@@ -173,16 +173,26 @@ struct ContactView: View {
                 .font(AppTheme.Typography.caption)
                 .foregroundStyle(AppTheme.Color.secondaryText)
 
-            TextField("", text: $replyEmail, prompt: Text("example@email.com").foregroundColor(AppTheme.Color.secondaryText))
-                .font(AppTheme.Typography.rowBody)
-                .foregroundStyle(AppTheme.Color.primaryText)
-                .keyboardType(.emailAddress)
-                .textContentType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .padding(.horizontal, 14)
-                .frame(height: 52)
-                .surfaceCard(cornerRadius: 14)
+            ZStack(alignment: .leading) {
+                if replyEmail.isEmpty {
+                    Text("example@email.com")
+                        .font(AppTheme.Typography.rowBody)
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                        .padding(.horizontal, 14)
+                        .allowsHitTesting(false)
+                }
+                TextField("회신받을 이메일", text: $replyEmail)
+                    .labelsHidden()
+                    .font(AppTheme.Typography.rowBody)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(.horizontal, 14)
+            }
+            .frame(height: 52)
+            .surfaceCard(cornerRadius: 14)
 
             Text("검토 후 이메일로 답변 드려요. 빠른 답변을 위해 유형을 정확히 골라 주세요.")
                 .font(AppTheme.Typography.caption)
