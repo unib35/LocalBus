@@ -47,6 +47,36 @@ enum RouteDirection: String, CaseIterable, Codable {
         case .yulhaToSasang,  .sasangToYulha:  return .yulha
         }
     }
+
+    /// 출발지 짧은 이름 (큰 제목용)
+    var departureName: String {
+        switch self {
+        case .jangyuToSasang: return "장유"
+        case .sasangToJangyu: return "사상"
+        case .yulhaToSasang:  return "율하"
+        case .sasangToYulha:  return "사상"
+        }
+    }
+
+    /// 도착지 짧은 이름 (큰 제목용)
+    var arrivalName: String {
+        switch self {
+        case .jangyuToSasang: return "사상"
+        case .sasangToJangyu: return "장유"
+        case .yulhaToSasang:  return "사상"
+        case .sasangToYulha:  return "율하"
+        }
+    }
+
+    /// 같은 노선의 반대 방향
+    var opposite: RouteDirection {
+        switch self {
+        case .jangyuToSasang: return .sasangToJangyu
+        case .sasangToJangyu: return .jangyuToSasang
+        case .yulhaToSasang:  return .sasangToYulha
+        case .sasangToYulha:  return .yulhaToSasang
+        }
+    }
 }
 
 // MARK: - 정류장

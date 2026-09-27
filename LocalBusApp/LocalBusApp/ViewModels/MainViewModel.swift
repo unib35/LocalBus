@@ -238,6 +238,44 @@ final class MainViewModel: ObservableObject {
         "실시간"
     }
 
+    /// 홈 상단 컨텍스트 라벨. 오늘 날짜와 어떤 시간표가 적용되는지 근거를 함께 보여준다.
+    /// 예: "9월 22일 화 · 평일 시간표", "9월 28일 월 · 공휴일 · 주말 시간표"
+    func scheduleContextText(at date: Date = Date()) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "M월 d일 E"
+        let dateText = formatter.string(from: date)
+
+        let isHoliday = DateService.isHoliday(date, holidays: holidays)
+        let isWeekday = DateService.isWeekday(date)
+
+        if isWeekday && isHoliday {
+            return "\(dateText) · 공휴일 · 주말 시간표"
+        }
+        return isWeekday ? "\(dateText) · 평일 시간표" : "\(dateText) · 주말 시간표"
+    }
+
+    /// 큰 제목 아래 한 줄 노선 요약. 예: "장유 터미널 출발 · 26분 소요 · 2,500원"
+    var routeSummaryText: String {
+        var parts = ["\(currentTerminalName) 출발"]
+        if effectiveDurationMinutes > 0 { parts.append("\(effectiveDurationMinutes)분 소요") }
+        if fare > 0 { parts.append(fareText) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// 첫차·막차·심야 요금을 한 줄로. 예: "첫차 06:20 · 막차 23:30 · 22:10부터 심야 요금 3,000원"
+    var serviceSummaryText: String {
+        var parts = ["첫차 \(firstBusTime)", "막차 \(lastBusTime)"]
+        if let nightFare, let nightFareStartTime {
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .decimal
+            let amount = formatter.string(from: NSNumber(value: nightFare)) ?? "\(nightFare)"
+            parts.append("\(nightFareStartTime)부터 심야 요금 \(amount)원")
+        }
+        return parts.joined(separator: " · ")
+    }
+
     /// 첫차 시간
     var firstBusTime: String {
         currentTimes.first ?? "--:--"

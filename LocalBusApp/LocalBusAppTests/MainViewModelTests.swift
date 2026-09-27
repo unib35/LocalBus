@@ -112,9 +112,59 @@ struct MainViewModelTests {
         #expect(viewModel.currentTimes == ["07:00", "08:00", "09:00"])
     }
 
+    // MARK: - 시간표 컨텍스트 라벨 테스트
+
+    @Test func 평일이면_날짜와_평일시간표_라벨을_반환한다() async {
+        // Given
+        let viewModel = await MainViewModel()
+        await viewModel.loadTimetable(with: createTestTimetableData())
+        let tuesday = makeKSTDate(year: 2026, month: 9, day: 22)
+
+        // When
+        let text = viewModel.scheduleContextText(at: tuesday)
+
+        // Then
+        #expect(text == "9월 22일 화 · 평일 시간표")
+    }
+
+    @Test func 평일이라도_공휴일이면_공휴일과_주말시간표_라벨을_반환한다() async {
+        // Given
+        let viewModel = await MainViewModel()
+        await viewModel.loadTimetable(with: createTestTimetableData(holidays: ["2026-09-28"]))
+        let holidayMonday = makeKSTDate(year: 2026, month: 9, day: 28)
+
+        // When
+        let text = viewModel.scheduleContextText(at: holidayMonday)
+
+        // Then
+        #expect(text == "9월 28일 월 · 공휴일 · 주말 시간표")
+    }
+
+    @Test func 주말이면_주말시간표_라벨을_반환한다() async {
+        // Given
+        let viewModel = await MainViewModel()
+        await viewModel.loadTimetable(with: createTestTimetableData())
+        let saturday = makeKSTDate(year: 2026, month: 9, day: 26)
+
+        // When
+        let text = viewModel.scheduleContextText(at: saturday)
+
+        // Then
+        #expect(text == "9월 26일 토 · 주말 시간표")
+    }
+
     // MARK: - Helper
 
-    private func createTestTimetableData(noticeMessage: String? = nil) -> TimetableData {
+    private func makeKSTDate(year: Int, month: Int, day: Int, hour: Int = 9) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        return calendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour))!
+    }
+
+    private func createTestTimetableData(
+        noticeMessage: String? = nil,
+        holidays: [String] = ["2026-02-09"]
+    ) -> TimetableData {
         return TimetableData(
             meta: Meta(
                 version: 1,
@@ -122,7 +172,7 @@ struct MainViewModelTests {
                 noticeMessage: noticeMessage,
                 contactEmail: "test@test.com"
             ),
-            holidays: ["2026-02-09"],
+            holidays: holidays,
             timetable: Timetable(
                 weekday: ["06:00", "06:30", "07:00"],
                 weekend: ["07:00", "08:00", "09:00"]
