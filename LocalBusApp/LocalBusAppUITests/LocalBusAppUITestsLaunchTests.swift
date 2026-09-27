@@ -8,11 +8,13 @@ final class LocalBusAppUITestsLaunchTests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
     }
 
     /// 앱이 정상적으로 실행되어 탭 바가 나타나는지 확인
     func testLaunch() throws {
         let app = XCUIApplication()
+        app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
 
         let homeTab = app.tabBars.buttons["홈"]
@@ -28,7 +30,7 @@ final class LocalBusAppUITestsLaunchTests: XCTestCase {
     func testLaunchInDarkMode() throws {
         let app = XCUIApplication()
         // AppStorage("colorSchemePreference")를 실행 인자로 덮어쓴다 (1 = 다크)
-        app.launchArguments = ["-colorSchemePreference", "1"]
+        app.launchArguments = ["-colorSchemePreference", "1", "-hasCompletedOnboarding", "YES"]
         app.launch()
 
         let homeTab = app.tabBars.buttons["홈"]

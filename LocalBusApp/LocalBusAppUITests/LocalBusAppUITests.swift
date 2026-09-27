@@ -9,6 +9,9 @@ final class LocalBusAppUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
+        XCUIDevice.shared.orientation = .portrait
+        // 온보딩은 별도 테스트에서 검사하고, 나머지는 홈부터 시작한다.
+        app.launchArguments += ["-hasCompletedOnboarding", "YES"]
 
         // 알림·위치 등 시스템 권한 알림은 허용하고 넘어간다.
         addUIInterruptionMonitor(withDescription: "시스템 권한") { alert in
