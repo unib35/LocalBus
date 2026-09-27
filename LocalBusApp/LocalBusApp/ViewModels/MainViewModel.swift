@@ -294,6 +294,11 @@ final class MainViewModel: ObservableObject {
         trafficDurationMinutes ?? durationMinutes
     }
 
+    /// 화면에 보여줄 소요시간 (실시간 교통 반영값)
+    var currentDurationMinutes: Int {
+        effectiveDurationMinutes
+    }
+
 
     // MARK: - Initialization
 
@@ -350,7 +355,7 @@ final class MainViewModel: ObservableObject {
             nextBusArrivalTime: nextBusArrivalTime(for: nextBusTime),
             followingBusTime: followingBusTime(after: nextBusTime),
             nextBusProgress: nextBusProgress(nextBusTime: nextBusTime, minutesUntilNextBus: minutesUntilNextBus),
-            upcomingBuses: buildUpcomingBuses(limit: 3, at: referenceDate)
+            upcomingBuses: buildUpcomingBuses(limit: 5, at: referenceDate)
         )
     }
 

@@ -129,68 +129,71 @@ struct MainView: View {
     }
 
     private var mainContentStack: some View {
-        VStack(alignment: .leading, spacing: 24) {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let snapshot = viewModel.makeTimingSnapshot(at: context.date)
-                    DashboardHeaderView(
-                        locationText: viewModel.dashboardLocationText,
-                        isNotificationEnabled: isNextBusNotificationEnabled(for: snapshot),
-                        onNotificationTap: { handleNotificationTap(for: snapshot.nextBusTime) }
-                    )
-                }
-
-                if viewModel.hasRoutes {
-                    DirectionSelector(
-                        selectedDirection: viewModel.selectedDirection,
-                        onDirectionChange: { direction in
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                viewModel.changeDirection(to: direction)
-                            }
-                        }
-                        )
-                }
-
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let snapshot = viewModel.makeTimingSnapshot(at: context.date)
-
-                    VStack(alignment: .leading, spacing: 24) {
-                        heroSection(using: snapshot)
-
-                        UpcomingBusesSectionView(
-                            title: "예정된 버스",
-                            badgeText: viewModel.scheduleBadgeText,
-                            buses: snapshot.upcomingBuses,
-                            destinationName: viewModel.currentArrivalHubName
-                        )
+        VStack(alignment: .leading, spacing: 20) {
+            RouteHeaderView(
+                direction: viewModel.selectedDirection,
+                contextText: viewModel.scheduleContextText(),
+                subtitle: viewModel.hasRoutes ? viewModel.routeSummaryText : nil,
+                onDirectionChange: { direction in
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        viewModel.changeDirection(to: direction)
                     }
                 }
+            )
 
-                if viewModel.hasRoutes {
-                    FirstLastBusSectionView(
-                        firstBusTime: viewModel.firstBusTime,
-                        lastBusTime: viewModel.lastBusTime
+            if viewModel.isOffline {
+                InlineBanner(
+                    systemImage: "wifi.slash",
+                    message: "연결 없음 · \(viewModel.updatedAtText) 기준 저장된 시간표를 보여드려요",
+                    actionTitle: "다시 시도",
+                    action: { Task { await viewModel.refresh() } }
+                )
+            }
+
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let snapshot = viewModel.makeTimingSnapshot(at: context.date)
+
+                VStack(alignment: .leading, spacing: 22) {
+                    heroSection(using: snapshot)
+
+                    UpcomingBusListView(
+                        buses: followingBuses(in: snapshot),
+                        isVia: { viewModel.isViaBus(for: $0) },
+                        onShowTimetable: { selectedTab = .timetable }
                     )
                 }
+            }
 
-                if viewModel.isOffline {
-                    DashboardNoticeCard(
-                        title: "오프라인 모드",
-                        message: "네트워크 연결 없이 저장된 시간표를 표시하고 있습니다.",
-                        systemImage: "wifi.slash"
-                    )
-                }
+            if viewModel.hasRoutes {
+                Text(viewModel.serviceSummaryText)
+                    .font(AppTheme.Typography.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .padding(.horizontal, 2)
+            }
 
-                if viewModel.hasNotice, let noticeMessage = viewModel.noticeMessage {
-                    DashboardNoticeCard(
-                        title: "운행 일정 조정 안내",
-                        message: noticeMessage,
-                        systemImage: "info.circle.fill"
-                    )
-                }
+            if viewModel.hasNotice, let noticeMessage = viewModel.noticeMessage {
+                DashboardNoticeCard(
+                    title: "운행 일정 조정 안내",
+                    message: noticeMessage,
+                    systemImage: "info.circle.fill"
+                )
+            }
         }
         .padding(.horizontal, 20)
-        .padding(.top, 16)
+        .padding(.top, 8)
         .padding(.bottom, 28)
+    }
+
+    /// 히어로에 이미 보이는 다음 버스는 목록에서 뺀다.
+    private func followingBuses(in snapshot: BusTimingSnapshot) -> [UpcomingBusSnapshot] {
+        guard let nextBusTime = snapshot.nextBusTime,
+              let first = snapshot.upcomingBuses.first,
+              first.departureTime == nextBusTime,
+              first.statusKind != .nextDay else {
+            return Array(snapshot.upcomingBuses.prefix(4))
+        }
+        return Array(snapshot.upcomingBuses.dropFirst().prefix(4))
     }
 
     @ViewBuilder
@@ -207,10 +210,12 @@ struct MainView: View {
                 minuteText: snapshot.nextBusMinuteDisplay,
                 unitText: snapshot.nextBusUnitDisplay,
                 descriptionText: snapshot.nextBusCountdownDescription,
-                progress: snapshot.nextBusProgress,
                 departureTime: nextBusTime,
                 arrivalTime: snapshot.nextBusArrivalTime,
-                nextBusTime: snapshot.followingBusTime
+                destinationName: viewModel.currentArrivalHubName,
+                durationMinutes: viewModel.currentDurationMinutes,
+                isNotificationEnabled: isNextBusNotificationEnabled(for: snapshot),
+                onNotificationTap: { handleNotificationTap(for: nextBusTime) }
             )
         } else {
             DashboardNoticeCard(

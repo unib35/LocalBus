@@ -1,188 +1,167 @@
 import SwiftUI
 
-// HomeDashboardTheme / HomeDashboardTypography 는 DesignSystem.swift 로 이전됨.
-// typealias 를 통해 이 파일에서 기존 이름을 그대로 사용할 수 있음.
+// MARK: - 홈 대시보드 컴포넌트 (디자인 캔버스 개선안)
+//
+// 구성: RouteHeaderView(공통) → NextBusHeroCard → UpcomingBusListView → 서비스 요약 한 줄.
+// 강조색은 히어로의 남은 시간 숫자에만 쓴다.
 
-struct DashboardHeaderView: View {
-    let locationText: String
-    let isNotificationEnabled: Bool
-    let onNotificationTap: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text(locationText)
-                .font(HomeDashboardTypography.headerLabel)
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
-                .lineLimit(1)
-
-            Spacer()
-
-            Button(action: onNotificationTap) {
-                Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-                    .frame(width: 44, height: 44)
-                    .glassCard(in: Circle(), fallback: HomeDashboardTheme.iconBackground, interactive: true)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(isNotificationEnabled ? "알림 켜짐" : "알림 꺼짐")
-            .accessibilityHint(isNotificationEnabled ? "탭하여 알림을 끕니다" : "탭하여 다음 버스 5분 전 알림을 설정합니다")
-        }
-    }
-}
+// MARK: - 다음 버스 히어로
 
 struct NextBusHeroCard: View {
     let minuteText: String
     let unitText: String
     let descriptionText: String
-    let progress: Double
     let departureTime: String
     let arrivalTime: String
-    let nextBusTime: String
+    let destinationName: String
+    let durationMinutes: Int
+    let isNotificationEnabled: Bool
+    let onNotificationTap: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            Text("다음 버스")
-                .font(HomeDashboardTypography.heroEyebrow)
-                .tracking(1.2)
-                .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.75))
-                .padding(.bottom, 14)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("다음 버스")
+                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.Color.secondaryText)
 
-            if minuteText.isEmpty {
-                Text(descriptionText)
-                    .font(HomeDashboardTypography.heroValue)
-                    .foregroundStyle(HomeDashboardTheme.heroText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                    .padding(.bottom, 6)
-            } else {
-                HStack(alignment: .lastTextBaseline, spacing: 6) {
-                    Text(minuteText)
-                        .font(HomeDashboardTypography.heroValue)
-                        .monospacedDigit()
-                        .foregroundStyle(HomeDashboardTheme.heroText)
+                Spacer()
 
-                    Text(unitText)
-                        .font(HomeDashboardTypography.heroUnit)
-                        .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.88))
-                        .padding(.bottom, 10)
-                }
-
-                Text(descriptionText)
-                    .font(HomeDashboardTypography.heroDescription)
-                    .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.75))
-                    .padding(.top, 6)
-            }
-
-            progressBar
-                .padding(.top, 28)
-
-            HStack(spacing: 0) {
-                dashboardMetaBlock(title: "출발 시간", value: departureTime, alignment: .leading)
-
-                Rectangle()
-                    .fill(HomeDashboardTheme.border)
-                    .frame(width: 1, height: 36)
-
-                dashboardMetaBlock(title: "예상 도착", value: arrivalTime, alignment: .center)
-
-                Rectangle()
-                    .fill(HomeDashboardTheme.border)
-                    .frame(width: 1, height: 36)
-
-                dashboardMetaBlock(title: "다음 배차", value: nextBusTime, alignment: .trailing)
-            }
-            .padding(.top, 24)
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 28)
-        .frame(maxWidth: .infinity)
-        .background(heroBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(HomeDashboardTheme.border.opacity(0.9), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.28), radius: 22, x: 0, y: 14)
-    }
-
-    private var progressBar: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(HomeDashboardTheme.border)
-
-                Capsule()
-                    .fill(HomeDashboardTheme.heroText)
-                    .frame(width: max(proxy.size.width * progress, 24))
-            }
-        }
-        .frame(height: 4)
-        .accessibilityHidden(true)
-    }
-
-    private var heroBackground: some View {
-        ZStack(alignment: .topTrailing) {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [HomeDashboardTheme.heroStart, HomeDashboardTheme.heroEnd],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            Circle()
-                .fill(HomeDashboardTheme.heroOverlay)
-                .frame(width: 170, height: 170)
-                .offset(x: 72, y: -78)
-        }
-    }
-
-    private func dashboardMetaBlock(
-        title: String,
-        value: String,
-        alignment: HorizontalAlignment,
-        suffix: String? = nil
-    ) -> some View {
-        VStack(alignment: alignment, spacing: 6) {
-            Text(title)
-                .font(HomeDashboardTypography.heroMetaLabel)
-                .tracking(0.5)
-                .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.75))
-
-            HStack(alignment: .lastTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(HomeDashboardTypography.heroMetaValue)
+                Text("\(departureTime) 출발")
+                    .font(AppTheme.Typography.caption.weight(.semibold))
                     .monospacedDigit()
-                    .foregroundStyle(HomeDashboardTheme.heroText)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+            }
 
-                if let suffix {
-                    Text(suffix)
-                        .font(HomeDashboardTypography.heroMetaSuffix)
-                        .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.75))
+            countdown
+                .padding(.top, 10)
+
+            journeyStrip
+                .padding(.top, 18)
+
+            notificationButton
+                .padding(.top, 18)
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .surfaceCard(cornerRadius: AppTheme.Radius.hero)
+        .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private var countdown: some View {
+        if minuteText.isEmpty {
+            Text(descriptionText)
+                .font(.system(size: 44, weight: .heavy, design: .rounded))
+                .foregroundStyle(AppTheme.Color.accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .lastTextBaseline, spacing: 8) {
+                    Text(minuteText)
+                        .font(AppTheme.Typography.heroNumber)
+                        .monospacedDigit()
+                        .tracking(-2)
+                        .foregroundStyle(AppTheme.Color.accent)
+
+                    Text("\(unitText) 후")
+                        .font(AppTheme.Typography.heroUnitLabel)
+                        .foregroundStyle(AppTheme.Color.primaryText)
+                }
+
+                // "1시간" 처럼 단위가 시간이면 남은 분을 설명 줄에 보여준다.
+                if unitText != "분" {
+                    Text(descriptionText)
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(AppTheme.Color.secondaryText)
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(minuteText)\(unitText) 후 출발")
         }
-        .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : alignment == .center ? .center : .trailing)
+    }
+
+    private var journeyStrip: some View {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("출발")
+                    .font(AppTheme.Typography.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                Text(departureTime)
+                    .font(AppTheme.Typography.rowTime.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.primaryText)
+            }
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(AppTheme.Color.primaryText)
+                    .frame(width: 6, height: 6)
+                Rectangle()
+                    .fill(AppTheme.Color.divider)
+                    .frame(height: 2)
+                if durationMinutes > 0 {
+                    Text("\(durationMinutes)분")
+                        .font(AppTheme.Typography.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                }
+                Rectangle()
+                    .fill(AppTheme.Color.divider)
+                    .frame(height: 2)
+                Circle()
+                    .stroke(AppTheme.Color.primaryText, lineWidth: 1.5)
+                    .frame(width: 6, height: 6)
+            }
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(destinationName) 도착 예상")
+                    .font(AppTheme.Typography.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                Text(arrivalTime)
+                    .font(AppTheme.Typography.rowTime.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.primaryText)
+            }
+        }
+    }
+
+    private var notificationButton: some View {
+        Button(action: onNotificationTap) {
+            HStack(spacing: 8) {
+                Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(isNotificationEnabled ? AppTheme.Color.accent : AppTheme.Color.primaryText)
+                Text(isNotificationEnabled
+                     ? "\(departureTime) 버스 5분 전에 알려드려요"
+                     : "\(departureTime) 버스 5분 전 알림")
+            }
+        }
+        .buttonStyle(SecondaryButtonStyle(height: 46))
+        .accessibilityLabel(isNotificationEnabled ? "알림 켜짐" : "알림 꺼짐")
+        .accessibilityHint(isNotificationEnabled ? "탭하여 알림을 끕니다" : "탭하여 다음 버스 5분 전 알림을 설정합니다")
     }
 }
+
+// MARK: - 로딩 / 운행 종료
 
 struct DashboardLoadingCard: View {
     var body: some View {
         VStack(spacing: 14) {
             ProgressView()
-                .tint(HomeDashboardTheme.primaryText)
+                .tint(AppTheme.Color.primaryText)
                 .scaleEffect(1.15)
 
             Text("시간표를 불러오는 중")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Color.secondaryText)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 250)
-        .glassCard(cornerRadius: 20, fallback: HomeDashboardTheme.cardBackground)
-        .fallbackCardBorder(cornerRadius: 20, color: HomeDashboardTheme.border)
+        .frame(height: 220)
+        .surfaceCard(cornerRadius: AppTheme.Radius.hero)
     }
 }
 
@@ -191,171 +170,147 @@ struct DashboardServiceEndedCard: View {
     let remainingText: String
 
     var body: some View {
-        VStack(spacing: 12) {
-            Text("오늘 운행 종료")
-                .font(HomeDashboardTypography.heroDescription)
-                .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.7))
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("오늘 운행 종료")
+                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                Spacer()
+                Text("내일 첫차")
+                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.Color.primaryText)
+            }
 
             Text(firstBusTime)
-                .font(HomeDashboardTypography.heroValue)
+                .font(.system(size: 64, weight: .heavy, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(HomeDashboardTheme.heroText)
-                .minimumScaleFactor(0.8)
-
-            Text("다음 첫차")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(HomeDashboardTheme.heroText)
+                .tracking(-2)
+                .foregroundStyle(AppTheme.Color.primaryText)
+                .padding(.top, 10)
 
             Text(remainingText)
-                .font(HomeDashboardTypography.heroDescription)
-                .foregroundStyle(HomeDashboardTheme.heroText.opacity(0.7))
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Color.secondaryText)
+                .padding(.top, 4)
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 34)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [HomeDashboardTheme.heroStart, HomeDashboardTheme.heroEnd],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(HomeDashboardTheme.border, lineWidth: 1)
-        )
+        .padding(.horizontal, 22)
+        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .surfaceCard(cornerRadius: AppTheme.Radius.hero)
+        .accessibilityElement(children: .combine)
     }
 }
 
-struct UpcomingBusesSectionView: View {
-    let title: String
-    let badgeText: String
+// MARK: - 이어지는 버스
+
+struct UpcomingBusListView: View {
     let buses: [UpcomingBusSnapshot]
-    let destinationName: String
+    let isVia: (String) -> Bool
+    let onShowTimetable: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(title)
-                    .font(HomeDashboardTypography.sectionTitle)
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
+                Text("이어지는 버스")
+                    .font(AppTheme.Typography.groupTitle)
+                    .foregroundStyle(AppTheme.Color.primaryText)
 
                 Spacer()
 
-                Text(badgeText)
-                    .font(HomeDashboardTypography.sectionBadge)
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .glassCard(cornerRadius: 6, fallback: HomeDashboardTheme.chipBackground)
+                Button(action: onShowTimetable) {
+                    HStack(spacing: 2) {
+                        Text("전체 시간표")
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
             }
 
             if buses.isEmpty {
-                DashboardNoticeCard(
-                    title: "표시할 버스가 없습니다",
-                    message: "선택한 시간표에 남아 있는 운행 정보가 없어요.",
-                    systemImage: "clock.badge.xmark"
-                )
+                Text("선택한 시간표에 남아 있는 운행 정보가 없어요.")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .surfaceCard()
             } else {
-                VStack(spacing: 12) {
-                    ForEach(buses) { bus in
-                        UpcomingBusCardView(
-                            bus: bus,
-                            destinationName: destinationName
-                        )
+                VStack(spacing: 0) {
+                    ForEach(Array(buses.enumerated()), id: \.element.id) { index, bus in
+                        UpcomingBusRow(bus: bus, isVia: isVia(bus.departureTime))
+                        if index < buses.count - 1 {
+                            RowDivider()
+                        }
                     }
                 }
+                .surfaceCard()
             }
         }
     }
 }
 
-struct UpcomingBusCardView: View {
+struct UpcomingBusRow: View {
     let bus: UpcomingBusSnapshot
-    let destinationName: String
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(bus.departureTime)
-                    .font(HomeDashboardTypography.busTime)
-                    .monospacedDigit()
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-
-                Text("\(destinationName) 예상 도착 ~\(bus.arrivalTime)")
-                    .font(HomeDashboardTypography.busArrival)
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-            }
-
-            Spacer(minLength: 12)
-
-            VStack(alignment: .trailing, spacing: 6) {
-                Text(bus.relativeText)
-                    .font(bus.statusKind == .onTime ? HomeDashboardTypography.busRelativeStrong : HomeDashboardTypography.busRelativeMuted)
-                    .foregroundStyle(bus.statusKind == .onTime ? HomeDashboardTheme.primaryText : HomeDashboardTheme.secondaryText)
-
-                statusLabel
-            }
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
-        .glassCard(cornerRadius: 14, fallback: HomeDashboardTheme.cardBackground)
-        .fallbackCardBorder(cornerRadius: 14, color: HomeDashboardTheme.border)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(bus.departureTime) 출발, \(destinationName) 예상 도착 \(bus.arrivalTime), \(bus.statusText)")
-    }
-
-    @ViewBuilder
-    private var statusLabel: some View {
-        Text(bus.statusText)
-            .font(HomeDashboardTypography.statusChip)
-            .foregroundStyle(statusColor)
-    }
-
-    private var statusColor: Color {
-        switch bus.statusKind {
-        case .delayed, .lastBus:
-            return AppTheme.Color.nightFare
-        case .nightBus:
-            return .purple
-        case .nextDay:
-            return HomeDashboardTheme.secondaryText
-        case .onTime:
-            return HomeDashboardTheme.secondaryText
-        }
-    }
-}
-
-struct FirstLastBusSectionView: View {
-    let firstBusTime: String
-    let lastBusTime: String
+    let isVia: Bool
 
     var body: some View {
         HStack(spacing: 12) {
-            chip(label: "첫차", time: firstBusTime)
-            chip(label: "막차", time: lastBusTime)
+            Text(bus.departureTime)
+                .font(AppTheme.Typography.rowTime)
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.Color.primaryText)
+                .frame(width: 60, alignment: .leading)
+
+            HStack(spacing: 6) {
+                if isVia {
+                    LabelChip(text: "경유")
+                } else {
+                    Text("직행")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                }
+
+                if let statusLabel {
+                    Text(statusLabel)
+                        .font(AppTheme.Typography.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.Color.nightFare)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            Text(bus.relativeText)
+                .font(AppTheme.Typography.rowValue)
+                .monospacedDigit()
+                .foregroundStyle(bus.statusKind == .nextDay ? AppTheme.Color.secondaryText : AppTheme.Color.primaryText)
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 52)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    /// 막차·심야만 라벨로 보여준다. "정시 운행"은 정보가 없어 생략.
+    private var statusLabel: String? {
+        switch bus.statusKind {
+        case .lastBus, .nightBus, .nextDay:
+            return bus.statusText
+        case .onTime, .delayed:
+            return nil
         }
     }
 
-    private func chip(label: String, time: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(HomeDashboardTheme.tertiaryText)
-            Text(time)
-                .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                .foregroundStyle(HomeDashboardTheme.primaryText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
-        .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
+    private var accessibilityText: String {
+        var parts = ["\(bus.departureTime) 출발", isVia ? "경유" : "직행", bus.relativeText]
+        if let statusLabel { parts.append(statusLabel) }
+        return parts.joined(separator: ", ")
     }
 }
+
+// MARK: - 안내 카드
 
 struct DashboardNoticeCard: View {
     let title: String
@@ -365,19 +320,19 @@ struct DashboardNoticeCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(HomeDashboardTheme.primaryText)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(AppTheme.Color.primaryText)
                 .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(HomeDashboardTypography.noticeTitle)
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
+                    .font(AppTheme.Typography.noticeTitle)
+                    .foregroundStyle(AppTheme.Color.primaryText)
 
                 Text(message)
-                    .font(HomeDashboardTypography.noticeBody)
+                    .font(AppTheme.Typography.caption)
                     .lineSpacing(3)
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
+                    .foregroundStyle(AppTheme.Color.secondaryText)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -385,8 +340,39 @@ struct DashboardNoticeCard: View {
             Spacer(minLength: 0)
         }
         .padding(16)
-        .glassCard(cornerRadius: 14, fallback: HomeDashboardTheme.noteBackground)
-        .fallbackCardBorder(cornerRadius: 14, color: HomeDashboardTheme.border)
+        .surfaceCard()
     }
 }
 
+// MARK: - Preview
+
+#Preview("Hero") {
+    VStack(spacing: 24) {
+        NextBusHeroCard(
+            minuteText: "12",
+            unitText: "분",
+            descriptionText: "후 출발",
+            departureTime: "07:20",
+            arrivalTime: "07:46",
+            destinationName: "사상",
+            durationMinutes: 26,
+            isNotificationEnabled: false,
+            onNotificationTap: {}
+        )
+
+        UpcomingBusListView(
+            buses: [
+                UpcomingBusSnapshot(id: "1", departureTime: "07:35", relativeText: "27분 후", arrivalTime: "08:01", statusText: "정시 운행", statusKind: .onTime),
+                UpcomingBusSnapshot(id: "2", departureTime: "07:50", relativeText: "42분 후", arrivalTime: "08:16", statusText: "정시 운행", statusKind: .onTime),
+                UpcomingBusSnapshot(id: "3", departureTime: "08:20", relativeText: "1시간 12분 후", arrivalTime: "08:46", statusText: "정시 운행", statusKind: .onTime)
+            ],
+            isVia: { $0 == "08:20" },
+            onShowTimetable: {}
+        )
+
+        DashboardServiceEndedCard(firstBusTime: "06:20", remainingText: "6시간 40분 후 첫차")
+    }
+    .padding(20)
+    .background(AppTheme.Color.screenBackground)
+    .preferredColorScheme(.dark)
+}
