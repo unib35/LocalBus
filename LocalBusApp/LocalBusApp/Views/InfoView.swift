@@ -16,6 +16,15 @@ enum AppColorScheme: Int, CaseIterable {
         }
     }
 
+    /// 세그먼트용 짧은 라벨
+    var shortLabel: String {
+        switch self {
+        case .light: return "라이트"
+        case .dark: return "다크"
+        case .system: return "시스템"
+        }
+    }
+
     var colorScheme: ColorScheme? {
         switch self {
         case .light: return .light
@@ -25,7 +34,10 @@ enum AppColorScheme: Int, CaseIterable {
     }
 }
 
-// MARK: - 설정 화면
+// MARK: - 설정 화면 (디자인 캔버스 개선안)
+//
+// 알림 토글은 그룹 하나에 모으고 ⓘ 팝오버 대신 항목 아래 한 줄 설명을 둔다.
+// 화면 모드는 체크 행 3개 대신 세그먼트 하나. 카드 테두리 없이 구분선만.
 
 struct InfoView: View {
     @ObservedObject var viewModel: MainViewModel
@@ -41,33 +53,6 @@ struct InfoView: View {
     @State private var toast: ToastMessage?
     @State private var showPaywall = false
 
-    enum NotificationInfoItem: String, Identifiable {
-        case lastMile
-        case liveActivity
-        case notice
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .lastMile:     return "막차 30분 전 알림"
-            case .liveActivity: return "Live Activity"
-            case .notice:       return "공지사항 알림"
-            }
-        }
-
-        var description: String {
-            switch self {
-            case .lastMile:
-                return "매일 막차 출발 30분 전, 자동으로 알림을 보내드립니다. 알림은 매일 반복됩니다."
-            case .liveActivity:
-                return "알림을 설정한 버스가 20분 이내로 출발할 때 Dynamic Island와 잠금화면에 실시간 카운트다운을 표시합니다."
-            case .notice:
-                return "시간표 변경, 임시 운휴 등 중요한 공지사항을 푸시 알림으로 즉시 전달합니다."
-            }
-        }
-    }
-
     private let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     private let shareMessage = "장유-사상 시외버스 시간표 앱 장유시외버스를 사용해보세요!"
 
@@ -80,7 +65,12 @@ struct InfoView: View {
             AmbientBackground()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 32) {
+                VStack(alignment: .leading, spacing: 28) {
+                    Text("설정")
+                        .font(AppTheme.Typography.screenTitle)
+                        .foregroundStyle(AppTheme.Color.primaryText)
+                        .padding(.top, 8)
+
                     // v1.0 무료 출시: IAP 미적용 상태이므로 Pro 업그레이드 진입점을 숨긴다.
                     // IAP 도입 시 아래 줄의 주석을 해제하면 결제 화면 진입점이 복원된다.
                     // proSection
@@ -88,21 +78,14 @@ struct InfoView: View {
                     displaySection
                     infoSection
                     dataSection
-
-                    Text("Bus Schedule App © 2024")
-                        .font(.system(size: 11))
-                        .foregroundStyle(HomeDashboardTheme.tertiaryText)
-                        .padding(.top, 8)
+                    footer
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.horizontal, 20)
                 .padding(.bottom, 40)
             }
+            .softScrollEdge()
         }
-        .navigationTitle("설정")
-        .navigationBarTitleDisplayMode(.inline)
-        .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
-        .toolbarColorScheme(nil, for: .navigationBar)
+        .toolbar(.hidden, for: .navigationBar)
         .confirmationDialog("캐시를 삭제하면 최신 데이터를 다시 불러옵니다.", isPresented: $showClearCacheConfirm, titleVisibility: .visible) {
             Button("캐시 삭제 및 새로고침", role: .destructive) {
                 Task {
@@ -128,30 +111,23 @@ struct InfoView: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: storeService.isPro ? "checkmark.seal.fill" : "sparkles")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(storeService.isPro ? Color.green : HomeDashboardTheme.primaryBlue)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(storeService.isPro ? AppTheme.Color.accent : AppTheme.Color.primaryText)
                     .frame(width: 36, height: 36)
-                    .background(
-                        (storeService.isPro ? Color.green : HomeDashboardTheme.primaryBlue)
-                            .opacity(0.12)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(storeService.isPro ? "장유시외버스 Pro 이용 중" : "장유시외버스 Pro로 업그레이드")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(HomeDashboardTheme.primaryText)
+                        .font(AppTheme.Typography.rowTitle)
+                        .foregroundStyle(AppTheme.Color.primaryText)
                     Text(storeService.isPro ? "모든 기능을 사용 중입니다" : "위젯 기능과 광고 제거")
-                        .font(.system(size: 13))
-                        .foregroundStyle(HomeDashboardTheme.secondaryText)
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(AppTheme.Color.secondaryText)
                 }
 
                 Spacer()
 
                 if !storeService.isPro {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(HomeDashboardTheme.tertiaryText)
+                    chevron
                 }
             }
             .padding(.horizontal, 16)
@@ -159,410 +135,243 @@ struct InfoView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .settingsCard()
+        .surfaceCard(interactive: true)
     }
 
-    // MARK: - 알림 설정
+    // MARK: - 알림
 
     private var notificationSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionHeader("알림 설정")
-
-            // 버스 알림 그룹
-            VStack(alignment: .leading, spacing: 0) {
-                notificationGroupHeader("버스 알림")
-
-                notificationRow(
-                    title: "막차 30분 전 알림",
-                    infoItem: .lastMile,
-                    isOn: $lastMileAlertEnabled
-                )
-                .onChange(of: lastMileAlertEnabled) { enabled in
-                    Task {
-                        if enabled {
-                            await viewModel.scheduleLastBusNotification()
-                        } else {
-                            viewModel.cancelLastBusNotification()
-                        }
-                    }
-                    toast = enabled
-                        ? ToastMessage(icon: "bell.fill", message: "막차 알림이 켜졌습니다")
-                        : ToastMessage(icon: "bell.slash.fill", message: "막차 알림이 꺼졌습니다")
-                }
-
-                rowDivider
-
-                notificationRow(
-                    title: "Live Activity",
-                    infoItem: .liveActivity,
-                    isOn: $liveActivityEnabled
-                )
-                .onChange(of: liveActivityEnabled) { enabled in
-                    toast = enabled
-                        ? ToastMessage(icon: "livephoto", message: "Live Activity가 활성화됩니다")
-                        : ToastMessage(icon: "livephoto.slash", message: "Live Activity가 비활성화됩니다")
-                }
-            }
-            .settingsCard()
-
-            // 공지 알림 그룹
-            VStack(alignment: .leading, spacing: 0) {
-                notificationGroupHeader("공지 알림")
-
-                notificationRow(
-                    title: "공지사항 알림",
-                    infoItem: .notice,
-                    isOn: $noticeAlertEnabled
-                )
-                .onChange(of: noticeAlertEnabled) { enabled in
+        settingsGroup("알림") {
+            toggleRow(
+                title: "막차 30분 전 알림",
+                description: "매일 막차 출발 30분 전에 알려드려요",
+                isOn: $lastMileAlertEnabled
+            )
+            .onChange(of: lastMileAlertEnabled) { enabled in
+                Task {
                     if enabled {
-                        Messaging.messaging().subscribe(toTopic: "notices")
+                        await viewModel.scheduleLastBusNotification()
                     } else {
-                        Messaging.messaging().unsubscribe(fromTopic: "notices")
+                        viewModel.cancelLastBusNotification()
                     }
-                    toast = enabled
-                        ? ToastMessage(icon: "megaphone.fill", message: "공지 알림이 켜졌습니다")
-                        : ToastMessage(icon: "megaphone.fill", message: "공지 알림이 꺼졌습니다")
                 }
+                toast = enabled
+                    ? ToastMessage(icon: "bell.fill", message: "막차 알림이 켜졌습니다")
+                    : ToastMessage(icon: "bell.slash.fill", message: "막차 알림이 꺼졌습니다")
             }
-            .settingsCard()
+
+            RowDivider()
+
+            toggleRow(
+                title: "Live Activity",
+                description: "알림 설정한 버스가 20분 안에 출발하면 잠금 화면과 Dynamic Island에 카운트다운",
+                isOn: $liveActivityEnabled
+            )
+            .onChange(of: liveActivityEnabled) { enabled in
+                toast = enabled
+                    ? ToastMessage(icon: "livephoto", message: "Live Activity가 활성화됩니다")
+                    : ToastMessage(icon: "livephoto.slash", message: "Live Activity가 비활성화됩니다")
+            }
+
+            RowDivider()
+
+            toggleRow(
+                title: "공지사항 알림",
+                description: "시간표 변경·임시 운휴 같은 공지를 푸시로 받아요",
+                isOn: $noticeAlertEnabled
+            )
+            .onChange(of: noticeAlertEnabled) { enabled in
+                if enabled {
+                    Messaging.messaging().subscribe(toTopic: "notices")
+                } else {
+                    Messaging.messaging().unsubscribe(fromTopic: "notices")
+                }
+                toast = enabled
+                    ? ToastMessage(icon: "megaphone.fill", message: "공지 알림이 켜졌습니다")
+                    : ToastMessage(icon: "megaphone.fill", message: "공지 알림이 꺼졌습니다")
+            }
         }
     }
 
-    private func notificationGroupHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(HomeDashboardTheme.secondaryText)
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 4)
-    }
+    private func toggleRow(title: String, description: String, isOn: Binding<Bool>) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(AppTheme.Typography.rowBody)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                Text(description)
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
-    private func notificationRow(
-        title: String,
-        infoItem: NotificationInfoItem,
-        isOn: Binding<Bool>
-    ) -> some View {
-        HStack(spacing: 8) {
-            Text(title)
-                .font(.system(size: 16))
-                .foregroundStyle(HomeDashboardTheme.primaryText)
+            Spacer(minLength: 8)
 
-            NotificationInfoButton(item: infoItem)
-
-            Spacer()
-
-            Toggle("", isOn: isOn)
+            Toggle(title, isOn: isOn)
                 .labelsHidden()
-                .tint(HomeDashboardTheme.primaryBlue)
+                .tint(AppTheme.Color.accent)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
     }
 
-    // MARK: - 디스플레이
+    // MARK: - 화면
 
     private var displaySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("디스플레이")
+        settingsGroup("화면") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("화면 모드")
+                    .font(AppTheme.Typography.rowBody)
+                    .foregroundStyle(AppTheme.Color.primaryText)
 
-            VStack(spacing: 0) {
-                ForEach(Array(AppColorScheme.allCases.enumerated()), id: \.element.rawValue) { index, scheme in
-                    Button {
-                        colorSchemeRaw = scheme.rawValue
-                    } label: {
-                        HStack {
-                            Text(scheme.label)
-                                .font(.system(size: 16))
-                                .foregroundStyle(HomeDashboardTheme.primaryText)
-                            Spacer()
-                            if colorScheme == scheme {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(HomeDashboardTheme.primaryBlue)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    if index < AppColorScheme.allCases.count - 1 {
-                        rowDivider
-                    }
-                }
+                PillSegment(
+                    items: AppColorScheme.allCases,
+                    selected: colorScheme,
+                    label: { $0.shortLabel },
+                    onSelect: { colorSchemeRaw = $0.rawValue }
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppTheme.Color.surfaceSecondary)
+                )
             }
-            .settingsCard()
+            .padding(16)
         }
     }
 
     // MARK: - 정보
 
     private var infoSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("정보")
-
-            VStack(spacing: 0) {
-                // 버전 정보
-                HStack {
-                    Text("버전 정보")
-                        .font(.system(size: 16))
-                        .foregroundStyle(HomeDashboardTheme.primaryText)
-                    Spacer()
-                    Text("v\(appVersion)")
-                        .font(.system(size: 15))
-                        .foregroundStyle(HomeDashboardTheme.secondaryText)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-
-                rowDivider
-
-                // 이용 안내
-                NavigationLink(destination: BusTipsView()) {
-                    infoNavigationRow("버스 이용 안내")
-                }
-                .buttonStyle(.plain)
-
-                rowDivider
-
-                // 시간표 제보
-                NavigationLink(destination: ReportView()) {
-                    infoNavigationRow("시간표 제보")
-                }
-                .buttonStyle(.plain)
-
-                rowDivider
-
-                // 문의하기
-                NavigationLink(destination: ContactView()) {
-                    infoNavigationRow("문의하기")
-                }
-                .buttonStyle(.plain)
-
-                rowDivider
-
-                // 이용약관 및 개인정보 처리방침
-                NavigationLink(destination: PrivacyPolicyView()) {
-                    infoNavigationRow("이용약관 및 개인정보 처리방침")
-                }
-                .buttonStyle(.plain)
-
-                rowDivider
-
-                // 앱 공유
-                ShareLink(item: shareMessage) {
-                    infoNavigationRow("앱 공유")
-                }
-                .buttonStyle(.plain)
+        settingsGroup("정보") {
+            NavigationLink(destination: BusTipsView()) {
+                navigationRow("버스 이용 안내")
             }
-            .settingsCard()
+            .buttonStyle(.plain)
+
+            RowDivider()
+
+            NavigationLink(destination: ReportView()) {
+                navigationRow("시간표 제보")
+            }
+            .buttonStyle(.plain)
+
+            RowDivider()
+
+            NavigationLink(destination: ContactView()) {
+                navigationRow("문의하기")
+            }
+            .buttonStyle(.plain)
+
+            RowDivider()
+
+            ShareLink(item: shareMessage) {
+                navigationRow("앱 공유", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(.plain)
         }
     }
 
-    // MARK: - 데이터 관리
+    // MARK: - 데이터
 
     private var dataSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("데이터")
+        settingsGroup("데이터") {
+            HStack {
+                Text("시간표 기준일")
+                    .font(AppTheme.Typography.rowBody)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                Spacer()
+                Text(viewModel.updatedAtText)
+                    .font(AppTheme.Typography.rowValue)
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 52)
 
-            VStack(spacing: 0) {
-                // 시간표 기준일
-                HStack {
-                    Text("시간표 기준일")
-                        .font(.system(size: 16))
-                        .foregroundStyle(HomeDashboardTheme.primaryText)
+            RowDivider()
+
+            Button {
+                showClearCacheConfirm = true
+            } label: {
+                HStack(spacing: 10) {
+                    if isRefreshing {
+                        ProgressView()
+                            .tint(AppTheme.Color.secondaryText)
+                    }
+                    Text(isRefreshing ? "새로고침 중..." : "최신 데이터로 새로고침")
+                        .font(AppTheme.Typography.rowBody)
+                        .foregroundStyle(isRefreshing ? AppTheme.Color.secondaryText : AppTheme.Color.primaryText)
                     Spacer()
-                    Text(viewModel.updatedAtText)
-                        .font(.system(size: 15))
-                        .foregroundStyle(HomeDashboardTheme.secondaryText)
+                    if viewModel.isOffline {
+                        LabelChip(text: "오프라인")
+                    }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-
-                rowDivider
-
-                // 캐시 초기화
-                Button {
-                    showClearCacheConfirm = true
-                } label: {
-                    HStack {
-                        if isRefreshing {
-                            ProgressView()
-                                .tint(HomeDashboardTheme.secondaryText)
-                                .frame(width: 16, height: 16)
-                        }
-                        Text(isRefreshing ? "새로고침 중..." : "최신 데이터로 새로고침")
-                            .font(.system(size: 16))
-                            .foregroundStyle(isRefreshing ? HomeDashboardTheme.secondaryText : HomeDashboardTheme.primaryText)
-                        Spacer()
-                        if viewModel.isOffline {
-                            Text("오프라인")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(HomeDashboardTheme.tertiaryText)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(HomeDashboardTheme.border)
-                                .clipShape(Capsule())
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(isRefreshing)
+                .frame(height: 52)
+                .contentShape(Rectangle())
             }
-            .settingsCard()
-
-            if viewModel.isOffline {
-                Text("네트워크 연결이 없어 저장된 데이터를 사용 중입니다.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-                    .padding(.horizontal, 12)
-            }
+            .buttonStyle(.plain)
+            .disabled(isRefreshing)
         }
     }
 
-    // MARK: - 공지사항 데이터
+    // MARK: - 푸터
 
-    private var sampleNotices: [NoticeItem] {
-        [
-            NoticeItem(
-                id: "notice-001",
-                title: "2025년 8월 25일부\n운행 시간표 변경 안내",
-                date: "2025.08.14",
-                author: "관리자",
-                isNew: true,
-                body: [
-                    "안녕하세요. 장유-사상 시외버스 운행 시간표가 2025년 8월 25일부로 일부 변경됩니다.",
-                    "이번 변경은 최근 출퇴근 시간대의 교통 혼잡도 증가와 이용객 수요 변화를 반영하여 더 효율적인 배차 간격을 제공하기 위함입니다. 이용에 착오 없으시길 바랍니다.",
-                    "자세한 변경 시간표는 아래를 참고해 주시기 바랍니다."
-                ],
-                timetableSummary: NoticeTimetableSummary(
-                    effectiveDate: "2025.08.25",
-                    departureLabel: "장유 출발",
-                    arrivalLabel: "사상 도착",
-                    rows: [
-                        NoticeTimetableRow(departure: "06:20", arrival: "06:46", isNew: false),
-                        NoticeTimetableRow(departure: "06:40", arrival: "07:06", isNew: true),
-                        NoticeTimetableRow(departure: "07:00", arrival: "07:26", isNew: false),
-                        NoticeTimetableRow(departure: "07:20", arrival: "07:46", isNew: true),
-                        NoticeTimetableRow(departure: "07:35", arrival: "08:01", isNew: false)
-                    ],
-                    note: "* 도로 사정에 따라 도착 시간이 지연될 수 있습니다.",
-                    fullScheduleImageURL: nil
-                )
-            ),
-            NoticeItem(
-                id: "notice-002",
-                title: "[안내] 시스템 정기 점검에 따른 서비스 일시 중단",
-                date: "2023.10.20",
-                author: "관리자",
-                body: ["정기 서버 점검으로 인해 일부 기능이 일시 중단될 수 있습니다."],
-                timetableSummary: nil
-            ),
-            NoticeItem(
-                id: "notice-003",
-                title: "추석 연휴 기간 셔틀버스 운행 안내",
-                date: "2023.09.25",
-                author: "관리자",
-                body: ["추석 연휴 기간 동안 주말 시간표로 운행됩니다."],
-                timetableSummary: nil
-            )
-        ]
+    private var footer: some View {
+        HStack(spacing: 6) {
+            Text("v\(appVersion)")
+            Text("·")
+            NavigationLink(destination: PrivacyPolicyView()) {
+                Text("이용약관 및 개인정보 처리방침")
+                    .underline()
+            }
+            .buttonStyle(.plain)
+        }
+        .font(AppTheme.Typography.footnote)
+        .foregroundStyle(AppTheme.Color.tertiaryText)
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 44)
+        .padding(.top, 4)
     }
 
     // MARK: - 헬퍼 뷰
 
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 12, weight: .medium))
-            .tracking(0.3)
-            .foregroundStyle(HomeDashboardTheme.secondaryText)
-            .padding(.horizontal, 12)
+    private func settingsGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(AppTheme.Typography.groupTitle)
+                .foregroundStyle(AppTheme.Color.primaryText)
+
+            VStack(spacing: 0) {
+                content()
+            }
+            .surfaceCard()
+        }
     }
 
-    private func infoNavigationRow(_ title: String) -> some View {
+    private func navigationRow(_ title: String, systemImage: String? = nil) -> some View {
         HStack {
             Text(title)
-                .font(.system(size: 16))
-                .foregroundStyle(HomeDashboardTheme.primaryText)
+                .font(AppTheme.Typography.rowBody)
+                .foregroundStyle(AppTheme.Color.primaryText)
             Spacer()
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(HomeDashboardTheme.tertiaryText)
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+            } else {
+                chevron
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .frame(height: 52)
         .contentShape(Rectangle())
     }
 
-    private var rowDivider: some View {
-        Rectangle()
-            .fill(HomeDashboardTheme.border)
-            .frame(height: 0.5)
-            .padding(.leading, 16)
-    }
-}
-
-// MARK: - Notification Info Button
-
-private struct NotificationInfoButton: View {
-    let item: InfoView.NotificationInfoItem
-    @State private var showPopover = false
-
-    var body: some View {
-        Button {
-            showPopover = true
-        } label: {
-            Image(systemName: "info.circle")
-                .font(.system(size: 14))
-                .foregroundStyle(HomeDashboardTheme.tertiaryText)
-        }
-        .buttonStyle(.plain)
-        .popover(isPresented: $showPopover, arrowEdge: .top) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(item.title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-                Text(item.description)
-                    .font(.system(size: 13))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(16)
-            .frame(width: 260, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .compactPopoverAdaptation()
-            .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
-        }
-    }
-}
-
-// MARK: - View Modifier
-
-private struct SettingsCardModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
-            .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
-    }
-}
-
-private extension View {
-    func settingsCard() -> some View {
-        modifier(SettingsCardModifier())
-    }
-
-    @ViewBuilder
-    func compactPopoverAdaptation() -> some View {
-        if #available(iOS 16.4, *) {
-            self.presentationCompactAdaptation(.popover)
-        } else {
-            self
-        }
+    private var chevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(AppTheme.Color.secondaryText)
     }
 }
 
