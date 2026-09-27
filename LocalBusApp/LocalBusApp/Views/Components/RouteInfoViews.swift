@@ -25,10 +25,8 @@ struct StopsScreenView: View {
     @State private var fitToRoute = false
     @State private var userLocation: CLLocation? = nil
 
-    // 시트 상태 (SwiftUI 표준 sheet)
-    @State private var isSheetPresented: Bool = true
-    @State private var sheetDetent: PresentationDetent = .medium
-    private let peekDetent: PresentationDetent = .height(120)
+    // 하단 패널 상태. 모달 시트가 아니라 뷰 안의 패널이라 탭 바가 가려지지 않는다.
+    @State private var panelDetent: MapPanelDetent = .medium
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -112,12 +110,7 @@ struct StopsScreenView: View {
                         guard let stop = stops.first(where: { $0.id == stopID }) else { return }
                         withAnimation(.easeInOut(duration: 0.3)) {
                             selectedStop = stop
-                        }
-                        if !isSheetPresented {
-                            isSheetPresented = true
-                        }
-                        if sheetDetent == peekDetent {
-                            sheetDetent = .medium
+                            if panelDetent == .peek { panelDetent = .medium }
                         }
                     },
                     onLocationUpdate: { location in
@@ -131,34 +124,10 @@ struct StopsScreenView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
 
-            // 시트 닫혔을 때 다시 열기 버튼
-            if !isSheetPresented {
-                VStack {
-                    Spacer()
-                    Button {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        isSheetPresented = true
-                        sheetDetent = .medium
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text("정류장 정보")
-                                .font(AppTheme.Typography.buttonLabel)
-                            Image(systemName: "chevron.up")
-                                .font(.system(size: 12, weight: .bold))
-                        }
-                        .foregroundStyle(AppTheme.Color.primaryText)
-                        .padding(.horizontal, 18)
-                        .frame(height: 44)
-                        .glassCard(in: Capsule(), fallback: AppTheme.Color.surface, interactive: true)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("정류장 정보 열기")
-                    .padding(.bottom, 24)
-                }
-                .transition(.asymmetric(
-                    insertion: .move(edge: .bottom).combined(with: .opacity),
-                    removal: .opacity
-                ))
+        }
+        .overlay(alignment: .bottom) {
+            MapBottomPanel(detent: $panelDetent) {
+                sheetContent
             }
         }
         .onAppear {
@@ -172,28 +141,15 @@ struct StopsScreenView: View {
             selectDefaultStopIfNeeded()
         }
         .onChange(of: presentationToken) { _ in
-            isSheetPresented = true
-            sheetDetent = .medium
+            withAnimation(.easeInOut(duration: 0.25)) { panelDetent = .medium }
             selectDefaultStopIfNeeded()
-        }
-        .sheet(isPresented: $isSheetPresented) {
-            ScrollView(showsIndicators: false) {
-                sheetContent
-                    .padding(.bottom, 40)
-            }
-            .background(AppTheme.Color.sheetBackground)
-            .presentationDetents([peekDetent, .medium, .large], selection: $sheetDetent)
-            .presentationDragIndicator(.visible)
-            .sheetEnhancements()
         }
     }
 
     // MARK: - Sheet 높이 추정 (지도 핀 centering / 노선 fit 보정용)
 
     private func estimatedSheetTopY(for screenHeight: CGFloat) -> CGFloat {
-        if sheetDetent == .large { return screenHeight * 0.10 }
-        if sheetDetent == .medium { return screenHeight * 0.50 }
-        return screenHeight * 0.85
+        screenHeight - panelDetent.height(in: screenHeight)
     }
 
     // MARK: - 플로팅 노선 바
@@ -326,12 +282,12 @@ struct StopsScreenView: View {
 
                 Button {
                     withAnimation(.easeInOut(duration: 0.25)) {
-                        sheetDetent = sheetDetent == .large ? .medium : .large
+                        panelDetent = panelDetent == .large ? .medium : .large
                     }
                 } label: {
                     HStack(spacing: 6) {
                         Text("정류장 \(currentStops.count)곳")
-                        Image(systemName: sheetDetent == .large ? "chevron.down" : "chevron.up")
+                        Image(systemName: panelDetent == .large ? "chevron.down" : "chevron.up")
                             .font(.system(size: 12, weight: .bold))
                     }
                 }
@@ -472,6 +428,82 @@ struct StopsScreenView: View {
         let item = MKMapItem(placemark: MKPlacemark(coordinate: coord))
         item.name = stop.name
         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDefault])
+    }
+}
+
+// MARK: - 하단 패널 (뷰 안의 시트)
+
+/// 지도 위 하단 패널의 높이 단계.
+enum MapPanelDetent: Equatable {
+    case peek, medium, large
+
+    func height(in containerHeight: CGFloat) -> CGFloat {
+        switch self {
+        case .peek: return 132
+        case .medium: return containerHeight * 0.50
+        case .large: return containerHeight * 0.88
+        }
+    }
+}
+
+/// 모달 `.sheet` 대신 쓰는 뷰 내부 패널. 탭 바와 지도 컨트롤을 가리지 않고, 손잡이를 끌어 높이를 바꾼다.
+struct MapBottomPanel<Content: View>: View {
+    @Binding var detent: MapPanelDetent
+    @ViewBuilder let content: () -> Content
+
+    @State private var dragOffset: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            let containerHeight = geo.size.height
+            let baseHeight = detent.height(in: containerHeight)
+            let height = min(max(baseHeight - dragOffset, MapPanelDetent.peek.height(in: containerHeight)),
+                             MapPanelDetent.large.height(in: containerHeight))
+
+            VStack(spacing: 0) {
+                Capsule()
+                    .fill(AppTheme.Color.secondaryButton)
+                    .frame(width: 36, height: 5)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel("정류장 패널 손잡이")
+                    .accessibilityHint("위아래로 끌어 패널 높이를 바꿉니다")
+
+                ScrollView(showsIndicators: false) {
+                    content()
+                        .padding(.bottom, 40)
+                }
+                .scrollDisabled(detent != .large)
+            }
+            .frame(width: geo.size.width, height: height, alignment: .top)
+            .background(
+                UnevenRoundedRectangle(topLeadingRadius: 28, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 28, style: .continuous)
+                    .fill(AppTheme.Color.sheetBackground)
+                    .shadow(color: .black.opacity(0.25), radius: 20, x: 0, y: -4)
+            )
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .gesture(
+                DragGesture(minimumDistance: 8)
+                    .onChanged { value in
+                        dragOffset = value.translation.height
+                    }
+                    .onEnded { value in
+                        let projected = baseHeight - value.predictedEndTranslation.height
+                        let candidates: [MapPanelDetent] = [.peek, .medium, .large]
+                        let nearest = candidates.min {
+                            abs($0.height(in: containerHeight) - projected) < abs($1.height(in: containerHeight) - projected)
+                        } ?? .medium
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            dragOffset = 0
+                            detent = nearest
+                        }
+                    }
+            )
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: detent)
+        }
+        .ignoresSafeArea(.keyboard)
     }
 }
 

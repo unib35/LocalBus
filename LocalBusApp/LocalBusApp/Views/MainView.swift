@@ -29,8 +29,8 @@ private enum AppDeepLink {
 
 /// 메인 화면
 struct MainView: View {
-    // 정류장 위치 탭은 다음 버전에 도입 예정. 활성화하려면 true 로 변경.
-    private let isStopsTabEnabled = false
+    /// 정류장(지도) 탭. 끄려면 false 로 변경.
+    private let isStopsTabEnabled = true
 
     @StateObject private var viewModel: MainViewModel
 
@@ -62,7 +62,7 @@ struct MainView: View {
 
             if isStopsTabEnabled {
                 stopsTab
-                    .tabItem { Label("정류장 위치", systemImage: "map") }
+                    .tabItem { Label("정류장", systemImage: "map") }
                     .tag(MainTab.stops)
             }
 
