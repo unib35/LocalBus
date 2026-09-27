@@ -673,6 +673,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "장유시외버스";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_KakaoRestAPIKey = "$(KAKAO_REST_API_KEY)";
+				INFOPLIST_KEY_NSCameraUsageDescription = "변경된 시간표를 찍어 제보하기 위해 카메라를 사용합니다.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치를 지도에 표시하기 위해 위치 정보를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -707,6 +708,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "장유시외버스";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_KakaoRestAPIKey = "$(KAKAO_REST_API_KEY)";
+				INFOPLIST_KEY_NSCameraUsageDescription = "변경된 시간표를 찍어 제보하기 위해 카메라를 사용합니다.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치를 지도에 표시하기 위해 위치 정보를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

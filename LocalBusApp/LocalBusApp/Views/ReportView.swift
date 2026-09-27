@@ -3,13 +3,18 @@ import PhotosUI
 import MessageUI
 import UIKit
 
-// MARK: - 시간표 제보 화면
+// MARK: - 시간표 제보 화면 (디자인 캔버스 개선안)
+//
+// 점선 업로드 박스 하나 대신 "사진 찍기 / 앨범에서 선택" 두 버튼. 어느 노선 제보인지 칩으로 고른다.
+// 보내면 메일 앱이 열리고 기기 정보가 함께 담긴다는 것을 미리 알린다.
 
 struct ReportView: View {
     @State private var selectedItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
+    @State private var selectedDirection: RouteDirection = .jangyuToSasang
     @State private var description = ""
 
+    @State private var isShowingCamera = false
     @State private var isShowingMailComposer = false
     @State private var isShowingMailUnavailableAlert = false
     @State private var sendResultMessage: String?
@@ -21,24 +26,48 @@ struct ReportView: View {
         selectedImage != nil || !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var isCameraAvailable: Bool {
+        UIImagePickerController.isSourceTypeAvailable(.camera)
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 28) {
-                uploadSection
-                formSection
+            VStack(alignment: .leading, spacing: 24) {
+                header
+                photoSection
+                routeSection
+                descriptionSection
+
+                Text("보내면 메일 앱이 열립니다 · 앱 버전과 기기 정보가 함께 담깁니다")
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 20)
-            .padding(.top, 24)
+            .padding(.top, 8)
             .padding(.bottom, 24)
         }
         .background(AmbientBackground())
         .safeAreaInset(edge: .bottom) {
             bottomButton
         }
-        .navigationTitle("시간표 제보")
         .navigationBarTitleDisplayMode(.inline)
-        .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
+        .legacyToolbarBackground(AppTheme.Color.screenBackground.opacity(0.95))
         .toolbar(.hidden, for: .tabBar)
+        .onChange(of: selectedItem) { newItem in
+            Task {
+                if let data = try? await newItem?.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    selectedImage = image
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $isShowingCamera) {
+            CameraPicker { image in
+                selectedImage = image
+            }
+            .ignoresSafeArea()
+        }
         .sheet(isPresented: $isShowingMailComposer) {
             MailComposeView(
                 recipients: [recipientEmail],
@@ -67,157 +96,162 @@ struct ReportView: View {
         }
     }
 
-    // MARK: - 업로드 섹션
+    // MARK: - 헤더
 
-    private var uploadSection: some View {
-        PhotosPicker(selection: $selectedItem, matching: .images) {
-            ZStack {
-                if let image = selectedImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 200)
-                        .clipped()
-                } else {
-                    VStack(spacing: 14) {
-                        ZStack {
-                            Circle()
-                                .fill(HomeDashboardTheme.border)
-                                .frame(width: 60, height: 60)
-                            Image(systemName: "camera.badge.plus")
-                                .font(.system(size: 22))
-                                .foregroundStyle(HomeDashboardTheme.primaryText)
-                        }
-                        VStack(spacing: 4) {
-                            Text("사진 업로드")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(HomeDashboardTheme.primaryText)
-                            Text("변경된 시간표 사진을 찍어주세요")
-                                .font(.system(size: 13))
-                                .foregroundStyle(HomeDashboardTheme.secondaryText)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 52)
-                }
-            }
-            .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground, interactive: true)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(
-                        HomeDashboardTheme.border,
-                        style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
-                    )
-            )
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("시간표 제보")
+                .font(AppTheme.Typography.screenTitle)
+                .foregroundStyle(AppTheme.Color.primaryText)
+            Text("정류장에 붙은 새 시간표를 찍어 보내주세요. 확인 후 앱에 반영됩니다")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(AppTheme.Color.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .onChange(of: selectedItem) { newItem in
-            Task {
-                if let data = try? await newItem?.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data) {
-                    selectedImage = image
+    }
+
+    // MARK: - 사진
+
+    @ViewBuilder
+    private var photoSection: some View {
+        if let image = selectedImage {
+            VStack(alignment: .leading, spacing: 10) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.surface, style: .continuous))
+                    .accessibilityLabel("첨부한 시간표 사진")
+
+                Button("사진 빼기") {
+                    selectedImage = nil
+                    selectedItem = nil
+                }
+                .font(AppTheme.Typography.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.Color.secondaryText)
+                .frame(minHeight: 44)
+            }
+        } else {
+            HStack(spacing: 10) {
+                if isCameraAvailable {
+                    Button {
+                        isShowingCamera = true
+                    } label: {
+                        uploadTile(systemImage: "camera", title: "사진 찍기")
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                PhotosPicker(selection: $selectedItem, matching: .images) {
+                    uploadTile(systemImage: "photo.on.rectangle", title: "앨범에서 선택")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func uploadTile(systemImage: String, title: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(AppTheme.Color.primaryText)
+            Text(title)
+                .font(AppTheme.Typography.buttonLabel)
+                .foregroundStyle(AppTheme.Color.primaryText)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 108)
+        .surfaceCard(interactive: true)
+        .contentShape(RoundedRectangle(cornerRadius: AppTheme.Radius.surface, style: .continuous))
+    }
+
+    // MARK: - 노선
+
+    private var routeSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("어느 노선인가요?")
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Color.secondaryText)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(RouteDirection.allCases, id: \.self) { direction in
+                    SelectableChip(
+                        title: direction.displayName,
+                        isSelected: selectedDirection == direction,
+                        action: { selectedDirection = direction }
+                    )
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
     }
 
-    // MARK: - 폼 섹션
+    // MARK: - 설명
 
-    private var formSection: some View {
-        VStack(spacing: 20) {
-            // 텍스트 입력
-            VStack(alignment: .leading, spacing: 8) {
-                Text("추가 설명 (선택 사항)")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
+    private var descriptionSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("무엇이 바뀌었나요? (선택)")
+                .font(AppTheme.Typography.caption)
+                .foregroundStyle(AppTheme.Color.secondaryText)
 
-                ZStack(alignment: .topLeading) {
-                    TextEditor(text: $description)
-                        .font(.system(size: 15))
-                        .foregroundStyle(HomeDashboardTheme.primaryText)
-                        .scrollContentBackground(.hidden)
-                        .padding(.horizontal, 12)
-                        .padding(.top, 10)
-                        .padding(.bottom, 36)
-                        .frame(minHeight: 148)
-                        .glassCard(cornerRadius: 10, fallback: HomeDashboardTheme.cardBackground)
-                        .fallbackCardBorder(cornerRadius: 10, color: HomeDashboardTheme.border)
-                        .onChange(of: description) { newValue in
-                            if newValue.count > maxCharacters {
-                                description = String(newValue.prefix(maxCharacters))
-                            }
-                        }
-
-                    if description.isEmpty {
-                        Text("변경된 내용에 대해 간략히 적어주세요.")
-                            .font(.system(size: 15))
-                            .foregroundStyle(HomeDashboardTheme.tertiaryText)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 14)
-                            .allowsHitTesting(false)
-                    }
-
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Text("\(description.count)/\(maxCharacters)")
-                                .font(.system(size: 11))
-                                .foregroundStyle(HomeDashboardTheme.tertiaryText)
-                                .padding(.trailing, 12)
-                                .padding(.bottom, 10)
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $description)
+                    .font(AppTheme.Typography.rowBody)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                    .scrollContentBackground(.hidden)
+                    .padding(.horizontal, 11)
+                    .padding(.top, 8)
+                    .padding(.bottom, 36)
+                    .frame(minHeight: 120)
+                    .surfaceCard()
+                    .onChange(of: description) { newValue in
+                        if newValue.count > maxCharacters {
+                            description = String(newValue.prefix(maxCharacters))
                         }
                     }
-                    .frame(minHeight: 148)
+
+                if description.isEmpty {
+                    Text("예: 22:40 막차가 없어졌어요")
+                        .font(AppTheme.Typography.rowBody)
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .allowsHitTesting(false)
                 }
-            }
 
-            // 안내 박스
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 13))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-                    .padding(.top, 1)
-
-                Text("사용자님의 제보는 검토 후 서비스에 즉시 반영됩니다. 정확한 정보 공유를 위해 노력해주셔서 감사합니다.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(HomeDashboardTheme.secondaryText)
-                    .lineSpacing(3)
+                Text("\(description.count) / \(maxCharacters)")
+                    .font(AppTheme.Typography.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 14)
+                    .padding(.bottom, 12)
+                    .frame(minHeight: 120)
+                    .allowsHitTesting(false)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .glassCard(cornerRadius: 8, fallback: HomeDashboardTheme.cardBackground)
-            .fallbackCardBorder(cornerRadius: 8, color: HomeDashboardTheme.border)
         }
     }
 
     // MARK: - 하단 버튼
 
     private var bottomButton: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(HomeDashboardTheme.border)
-                .frame(height: 0.5)
-
-            Button {
-                presentMailComposer()
-            } label: {
+        Button {
+            presentMailComposer()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "paperplane")
+                    .font(.system(size: 16, weight: .semibold))
                 Text("제보 보내기")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(AppTheme.Color.primaryForeground)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(canSend ? HomeDashboardTheme.primaryBlue : HomeDashboardTheme.primaryBlue.opacity(0.4))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
-            .buttonStyle(.plain)
-            .disabled(!canSend)
-            .padding(.horizontal, 16)
-            .padding(.top, 17)
-            .padding(.bottom, 32)
         }
-        .background(HomeDashboardTheme.screenBackground)
+        .buttonStyle(PrimaryButtonStyle(height: 52))
+        .disabled(!canSend)
+        .opacity(canSend ? 1 : 0.45)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .background(AppTheme.Color.screenBackground.opacity(0.95))
     }
 
     // MARK: - 액션
@@ -253,7 +287,7 @@ struct ReportView: View {
     // MARK: - 메일 내용
 
     private var mailSubject: String {
-        "[장유시외버스] 시간표 변경 제보"
+        "[장유시외버스] 시간표 변경 제보 · \(selectedDirection.displayName)"
     }
 
     private var mailBody: String {
@@ -264,15 +298,10 @@ struct ReportView: View {
         var lines: [String] = []
         lines.append("안녕하세요, 시간표 변경 제보드립니다.")
         lines.append("")
-
-        if trimmedDescription.isEmpty {
-            lines.append("[추가 설명]")
-            lines.append("(작성된 설명 없음)")
-        } else {
-            lines.append("[추가 설명]")
-            lines.append(trimmedDescription)
-        }
-
+        lines.append("[노선] \(selectedDirection.displayName)")
+        lines.append("")
+        lines.append("[바뀐 내용]")
+        lines.append(trimmedDescription.isEmpty ? "(작성된 설명 없음)" : trimmedDescription)
         lines.append("")
         lines.append("---")
         lines.append("앱 버전: \(appVersion) (\(buildNumber))")
@@ -295,6 +324,51 @@ struct ReportView: View {
                 fileName: "timetable-\(timestamp).jpg"
             )
         ]
+    }
+}
+
+// MARK: - 카메라
+
+/// 시스템 카메라로 사진 한 장을 찍는다.
+struct CameraPicker: UIViewControllerRepresentable {
+    let onCapture: (UIImage) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onCapture: onCapture, dismiss: { dismiss() })
+    }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let onCapture: (UIImage) -> Void
+        let dismiss: () -> Void
+
+        init(onCapture: @escaping (UIImage) -> Void, dismiss: @escaping () -> Void) {
+            self.onCapture = onCapture
+            self.dismiss = dismiss
+        }
+
+        func imagePickerController(
+            _ picker: UIImagePickerController,
+            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
+        ) {
+            if let image = info[.originalImage] as? UIImage {
+                onCapture(image)
+            }
+            dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            dismiss()
+        }
     }
 }
 
