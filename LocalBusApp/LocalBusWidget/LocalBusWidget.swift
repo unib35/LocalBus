@@ -282,6 +282,11 @@ private enum WidgetDeepLink {
         components.queryItems = [URLQueryItem(name: directionQueryItem, value: routeKey)]
         return components.url
     }
+
+    /// 잠긴 위젯을 누르면 앱의 Pro 결제 화면으로
+    static var paywallURL: URL? {
+        URL(string: "\(scheme)://paywall")
+    }
 }
 
 private extension View {
@@ -317,7 +322,7 @@ struct LocalBusWidgetEntryView: View {
                 LockedWidgetView()
             }
         }
-        .widgetURL(WidgetDeepLink.url(for: entry.routeKey))
+        .widgetURL(entry.isPro ? WidgetDeepLink.url(for: entry.routeKey) : WidgetDeepLink.paywallURL)
     }
 
     @ViewBuilder
@@ -378,21 +383,41 @@ struct LockedWidgetView: View {
         }
     }
 
+    /// 디자인 캔버스 WidgetLocked: 값 자리를 비운 채 "Pro에서 쓸 수 있어요"와 결제 화면 링크 한 줄
     private var homeScreenLocked: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("장유사상버스")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(WidgetTheme.secondaryText)
+                Spacer(minLength: 0)
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(WidgetTheme.secondaryText)
+            }
 
             Spacer(minLength: 0)
 
-            Text("Pro 업그레이드")
-                .font(.system(size: 15, weight: .bold))
+            HStack(alignment: .lastTextBaseline, spacing: 4) {
+                Text("--")
+                    .font(.system(size: 56, weight: .heavy, design: .rounded))
+                    .tracking(-1.5)
+                Text("분")
+                    .font(.system(size: 18, weight: .bold))
+            }
+            .foregroundStyle(Color(white: 0.23))
+
+            Text("위젯은 Pro에서 쓸 수 있어요")
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white)
-            Text("위젯은 앱에서 Pro를 시작하면 켜져요")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(WidgetTheme.secondaryText)
+                .padding(.top, 6)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+
+            Text("눌러서 Pro 보기")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(WidgetTheme.accent)
         }
         .padding(16)
         .widgetCanvas(alignment: .topLeading)

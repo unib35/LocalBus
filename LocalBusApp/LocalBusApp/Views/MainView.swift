@@ -13,6 +13,10 @@ private enum AppDeepLink {
     static let host = "route"
     static let directionQueryItem = "direction"
 
+    static func isPaywall(_ url: URL) -> Bool {
+        url.scheme == scheme && url.host == "paywall"
+    }
+
     static func routeDirection(from url: URL) -> RouteDirection? {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.scheme == scheme,
@@ -39,6 +43,8 @@ struct MainView: View {
     }
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
     @State private var selectedTab: MainTab = .home
+    @State private var showPaywall = false
+    @EnvironmentObject private var storeService: StoreService
     @State private var stopsSheetPresentationToken = 0
     @State private var showTimetableShareSheet = false
     @State private var timetableShareImage: UIImage?
@@ -91,6 +97,10 @@ struct MainView: View {
             stopsSheetPresentationToken += 1
         }
         .onOpenURL(perform: handleDeepLink)
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
+                .environmentObject(storeService)
+        }
         .alert("알림 권한이 필요합니다", isPresented: $showNotificationDeniedAlert) {
             Button("설정으로 이동") {
                 guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
@@ -334,6 +344,10 @@ struct MainView: View {
     }
 
     private func handleDeepLink(_ url: URL) {
+        if AppDeepLink.isPaywall(url) {
+            showPaywall = true
+            return
+        }
         guard let direction = AppDeepLink.routeDirection(from: url) else { return }
 
         selectedTab = .home
@@ -345,6 +359,7 @@ struct MainView: View {
 
 #Preview {
     MainView(viewModel: MainViewModel())
+        .environmentObject(StoreService())
 }
 
 private extension MainTab {
