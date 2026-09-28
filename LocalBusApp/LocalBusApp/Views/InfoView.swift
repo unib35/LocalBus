@@ -41,6 +41,7 @@ enum AppColorScheme: Int, CaseIterable {
 
 struct InfoView: View {
     @ObservedObject var viewModel: MainViewModel
+    var onShowTimetable: (() -> Void)? = nil
     @EnvironmentObject private var storeService: StoreService
 
     @AppStorage("lastMileAlertEnabled") private var lastMileAlertEnabled = true
@@ -48,16 +49,17 @@ struct InfoView: View {
     @AppStorage("noticeAlertEnabled") private var noticeAlertEnabled = true
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
 
-    /// 시간표 데이터 카드의 상태
+    /// 시간표 데이터 행의 상태
     private enum UpdatePhase: Equatable {
         case idle
         case checking
         case latest
-        case updated(from: String, to: String)
+        case updated(from: String, to: String, changes: [TimetableChange])
         case failed
     }
 
     @State private var updatePhase: UpdatePhase = .idle
+    @State private var revertTask: Task<Void, Never>?
     @State private var toast: ToastMessage?
     @State private var showPaywall = false
 
@@ -111,10 +113,10 @@ struct InfoView: View {
         }
     }
 
-    // MARK: - 시간표 데이터 카드
+    // MARK: - 시간표 데이터 (한 줄 + 새로고침 버튼)
 
     private var timetableDataCard: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
                 updateIcon
 
@@ -129,85 +131,117 @@ struct InfoView: View {
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                .accessibilityElement(children: .combine)
 
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 14)
-            .accessibilityElement(children: .combine)
+                Spacer(minLength: 8)
 
-            RowDivider()
-
-            if case .updated = updatePhase {
-                NavigationLink(destination: noticeList) {
-                    HStack(spacing: 6) {
-                        Text("바뀐 내용 보기")
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .bold))
-                    }
-                    .font(AppTheme.Typography.buttonLabel)
-                    .foregroundStyle(AppTheme.Color.accent)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            } else {
                 Button {
                     runUpdateCheck()
                 } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 14, weight: .bold))
-                        Text(updatePhase == .checking ? "확인 중…" : (updatePhase == .failed ? "다시 시도" : "업데이트 확인"))
-                    }
-                    .font(AppTheme.Typography.buttonLabel)
-                    .foregroundStyle(updatePhase == .checking ? AppTheme.Color.tertiaryText : AppTheme.Color.accent)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .contentShape(Rectangle())
+                    Text(refreshButtonTitle)
+                        .font(AppTheme.Typography.caption.weight(.semibold))
+                        .foregroundStyle(updatePhase == .checking ? AppTheme.Color.tertiaryText : AppTheme.Color.primaryText)
+                        .padding(.horizontal, 16)
+                        .frame(minWidth: 104)
+                        .frame(height: 44)
+                        .background(Capsule().fill(AppTheme.Color.secondaryButton))
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .disabled(updatePhase == .checking)
+                .accessibilityLabel("시간표 \(refreshButtonTitle)")
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 14)
+
+            if case .updated(_, _, let changes) = updatePhase, !changes.isEmpty {
+                RowDivider()
+                changedTimesSection(changes)
+            }
+
+            RowDivider()
+
+            Text(updateFootnote)
+                .font(AppTheme.Typography.footnote)
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.Color.tertiaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
         }
         .surfaceCard()
     }
 
-    private var updateIcon: some View {
-        let (background, foreground): (Color, Color) = {
-            switch updatePhase {
-            case .latest, .updated:
-                return (AppTheme.Color.accent.opacity(0.16), AppTheme.Color.accent)
-            case .failed:
-                return (AppTheme.Color.nightFare.opacity(0.16), AppTheme.Color.nightFare)
-            default:
-                return (AppTheme.Color.secondaryButton, AppTheme.Color.primaryText)
-            }
-        }()
+    private func changedTimesSection(_ changes: [TimetableChange]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("바뀐 시간")
+                .font(AppTheme.Typography.footnote.weight(.bold))
+                .foregroundStyle(AppTheme.Color.secondaryText)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 6)
 
-        return ZStack {
-            Circle().fill(background)
+            ForEach(changes) { change in
+                HStack(spacing: 8) {
+                    Text(change.label)
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(change.oldValue)
+                        .strikethrough()
+                        .foregroundStyle(AppTheme.Color.tertiaryText)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(AppTheme.Color.tertiaryText)
+                    Text(change.newValue)
+                        .fontWeight(.bold)
+                        .foregroundStyle(AppTheme.Color.primaryText)
+                }
+                .font(AppTheme.Typography.rowValue)
+                .monospacedDigit()
+                .padding(.horizontal, 16)
+                .frame(height: 34)
+                .accessibilityElement(children: .combine)
+            }
+
+            Button {
+                onShowTimetable?()
+            } label: {
+                HStack(spacing: 4) {
+                    Text("전체 시간표에서 확인")
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .font(AppTheme.Typography.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.Color.accent)
+                .padding(.horizontal, 16)
+                .frame(height: 40)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 2)
+        }
+    }
+
+    private var updateIcon: some View {
+        ZStack {
             switch updatePhase {
             case .checking:
                 ProgressView()
-                    .tint(foreground)
-            case .latest, .updated:
-                Image(systemName: "checkmark")
-                    .font(.system(size: 16, weight: .heavy))
-                    .foregroundStyle(foreground)
+                    .tint(AppTheme.Color.secondaryText)
             case .failed:
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(foreground)
-            case .idle:
-                Image(systemName: "calendar")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(foreground)
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(AppTheme.Color.nightFare)
+            case .idle, .latest, .updated:
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(AppTheme.Color.accent)
             }
         }
-        .frame(width: 40, height: 40)
+        .frame(width: 22, height: 22)
         .accessibilityHidden(true)
     }
 
@@ -217,42 +251,61 @@ struct InfoView: View {
 
     private var updateTitle: String {
         switch updatePhase {
-        case .idle: return "시간표 데이터"
+        case .idle: return "최신 시간표예요"
         case .checking: return "새 시간표 확인 중…"
         case .latest: return "이미 최신 시간표예요"
-        case .updated: return "새 시간표를 적용했어요"
-        case .failed: return "업데이트를 확인하지 못했어요"
+        case .updated: return "새 시간표로 바꿨어요"
+        case .failed: return "확인하지 못했어요"
         }
     }
 
     private var updateSubtitle: String {
         switch updatePhase {
-        case .idle:
-            if let checked = viewModel.lastUpdateCheckAt {
-                return "기준일 \(baselineDate) · 마지막 확인 \(LastCheckedFormatter.text(for: checked))"
-            }
-            return "기준일 \(baselineDate)"
-        case .checking:
-            return "기준일 \(baselineDate)"
-        case .latest:
-            return "기준일 \(baselineDate) · 방금 확인"
-        case .updated(let from, let to):
-            return "기준일 \(from.replacingOccurrences(of: "-", with: ".")) → \(to.replacingOccurrences(of: "-", with: "."))"
+        case .idle, .checking, .latest:
+            return "\(baselineDate) 기준"
+        case .updated(_, let to, _):
+            return "\(to.replacingOccurrences(of: "-", with: ".")) 기준"
         case .failed:
-            return "저장된 시간표(\(baselineDate))는 계속 쓸 수 있어요"
+            return "인터넷 연결을 확인해 주세요"
+        }
+    }
+
+    private var updateFootnote: String {
+        if case .failed = updatePhase {
+            return "저장된 시간표(\(baselineDate) 기준)는 계속 볼 수 있어요"
+        }
+        if let checked = viewModel.lastUpdateCheckAt {
+            return "앱을 열 때마다 자동으로 확인해요 · 마지막 확인 \(LastCheckedFormatter.text(for: checked))"
+        }
+        return "앱을 열 때마다 자동으로 확인해요"
+    }
+
+    private var refreshButtonTitle: String {
+        switch updatePhase {
+        case .checking: return "확인 중"
+        case .failed: return "다시 시도"
+        default: return "새로고침"
         }
     }
 
     private func runUpdateCheck() {
         guard updatePhase != .checking else { return }
+        revertTask?.cancel()
         updatePhase = .checking
         Task {
             let result = await viewModel.checkForTimetableUpdate()
             withAnimation(.easeInOut(duration: 0.2)) {
                 switch result {
                 case .latest: updatePhase = .latest
-                case .updated(let from, let to): updatePhase = .updated(from: from, to: to)
+                case .updated(let from, let to, let changes): updatePhase = .updated(from: from, to: to, changes: changes)
                 case .failed: updatePhase = .failed
+                }
+            }
+            if result == .latest {
+                revertTask = Task {
+                    try? await Task.sleep(nanoseconds: 4_000_000_000)
+                    guard !Task.isCancelled, updatePhase == .latest else { return }
+                    withAnimation(.easeInOut(duration: 0.2)) { updatePhase = .idle }
                 }
             }
         }

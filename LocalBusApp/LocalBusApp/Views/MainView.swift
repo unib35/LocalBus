@@ -67,7 +67,7 @@ struct MainView: View {
             }
 
             NavigationStack {
-                InfoView(viewModel: viewModel)
+                InfoView(viewModel: viewModel, onShowTimetable: { selectedTab = .timetable })
             }
             .tabItem { Label("설정", systemImage: "gearshape") }
             .tag(MainTab.settings)
