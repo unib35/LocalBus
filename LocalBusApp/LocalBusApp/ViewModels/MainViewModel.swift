@@ -520,6 +520,10 @@ final class MainViewModel: ObservableObject {
         )
         trafficDurationMinutes = detail?.minutes
         trafficUpdatedAt = detail?.updatedAt
+        if let detail {
+            EntitlementStore.saveTraffic(routeKey: selectedDirection.rawValue, durationMinutes: detail.minutes, updatedAt: detail.updatedAt)
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
 
     /// 특정 버스의 도착 예상. 출발 1시간 이내면 교통을 반영하고 그 밖에는 기본 소요시간.
@@ -612,10 +616,24 @@ final class MainViewModel: ObservableObject {
            liveActivityEnabled,
            let minutes = DateService.minutesUntil(timeString: busTime, from: Date()),
            minutes >= 0 && minutes <= 20 {
+            let estimate = arrivalEstimate(for: busTime)
+            var nightFareText: String?
+            if isNightFare(for: busTime), let nightFare {
+                let formatter = NumberFormatter()
+                formatter.numberStyle = .decimal
+                nightFareText = "심야 \(formatter.string(from: NSNumber(value: nightFare)) ?? "\(nightFare)")원"
+            }
             LiveActivityService.shared.startActivity(
                 departureTime: busTime,
                 direction: currentDirectionName,
-                durationMinutes: effectiveDurationMinutes
+                durationMinutes: estimate.durationMinutes,
+                destinationName: currentArrivalHubName,
+                boardingStopName: currentStops.first?.name ?? currentTerminalName,
+                isLastBus: busTime == lastBusTime,
+                nextDayFirstBusTime: tomorrowTimes().first,
+                nightFareText: nightFareText,
+                usesTraffic: estimate.basis.usesTraffic,
+                trafficUpdatedAt: trafficUpdatedAt
             )
         }
         return true

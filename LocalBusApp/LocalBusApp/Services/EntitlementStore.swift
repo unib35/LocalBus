@@ -42,6 +42,31 @@ struct EntitlementStore {
         self.defaults = defaults
     }
 
+    // MARK: - 교통 소요시간 공유 (앱 → 위젯)
+
+    /// 앱이 받은 교통 소요시간을 위젯이 "교통 반영" 도착 예상에 쓰도록 공유한다.
+    struct SharedTrafficSnapshot: Codable {
+        let durationMinutes: Int
+        let updatedAt: Date
+
+        /// 20분이 지나면 위젯은 시간표 기준으로 돌아간다.
+        var isFresh: Bool { Date().timeIntervalSince(updatedAt) < 20 * 60 }
+    }
+
+    static func trafficKey(for routeKey: String) -> String { "traffic.\(routeKey)" }
+
+    static func saveTraffic(routeKey: String, durationMinutes: Int, updatedAt: Date) {
+        let snapshot = SharedTrafficSnapshot(durationMinutes: durationMinutes, updatedAt: updatedAt)
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        sharedDefaults.set(data, forKey: trafficKey(for: routeKey))
+    }
+
+    static func loadTraffic(routeKey: String) -> SharedTrafficSnapshot? {
+        guard let data = sharedDefaults.data(forKey: trafficKey(for: routeKey)),
+              let snapshot = try? JSONDecoder().decode(SharedTrafficSnapshot.self, from: data) else { return nil }
+        return snapshot
+    }
+
     // MARK: - Pro Entitlement
 
     var isPro: Bool {
