@@ -169,6 +169,12 @@ enum AppTheme {
                 ? UIColor(red: 251/255, green: 146/255, blue: 60/255, alpha: 1)
                 : UIColor(red: 234/255, green: 88/255,  blue: 12/255, alpha: 1)
         })
+        /// 문제 상황 안내(오프라인·확인 실패·운휴) 아이콘. 다크 #FBBF24, 라이트 #B45309.
+        static let warning = SwiftUI.Color(UIColor { t in
+            t.userInterfaceStyle == .dark
+                ? UIColor(red: 251/255, green: 191/255, blue: 36/255, alpha: 1)
+                : UIColor(red: 180/255, green: 83/255,  blue: 9/255,  alpha: 1)
+        })
         /// 삭제·오류 등 위험 동작에 사용.
         static let destructive = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark

@@ -142,19 +142,23 @@ struct TimetableData: Codable {
     let routes: [String: RouteData]?
     /// 공지사항. 원격 JSON으로 갱신되며, 없으면 nil (하위호환).
     let notices: [NoticeData]?
+    /// 운영 상황(임시 운휴·변경 예고·점검·앱 버전). 없으면 nil.
+    let ops: OperationsInfo?
 
     init(
         meta: Meta,
         holidays: [String],
         timetable: Timetable?,
         routes: [String: RouteData]? = nil,
-        notices: [NoticeData]? = nil
+        notices: [NoticeData]? = nil,
+        ops: OperationsInfo? = nil
     ) {
         self.meta = meta
         self.holidays = holidays
         self.timetable = timetable
         self.routes = routes
         self.notices = notices
+        self.ops = ops
     }
 }
 

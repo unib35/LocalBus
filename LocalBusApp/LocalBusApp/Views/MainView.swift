@@ -46,6 +46,11 @@ struct MainView: View {
     @State private var showPaywall = false
     @State private var showAlertsHub = false
     @State private var homeBusDetail: BusDetailInfo?
+    // 운영 상황 (디자인 캔버스 Ops*)
+    @State private var showRecommendedUpdate = false
+    @State private var showRequiredUpdate = false
+    @State private var showContactFromError = false
+    @State private var hasCheckedUpdate = false
     @State private var importantNotice: NoticeItem?
     @State private var noticeToOpen: NoticeItem?
     @State private var hasCheckedImportantNotice = false
@@ -124,10 +129,12 @@ struct MainView: View {
     private var homeTab: some View {
         NavigationStack {
             Group {
-                if let errorMessage = viewModel.errorMessage, !viewModel.isLoading {
-                    ErrorView(message: errorMessage) {
-                        Task { await viewModel.refresh() }
-                    }
+                if let errorMessage = viewModel.errorMessage ?? (UserDefaults.standard.bool(forKey: "forceLoadFailed") ? "시간표를 불러올 수 없습니다." : nil), !viewModel.isLoading {
+                    ErrorView(
+                        message: errorMessage,
+                        onRetry: { Task { await viewModel.refresh() } },
+                        onContact: { showContactFromError = true }
+                    )
                 } else {
                     mainContent
                 }
@@ -187,6 +194,42 @@ struct MainView: View {
                                 .foregroundStyle(AppTheme.Color.primaryText)
                         }
                     }
+            }
+        }
+        .fullScreenCover(isPresented: $showRequiredUpdate) {
+            if case .required(let version) = viewModel.updateRequirement {
+                RequiredUpdateView(
+                    currentVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
+                    requiredVersion: version
+                )
+            }
+        }
+        .sheet(isPresented: $showRecommendedUpdate) {
+            if case .recommended(let version) = viewModel.updateRequirement {
+                RecommendedUpdateSheet(
+                    version: version,
+                    message: viewModel.updateMessage,
+                    onUpdate: { UIApplication.shared.open(AppStoreLink.url) },
+                    onSkipVersion: { RecommendedUpdateSheet.skip(version: version); showRecommendedUpdate = false },
+                    onLater: { showRecommendedUpdate = false }
+                )
+            }
+        }
+        .sheet(isPresented: $showContactFromError) {
+            NavigationStack { ContactView() }
+        }
+        .onChange(of: viewModel.isLoading) { isLoading in
+            guard !isLoading, !hasCheckedUpdate else { return }
+            hasCheckedUpdate = true
+            switch viewModel.updateRequirement {
+            case .required:
+                showRequiredUpdate = true
+            case .recommended(let version) where !RecommendedUpdateSheet.isSkipped(version: version):
+                DispatchQueue.main.asyncAfter(deadline: .now() + LaunchTiming.maximumDuration) {
+                    if importantNotice == nil { showRecommendedUpdate = true }
+                }
+            default:
+                break
             }
         }
         .onChange(of: viewModel.isLoading) { isLoading in
@@ -254,6 +297,10 @@ struct MainView: View {
                 }
             )
 
+            if let banner = viewModel.operationsBanner() {
+                OperationsBannerView(banner: banner) { handleBannerTap(banner) }
+            }
+
             if viewModel.isOffline {
                 InlineBanner(
                     systemImage: "wifi.slash",
@@ -310,18 +357,39 @@ struct MainView: View {
         !viewModel.isLoading && snapshot.isServiceEnded && snapshot.nextBusTime == nil
     }
 
+    /// 운영 안내 배너가 뜨면 이어지는 버스는 4대 → 3대 (히어로는 가리지 않음)
+    private var upcomingRowLimit: Int {
+        viewModel.operationsBanner() == nil ? 4 : 3
+    }
+
+    private func handleBannerTap(_ banner: OperationsBanner) {
+        switch banner {
+        case .closure, .maintenance:
+            selectedTab = .settings
+        case .change(_, let noticeID):
+            if let noticeID, let notice = viewModel.notices.first(where: { $0.id == noticeID }) {
+                viewModel.markNoticeRead(noticeID)
+                noticeToOpen = notice
+            } else {
+                selectedTab = .timetable
+            }
+        case .stale:
+            Task { _ = await viewModel.checkForTimetableUpdate() }
+        }
+    }
+
     /// 히어로에 이미 보이는 버스(다음 버스 또는 내일 첫차)는 목록에서 뺀다.
     private func followingBuses(in snapshot: BusTimingSnapshot) -> [UpcomingBusSnapshot] {
         if isShowingTomorrow(snapshot) {
-            return Array(snapshot.upcomingBuses.filter { $0.statusKind == .nextDay }.dropFirst().prefix(4))
+            return Array(snapshot.upcomingBuses.filter { $0.statusKind == .nextDay }.dropFirst().prefix(upcomingRowLimit))
         }
         guard let nextBusTime = snapshot.nextBusTime,
               let first = snapshot.upcomingBuses.first,
               first.departureTime == nextBusTime,
               first.statusKind != .nextDay else {
-            return Array(snapshot.upcomingBuses.prefix(4))
+            return Array(snapshot.upcomingBuses.prefix(upcomingRowLimit))
         }
-        return Array(snapshot.upcomingBuses.dropFirst().prefix(4))
+        return Array(snapshot.upcomingBuses.dropFirst().prefix(upcomingRowLimit))
     }
 
     @ViewBuilder
