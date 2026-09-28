@@ -27,9 +27,11 @@ struct BusTimingSnapshot {
     let nextBusMinuteDisplay: String
     let nextBusUnitDisplay: String
     let nextBusCountdownDescription: String
+    /// 운행 종료 뒤에는 내일 첫차, 아니면 오늘 첫차
     let firstBusTime: String
     let hoursUntilFirstBus: Int
     let minutesUntilFirstBus: Int
+    let minutesUntilNextBus: Int?
     let nextBusArrivalTime: String
     let followingBusTime: String
     let nextBusProgress: Double
@@ -273,6 +275,40 @@ final class MainViewModel: ObservableObject {
         DateService.shouldUseWeekdaySchedule(date, holidays: holidays) ? .weekday : .weekend
     }
 
+    /// 내일 적용될 시간표 타입
+    func tomorrowScheduleType(at date: Date = Date()) -> ScheduleType {
+        todayScheduleType(at: Self.tomorrow(of: date))
+    }
+
+    /// 내일 시간표. 해당 시간표 데이터가 비어 있으면 지금 보는 시간표로 대체한다.
+    func tomorrowTimes(at date: Date = Date()) -> [String] {
+        let times = tomorrowScheduleType(at: date) == .weekday ? weekdayTimes : weekendTimes
+        return times.isEmpty ? currentTimes : times
+    }
+
+    /// 운행 종료 화면 하단 한 줄. 예: "내일은 9월 23일 수요일 · 평일 시간표로 운행해요"
+    func tomorrowContextText(at date: Date = Date()) -> String {
+        let tomorrow = Self.tomorrow(of: date)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "M월 d일 EEEE"
+        let dateText = formatter.string(from: tomorrow)
+
+        let isHoliday = DateService.isHoliday(tomorrow, holidays: holidays)
+        let isWeekday = DateService.isWeekday(tomorrow)
+        if isWeekday && isHoliday {
+            return "내일은 \(dateText) · 공휴일 · 주말 시간표로 운행해요"
+        }
+        return "내일은 \(dateText) · \(isWeekday ? "평일" : "주말") 시간표로 운행해요"
+    }
+
+    private static func tomorrow(of date: Date) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        return calendar.date(byAdding: .day, value: 1, to: date) ?? date
+    }
+
     /// 큰 제목 아래 한 줄 노선 요약. 예: "장유 터미널 출발 · 26분 소요 · 2,500원"
     var routeSummaryText: String {
         var parts = ["\(currentTerminalName) 출발"]
@@ -368,9 +404,10 @@ final class MainViewModel: ObservableObject {
             nextBusMinuteDisplay: nextBusMinuteDisplay(secondsUntilNextBus: secondsUntilNextBus),
             nextBusUnitDisplay: nextBusUnitDisplay(secondsUntilNextBus: secondsUntilNextBus),
             nextBusCountdownDescription: nextBusCountdownDescription(secondsUntilNextBus: secondsUntilNextBus),
-            firstBusTime: firstBusTime,
+            firstBusTime: nextBusTime == nil ? (tomorrowTimes(at: referenceDate).first ?? firstBusTime) : firstBusTime,
             hoursUntilFirstBus: firstBusLeadTime.hours,
             minutesUntilFirstBus: firstBusLeadTime.minutes,
+            minutesUntilNextBus: minutesUntilNextBus,
             nextBusArrivalTime: nextBusArrivalTime(for: nextBusTime),
             followingBusTime: followingBusTime(after: nextBusTime),
             nextBusProgress: nextBusProgress(nextBusTime: nextBusTime, minutesUntilNextBus: minutesUntilNextBus),
@@ -628,7 +665,7 @@ final class MainViewModel: ObservableObject {
     }
 
     private func firstBusLeadTime(at referenceDate: Date) -> (hours: Int, minutes: Int) {
-        guard let firstTime = currentTimes.first else { return (0, 0) }
+        guard let firstTime = tomorrowTimes(at: referenceDate).first else { return (0, 0) }
         let totalMinutes = DateService.minutesUntilNextDay(timeString: firstTime, from: referenceDate)
         return (totalMinutes / 60, totalMinutes % 60)
     }
@@ -694,7 +731,7 @@ final class MainViewModel: ObservableObject {
 
         if selectedTimes.count < limit {
             let remainingCount = limit - selectedTimes.count
-            let nextDayTimes = currentTimes.prefix(remainingCount).map { ($0, true) }
+            let nextDayTimes = tomorrowTimes(at: referenceDate).prefix(remainingCount).map { ($0, true) }
             selectedTimes.append(contentsOf: nextDayTimes)
         }
 

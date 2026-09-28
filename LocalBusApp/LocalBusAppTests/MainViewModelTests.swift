@@ -153,6 +153,17 @@ struct MainViewModelTests {
         #expect(text == "9월 26일 토 · 주말 시간표")
     }
 
+    @Test func 내일_안내는_요일_전체와_시간표_종류를_말한다() async {
+        let viewModel = await MainViewModel()
+        await viewModel.loadTimetable(with: createTestTimetableData(holidays: ["2026-09-28"]))
+
+        #expect(viewModel.tomorrowContextText(at: makeKSTDate(year: 2026, month: 9, day: 22)) == "내일은 9월 23일 수요일 · 평일 시간표로 운행해요")
+        #expect(viewModel.tomorrowContextText(at: makeKSTDate(year: 2026, month: 9, day: 25)) == "내일은 9월 26일 토요일 · 주말 시간표로 운행해요")
+        #expect(viewModel.tomorrowContextText(at: makeKSTDate(year: 2026, month: 9, day: 27)) == "내일은 9월 28일 월요일 · 공휴일 · 주말 시간표로 운행해요")
+        #expect(viewModel.tomorrowScheduleType(at: makeKSTDate(year: 2026, month: 9, day: 27)) == .weekend)
+        #expect(viewModel.tomorrowScheduleType(at: makeKSTDate(year: 2026, month: 9, day: 28)) == .weekday)
+    }
+
     // MARK: - Helper
 
     private func makeKSTDate(year: Int, month: Int, day: Int, hour: Int = 9) -> Date {
