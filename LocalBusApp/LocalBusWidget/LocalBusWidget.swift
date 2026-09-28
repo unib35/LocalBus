@@ -8,11 +8,67 @@ import SwiftUI
 
 // MARK: - 위젯 보기 방식 (디자인 캔버스 WidgetSmallSet · WidgetMediumSet)
 
-/// 위젯 편집에서 고르는 보기. 소형: A 남은 시간 · B 출발 → 도착 · C 다음 3대. 중형: A · B · C 양방향.
-enum WidgetStyle: String {
-    case remaining
-    case arrival
-    case list
+/// 소형 위젯 보기 (캔버스 A–G). 위젯 편집에서 고른다.
+enum SmallWidgetStyle: String {
+    case remaining    // A 남은 시간
+    case arrival      // B 출발 → 도착
+    case list         // C 다음 3대
+    case lastBus      // D 막차
+    case bothWays     // E 양방향
+    case target       // F 도착 목표
+    case timeline     // G 세로 타임라인
+}
+
+/// 중형 위젯 보기 (캔버스 A–F).
+enum MediumWidgetStyle: String {
+    case remaining    // A 남은 시간 + 이후 3대
+    case arrival      // B 출발 → 도착 타임라인
+    case bothWays     // C 양방향
+    case hourGrid     // D 시간대 시간표
+    case summary      // E 다음 버스 + 하루 요약
+    case target       // F 도착 목표
+}
+
+/// 대형 위젯 보기 (캔버스 A·B).
+enum LargeWidgetStyle: String {
+    case list         // A 다음 버스 + 이어지는 버스 표
+    case grid         // B 오늘 시간표 그리드
+}
+
+/// 잠금 화면 원형 위젯 보기.
+enum LockCircularStyle: String {
+    case remaining    // 남은 시간 고리
+    case departure    // 출발 시각
+}
+
+/// 위젯 편집에서 고른 값 묶음. 크기마다 자기 것만 쓴다.
+struct WidgetOptions {
+    var small: SmallWidgetStyle = .remaining
+    var medium: MediumWidgetStyle = .remaining
+    var large: LargeWidgetStyle = .list
+    var circular: LockCircularStyle = .remaining
+    /// 도착 목표 보기(F)의 목표 도착 시각 "HH:mm"
+    var targetTime: String = "08:30"
+
+    static let `default` = WidgetOptions()
+
+    /// 양방향 보기면 반대 방향 요약도 필요하다.
+    var needsCounterpart: Bool { small == .bothWays || medium == .bothWays }
+}
+
+/// "사상에 08:30까지" 계산 결과 (앱의 ArrivalPlanner와 같은 규칙, 위젯 타깃용 재구현)
+struct WidgetTargetPlan {
+    let target: String
+    /// 목표 시각까지 도착하는 마지막 버스 (없으면 nil)
+    let best: String?
+    let bestArrival: String?
+    let slackMinutes: Int?
+    /// best 한 대 앞
+    let earlier: String?
+    let earlierSlack: Int?
+    /// best를 놓쳤을 때 (best가 없으면 첫차)
+    let later: String?
+    let lateMinutes: Int?
 }
 
 // MARK: - Shared Data Helper
@@ -41,7 +97,7 @@ struct WidgetDataHelper {
         for date: Date,
         routeKey: String = defaultRouteKey,
         direction: String = defaultDirection,
-        style: WidgetStyle = .remaining
+        options: WidgetOptions = .default
     ) -> BusEntry {
         // v1.0 무료 출시: IAP 미적용 상태이므로 위젯을 모두에게 개방한다.
         // IAP 도입 시 아래 한 줄을 `EntitlementStore.shared.isPro`로 되돌리면 잠금이 복원된다.
@@ -49,7 +105,7 @@ struct WidgetDataHelper {
         let summary = summary(for: date, routeKey: routeKey, direction: direction)
 
         var counterpart: WidgetCounterpart?
-        if style == .list, let opposite = oppositeRoute(of: routeKey) {
+        if options.needsCounterpart, let opposite = oppositeRoute(of: routeKey) {
             let other = self.summary(for: date, routeKey: opposite.key, direction: opposite.direction)
             counterpart = WidgetCounterpart(
                 direction: opposite.direction,
@@ -79,9 +135,15 @@ struct WidgetDataHelper {
             usesTraffic: summary.usesTraffic,
             trafficUpdatedAt: summary.trafficUpdatedAt,
             durationMinutes: summary.durationMinutes,
+            baseDurationMinutes: summary.baseDurationMinutes,
             scheduleLabel: summary.scheduleLabel,
             tomorrowLabel: summary.tomorrowLabel,
-            style: style,
+            todayTimes: summary.todayTimes,
+            viaTimes: summary.viaTimes,
+            nightFare: summary.nightFare,
+            nightFareStartTime: summary.nightFareStartTime,
+            tomorrowFirstBusTime: summary.tomorrowFirstBusTime,
+            options: options,
             counterpart: counterpart,
             isPro: isPro
         )
@@ -101,8 +163,14 @@ struct WidgetDataHelper {
         let usesTraffic: Bool
         let trafficUpdatedAt: Date?
         let durationMinutes: Int
+        let baseDurationMinutes: Int
         let scheduleLabel: String
         let tomorrowLabel: String
+        let todayTimes: [String]
+        let viaTimes: Set<String>
+        let nightFare: Int?
+        let nightFareStartTime: String?
+        let tomorrowFirstBusTime: String
     }
 
     static func summary(for date: Date, routeKey: String, direction: String) -> RouteSummary {
@@ -137,7 +205,11 @@ struct WidgetDataHelper {
                 isLastBus: false, isNightBus: false, isVia: false,
                 arrivalTime: timeByAdding(minutes: baseDuration, to: tomorrowFirst),
                 usesTraffic: false, trafficUpdatedAt: traffic?.updatedAt,
-                durationMinutes: baseDuration, scheduleLabel: scheduleLabel, tomorrowLabel: tomorrowLabel
+                durationMinutes: baseDuration, baseDurationMinutes: baseDuration,
+                scheduleLabel: scheduleLabel, tomorrowLabel: tomorrowLabel,
+                todayTimes: times, viaTimes: viaTimes,
+                nightFare: route?.nightFare, nightFareStartTime: route?.nightFareStartTime,
+                tomorrowFirstBusTime: tomorrowFirst
             )
         }
 
@@ -167,9 +239,61 @@ struct WidgetDataHelper {
             usesTraffic: nextEstimate.usesTraffic,
             trafficUpdatedAt: nextEstimate.usesTraffic ? freshTraffic?.updatedAt : traffic?.updatedAt,
             durationMinutes: nextEstimate.usesTraffic ? (freshTraffic?.minutes ?? baseDuration) : baseDuration,
+            baseDurationMinutes: baseDuration,
             scheduleLabel: scheduleLabel,
-            tomorrowLabel: tomorrowLabel
+            tomorrowLabel: tomorrowLabel,
+            todayTimes: times,
+            viaTimes: viaTimes,
+            nightFare: route?.nightFare,
+            nightFareStartTime: route?.nightFareStartTime,
+            tomorrowFirstBusTime: tomorrowFirst
         )
+    }
+
+    /// 목표 도착 시각까지 탈 버스 고르기 (앱의 ArrivalPlanner 규칙과 동일)
+    static func targetPlan(times: [String], durationMinutes: Int, target: String) -> WidgetTargetPlan {
+        let arrivals = times.map { ($0, timeByAdding(minutes: durationMinutes, to: $0)) }
+        let onTime = arrivals.filter { $0.1 <= target }.map(\.0)
+        let best = onTime.last
+        var earlier: String?
+        var later: String?
+        if let best, let index = times.firstIndex(of: best) {
+            earlier = index > 0 ? times[index - 1] : nil
+            later = index + 1 < times.count ? times[index + 1] : nil
+        } else {
+            later = times.first
+        }
+        func minutesBetween(_ from: String, _ to: String) -> Int? {
+            guard let a = totalMinutes(from), let b = totalMinutes(to) else { return nil }
+            var diff = b - a
+            if diff < 0 { diff += 24 * 60 }
+            return diff
+        }
+        let bestArrival = best.map { timeByAdding(minutes: durationMinutes, to: $0) }
+        return WidgetTargetPlan(
+            target: target,
+            best: best,
+            bestArrival: bestArrival,
+            slackMinutes: bestArrival.flatMap { minutesBetween($0, target) },
+            earlier: earlier,
+            earlierSlack: earlier.flatMap { minutesBetween(timeByAdding(minutes: durationMinutes, to: $0), target) },
+            later: later,
+            lateMinutes: later.flatMap { minutesBetween(target, timeByAdding(minutes: durationMinutes, to: $0)) }
+        )
+    }
+
+    static func totalMinutes(_ time: String) -> Int? {
+        let parts = time.split(separator: ":")
+        guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return nil }
+        return h * 60 + m
+    }
+
+    /// "1시간 12분" 표기
+    static func spanText(_ minutes: Int) -> String {
+        if minutes < 60 { return "\(minutes)분" }
+        let hours = minutes / 60
+        let rest = minutes % 60
+        return rest == 0 ? "\(hours)시간" : "\(hours)시간 \(rest)분"
     }
 
     static func oppositeRoute(of routeKey: String) -> (key: String, direction: String)? {
@@ -285,7 +409,7 @@ struct WidgetDataHelper {
 
 struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> BusEntry {
-        BusEntry.placeholder(style: .remaining)
+        BusEntry.placeholder()
     }
 
     func getSnapshot(in context: Context, completion: @escaping (BusEntry) -> ()) {
@@ -347,9 +471,17 @@ struct BusEntry: TimelineEntry {
     let usesTraffic: Bool
     let trafficUpdatedAt: Date?
     let durationMinutes: Int
+    let baseDurationMinutes: Int
     let scheduleLabel: String
     let tomorrowLabel: String
-    let style: WidgetStyle
+    /// 오늘 시간표 전체 (그리드 보기)
+    let todayTimes: [String]
+    let viaTimes: Set<String>
+    let nightFare: Int?
+    let nightFareStartTime: String?
+    /// 내일 시간표의 첫차 (운행 중에도 하루 요약에 쓴다)
+    let tomorrowFirstBusTime: String
+    let options: WidgetOptions
     let counterpart: WidgetCounterpart?
     let isPro: Bool
 
@@ -366,7 +498,24 @@ struct BusEntry: TimelineEntry {
         direction.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? "사상"
     }
 
-    static func placeholder(style: WidgetStyle) -> BusEntry {
+    /// "3,000원" 같은 표기 (없으면 nil)
+    var nightFareText: String? {
+        guard let nightFare else { return nil }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return "\(formatter.string(from: NSNumber(value: nightFare)) ?? "\(nightFare)")원"
+    }
+
+    /// 막차까지 남은 분 (지났으면 0)
+    var minutesUntilLastBus: Int {
+        max(WidgetDataHelper.minutesUntil(timeString: lastBusTime, from: date) ?? 0, 0)
+    }
+
+    var targetPlan: WidgetTargetPlan {
+        WidgetDataHelper.targetPlan(times: todayTimes, durationMinutes: durationMinutes, target: options.targetTime)
+    }
+
+    static func placeholder(options: WidgetOptions = .default) -> BusEntry {
         BusEntry(
             date: Date(), routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "18:30", remainingMinutes: 12,
             direction: WidgetDataHelper.defaultDirection, isServiceEnded: false, firstBusTime: "06:20", lastBusTime: "23:30",
@@ -377,8 +526,11 @@ struct BusEntry: TimelineEntry {
                 WidgetBus(time: "19:50", minutes: 92, isVia: false, arrival: "20:16", usesTraffic: false),
             ],
             isLastBus: false, isNightBus: false, isVia: false, arrivalTime: "19:04", usesTraffic: true,
-            trafficUpdatedAt: Date().addingTimeInterval(-15 * 60), durationMinutes: 34, scheduleLabel: "평일", tomorrowLabel: "내일 평일",
-            style: style,
+            trafficUpdatedAt: Date().addingTimeInterval(-15 * 60), durationMinutes: 34, baseDurationMinutes: 26,
+            scheduleLabel: "평일", tomorrowLabel: "내일 평일",
+            todayTimes: ["06:20", "06:40", "07:00", "07:20", "07:35", "07:50", "08:05", "08:20", "18:10", "18:30", "18:50", "19:10", "19:30", "19:50", "20:10", "20:30", "20:45", "21:20", "21:40", "22:10", "22:40", "23:10", "23:30"],
+            viaTimes: ["19:10"], nightFare: 3000, nightFareStartTime: "22:10", tomorrowFirstBusTime: "06:20",
+            options: options,
             counterpart: WidgetCounterpart(direction: "사상 → 장유", nextBusTime: "18:40", remainingMinutes: 22, arrivalTime: "19:19", usesTraffic: true, isServiceEnded: false, firstBusTime: "06:20"),
             isPro: true
         )
@@ -416,11 +568,15 @@ struct WidgetRouteData: Codable {
     let timetable: WidgetTimetable
     let durationMinutes: Int?
     let viaTimes: [String]?
+    let nightFare: Int?
+    let nightFareStartTime: String?
 
     enum CodingKeys: String, CodingKey {
         case timetable
         case durationMinutes = "duration_minutes"
         case viaTimes = "via_times"
+        case nightFare = "night_fare"
+        case nightFareStartTime = "night_fare_start_time"
     }
 }
 
@@ -430,24 +586,41 @@ struct WidgetRouteData: Codable {
 // 평면 서피스 하나, 강조색은 남은 시간 숫자에만.
 
 private enum WidgetTheme {
-    /// 위젯 컨테이너 — 앱 히어로 카드와 같은 평면 서피스 (#141414)
-    static let surface = Color(white: 0.08)
-    /// 서피스 안에서 한 단계 올라온 영역 (#1C1C1C)
-    static let surfaceSecondary = Color(white: 0.11)
-    /// 칩 배경 (#262626)
-    static let chip = Color(white: 0.149)
-    /// 행 구분선 (#222222)
-    static let divider = Color(white: 0.133)
-    /// 보조 텍스트 (#A3A3A3, 7.3:1)
-    static let secondaryText = Color(white: 0.64)
-    /// 3차 텍스트 (#7A7A7A)
-    static let tertiaryText = Color(white: 0.478)
-    /// 읽은 항목 등 살짝 낮춘 흰색 (#D4D4D4)
-    static let mutedText = Color(white: 0.83)
-    /// 단일 강조색 — 남은 시간 숫자 (#4ADE80)
-    static let accent = Color(red: 74/255, green: 222/255, blue: 128/255)
-    /// 심야·막차 라벨
-    static let nightFare = Color(red: 251/255, green: 146/255, blue: 60/255)
+    private static func dynamic(dark: UIColor, light: UIColor) -> Color {
+        Color(UIColor { trait in trait.userInterfaceStyle == .dark ? dark : light })
+    }
+
+    /// 위젯 컨테이너 — 앱 히어로 카드와 같은 평면 서피스 (다크 #141414 / 라이트 #FFFFFF)
+    static let surface = dynamic(dark: UIColor(white: 0.08, alpha: 1), light: .white)
+    /// 서피스 안에서 한 단계 올라온 영역 (#1C1C1C / #EBEBEB)
+    static let surfaceSecondary = dynamic(dark: UIColor(white: 0.11, alpha: 1), light: UIColor(white: 0.92, alpha: 1))
+    /// 칩·보조 버튼 배경 (#262626 / #EFEFEF)
+    static let chip = dynamic(dark: UIColor(white: 0.149, alpha: 1), light: UIColor(white: 0.937, alpha: 1))
+    /// 행 구분선 (#222222 / #ECECEC)
+    static let divider = dynamic(dark: UIColor(white: 0.133, alpha: 1), light: UIColor(white: 0.925, alpha: 1))
+    /// 타임라인 선 (#333333 / #D9D9D9)
+    static let track = dynamic(dark: UIColor(white: 0.2, alpha: 1), light: UIColor(white: 0.85, alpha: 1))
+    /// 지난 시각 셀 (#0D0D0D / #F5F5F5)
+    static let pastCell = dynamic(dark: UIColor(white: 0.05, alpha: 1), light: UIColor(white: 0.96, alpha: 1))
+    /// 제목·시각·값 (#FFFFFF / #0D0D0D)
+    static let primaryText = dynamic(dark: .white, light: UIColor(white: 0.05, alpha: 1))
+    /// 보조 텍스트 (#A3A3A3 / #666666)
+    static let secondaryText = dynamic(dark: UIColor(white: 0.64, alpha: 1), light: UIColor(white: 0.4, alpha: 1))
+    /// 3차 텍스트 (#7A7A7A / #767676)
+    static let tertiaryText = dynamic(dark: UIColor(white: 0.478, alpha: 1), light: UIColor(white: 0.463, alpha: 1))
+    /// 살짝 낮춘 본문 (#D4D4D4 / #333333)
+    static let mutedText = dynamic(dark: UIColor(white: 0.83, alpha: 1), light: UIColor(white: 0.2, alpha: 1))
+    /// 단일 강조색 — 남은 시간 숫자 (#4ADE80 / #15803D)
+    static let accent = dynamic(dark: UIColor(red: 74/255, green: 222/255, blue: 128/255, alpha: 1), light: UIColor(red: 21/255, green: 128/255, blue: 61/255, alpha: 1))
+    /// 강조색 배경 위 글자 (검정 / 흰색)
+    static let accentForeground = dynamic(dark: .black, light: .white)
+    /// 선택됨 칩 배경 (흰 / 검정)과 글자
+    static let selectedBackground = dynamic(dark: .white, light: UIColor(white: 0.05, alpha: 1))
+    static let selectedText = dynamic(dark: .black, light: .white)
+    /// 심야·막차 라벨 (#FB923C / #EA580C)
+    static let nightFare = dynamic(dark: UIColor(red: 251/255, green: 146/255, blue: 60/255, alpha: 1), light: UIColor(red: 234/255, green: 88/255, blue: 12/255, alpha: 1))
+    /// 문제 상황 (#FBBF24 / #B45309)
+    static let warning = dynamic(dark: UIColor(red: 251/255, green: 191/255, blue: 36/255, alpha: 1), light: UIColor(red: 180/255, green: 83/255, blue: 9/255, alpha: 1))
 }
 
 private enum WidgetDeepLink {
@@ -585,11 +758,11 @@ struct LockedWidgetView: View {
                 Text("분")
                     .font(.system(size: 18, weight: .bold))
             }
-            .foregroundStyle(Color(white: 0.23))
+            .foregroundStyle(WidgetTheme.tertiaryText.opacity(0.5))
 
             Text("위젯은 Pro에서 쓸 수 있어요")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(WidgetTheme.primaryText)
                 .padding(.top, 6)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -623,7 +796,7 @@ private struct RemainingHero: View {
                 .minimumScaleFactor(0.7)
             Text(unitText ?? "\(entry.remainingUnit) 후")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(WidgetTheme.primaryText)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(entry.remainingDisplay)\(entry.remainingUnit) 후 출발")
@@ -640,7 +813,7 @@ private struct DepartureLine: View {
             Text("\(nextTime) 출발")
                 .font(.system(size: 13, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(.white)
+                .foregroundStyle(WidgetTheme.primaryText)
             if entry.isLastBus || entry.isNightBus {
                 Text(entry.isLastBus ? "막차" : "심야")
                     .font(.system(size: 11, weight: .bold))
@@ -701,18 +874,18 @@ private struct TimelineStrip: View {
                     .font(.system(size: timeSize, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .tracking(-1)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(WidgetTheme.primaryText)
             }
 
             HStack(spacing: 6) {
-                Circle().fill(.white).frame(width: 6, height: 6)
-                Rectangle().fill(Color(white: 0.2)).frame(height: 2)
+                Circle().fill(WidgetTheme.primaryText).frame(width: 6, height: 6)
+                Rectangle().fill(WidgetTheme.track).frame(height: 2)
                 Text("\(entry.durationMinutes)분")
                     .font(.system(size: 11, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(WidgetTheme.secondaryText)
-                Rectangle().fill(Color(white: 0.2)).frame(height: 2)
-                Circle().stroke(.white, lineWidth: 1.5).frame(width: 6, height: 6)
+                Rectangle().fill(WidgetTheme.track).frame(height: 2)
+                Circle().stroke(WidgetTheme.primaryText, lineWidth: 1.5).frame(width: 6, height: 6)
             }
             .padding(.top, 14)
 
@@ -724,7 +897,7 @@ private struct TimelineStrip: View {
                     .font(.system(size: timeSize, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .tracking(-1)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(WidgetTheme.primaryText)
             }
         }
         .lineLimit(1)
@@ -748,7 +921,7 @@ private struct ServiceEndedBlock: View {
                 .font(.system(size: timeSize, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .tracking(-1)
-                .foregroundStyle(.white)
+                .foregroundStyle(WidgetTheme.primaryText)
         }
         .accessibilityElement(children: .combine)
     }
@@ -775,10 +948,14 @@ struct SmallWidgetView: View {
             if entry.isServiceEnded {
                 ended
             } else {
-                switch entry.style {
+                switch entry.options.small {
                 case .remaining: styleA
                 case .arrival: styleB
                 case .list: styleC
+                case .lastBus: styleD
+                case .bothWays: styleE
+                case .target: styleF
+                case .timeline: styleG
                 }
             }
         }
@@ -839,7 +1016,7 @@ struct SmallWidgetView: View {
                         .font(.system(size: 32, weight: .heavy, design: .rounded))
                         .monospacedDigit()
                         .tracking(-0.5)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(WidgetTheme.primaryText)
                 }
                 Rectangle().fill(WidgetTheme.chip).frame(height: 1)
                 HStack(alignment: .lastTextBaseline) {
@@ -849,7 +1026,7 @@ struct SmallWidgetView: View {
                         .font(.system(size: 32, weight: .heavy, design: .rounded))
                         .monospacedDigit()
                         .tracking(-0.5)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(WidgetTheme.primaryText)
                 }
             }
             Spacer(minLength: 4)
@@ -869,7 +1046,7 @@ struct SmallWidgetView: View {
                             .font(.system(size: 24, weight: .heavy, design: .rounded))
                             .monospacedDigit()
                             .tracking(-0.5)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(WidgetTheme.primaryText)
                         if entry.isVia { ViaChip() }
                     }
                     Spacer()
@@ -887,7 +1064,7 @@ struct SmallWidgetView: View {
                             Text(bus.time)
                                 .font(.system(size: 15, weight: .semibold))
                                 .monospacedDigit()
-                                .foregroundStyle(.white)
+                                .foregroundStyle(WidgetTheme.primaryText)
                             if bus.isVia { ViaChip() }
                         }
                         Spacer()
@@ -901,6 +1078,192 @@ struct SmallWidgetView: View {
             }
         }
         .padding(.bottom, -4)
+    }
+
+    /// D · 막차 — 늦게 돌아오는 날 확인용
+    private var styleD: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                DirectionLabel(text: entry.direction)
+                Spacer(minLength: 4)
+                Text("막차")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(WidgetTheme.selectedText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(WidgetTheme.selectedBackground))
+            }
+            Spacer(minLength: 4)
+            Text(entry.lastBusTime)
+                .font(.system(size: 44, weight: .heavy, design: .rounded))
+                .monospacedDigit()
+                .tracking(-1)
+                .foregroundStyle(WidgetTheme.primaryText)
+            Text("\(WidgetDataHelper.spanText(entry.minutesUntilLastBus)) 남음")
+                .font(.system(size: 13, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(WidgetTheme.primaryText)
+                .padding(.top, 6)
+            Spacer(minLength: 4)
+            if let fare = entry.nightFareText, let start = entry.nightFareStartTime {
+                HStack(spacing: 3) {
+                    Text("심야").fontWeight(.bold).foregroundStyle(WidgetTheme.nightFare)
+                    Text("\(fare) · \(start)부터")
+                }
+                .font(.system(size: 11, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(WidgetTheme.secondaryText)
+                .lineLimit(1)
+            } else {
+                Text("첫차 \(entry.firstBusTime)")
+                    .font(.system(size: 11, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(WidgetTheme.secondaryText)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// E · 양방향 — 작은 칸에서 두 방향 모두. 먼저 출발하는 쪽만 강조색
+    private var styleE: some View {
+        let counterpart = entry.counterpart
+        let thisFirst = counterpart.map { $0.isServiceEnded || entry.remainingMinutes <= $0.remainingMinutes } ?? true
+        return VStack(alignment: .leading, spacing: 0) {
+            compactDirection(
+                direction: entry.direction, time: entry.nextBusTime ?? entry.firstBusTime,
+                minutes: entry.remainingMinutes, isEnded: entry.isServiceEnded, highlighted: thisFirst
+            )
+            Spacer(minLength: 6)
+            Rectangle().fill(WidgetTheme.chip).frame(height: 1)
+            Spacer(minLength: 6)
+            if let counterpart {
+                compactDirection(
+                    direction: counterpart.direction, time: counterpart.nextBusTime ?? counterpart.firstBusTime,
+                    minutes: counterpart.remainingMinutes, isEnded: counterpart.isServiceEnded, highlighted: !thisFirst
+                )
+            }
+        }
+        .padding(.vertical, -2)
+    }
+
+    private func compactDirection(direction: String, time: String, minutes: Int, isEnded: Bool, highlighted: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            DirectionLabel(text: direction)
+            HStack(alignment: .lastTextBaseline) {
+                Text(time)
+                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .tracking(-0.5)
+                    .foregroundStyle(WidgetTheme.primaryText)
+                Spacer(minLength: 4)
+                Text(isEnded ? "내일 첫차" : WidgetDataHelper.spanText(minutes))
+                    .font(.system(size: isEnded ? 12 : 15, weight: highlighted ? .bold : .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(highlighted && !isEnded ? WidgetTheme.accent : WidgetTheme.secondaryText)
+            }
+        }
+        .lineLimit(1)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// F · 도착 목표 — 출근 시각을 정해 두는 사람용
+    private var styleF: some View {
+        let plan = entry.targetPlan
+        return VStack(alignment: .leading, spacing: 0) {
+            DirectionLabel(text: "\(entry.destinationName)에 \(plan.target)까지")
+            Spacer(minLength: 4)
+            if let best = plan.best, let arrival = plan.bestArrival {
+                Text(best)
+                    .font(.system(size: 44, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .tracking(-1)
+                    .foregroundStyle(WidgetTheme.accent)
+                Text("이 버스를 타세요")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(WidgetTheme.primaryText)
+                    .padding(.top, 6)
+                Spacer(minLength: 4)
+                Text("약 \(arrival) 도착 · \((plan.slackMinutes ?? 0) == 0 ? "딱 맞게" : "\(WidgetDataHelper.spanText(plan.slackMinutes ?? 0)) 여유")")
+                    .font(.system(size: 11, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(WidgetTheme.secondaryText)
+                    .lineLimit(1)
+            } else {
+                Text(plan.later ?? entry.firstBusTime)
+                    .font(.system(size: 44, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .tracking(-1)
+                    .foregroundStyle(WidgetTheme.primaryText)
+                Text("그 시각까지 가는 버스가 없어요")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(WidgetTheme.primaryText)
+                    .padding(.top, 6)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: 4)
+                Text("첫차 \(plan.later ?? entry.firstBusTime) · \(WidgetDataHelper.spanText(plan.lateMinutes ?? 0)) 늦어요")
+                    .font(.system(size: 11, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(WidgetTheme.secondaryText)
+                    .lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// G · 세로 타임라인 — 출발과 도착을 위아래로
+    private var styleG: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                DirectionLabel(text: entry.direction)
+                Spacer(minLength: 4)
+                Text("\(formatUpcomingMinutes(entry.remainingMinutes)) 후")
+                    .font(.system(size: 12, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(WidgetTheme.accent)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            HStack(alignment: .center, spacing: 12) {
+                VStack(spacing: 0) {
+                    Circle().fill(WidgetTheme.primaryText).frame(width: 10, height: 10)
+                    Rectangle().fill(WidgetTheme.track).frame(width: 2)
+                    Circle().stroke(WidgetTheme.primaryText, lineWidth: 2).frame(width: 10, height: 10)
+                }
+                .frame(width: 12)
+                .padding(.vertical, 8)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .lastTextBaseline, spacing: 6) {
+                        Text(entry.nextBusTime ?? "--:--")
+                            .font(.system(size: 28, weight: .heavy, design: .rounded))
+                            .monospacedDigit()
+                            .tracking(-0.5)
+                            .foregroundStyle(WidgetTheme.primaryText)
+                        Text("출발")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(WidgetTheme.secondaryText)
+                    }
+                    HStack(alignment: .lastTextBaseline, spacing: 6) {
+                        Text(entry.arrivalTime)
+                            .font(.system(size: 28, weight: .heavy, design: .rounded))
+                            .monospacedDigit()
+                            .tracking(-0.5)
+                            .foregroundStyle(WidgetTheme.primaryText)
+                        Text("약 도착")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(WidgetTheme.secondaryText)
+                    }
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            Text(entry.usesTraffic ? "예상 소요 \(entry.durationMinutes)분" : "기본 소요 \(entry.durationMinutes)분")
+                .font(.system(size: 11, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(WidgetTheme.secondaryText)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -925,10 +1288,13 @@ struct MediumWidgetView: View {
             if entry.isServiceEnded {
                 ended
             } else {
-                switch entry.style {
+                switch entry.options.medium {
                 case .remaining: styleA
                 case .arrival: styleB
-                case .list: styleC
+                case .bothWays: styleC
+                case .hourGrid: styleD
+                case .summary: styleE
+                case .target: styleF
                 }
             }
         }
@@ -963,7 +1329,7 @@ struct MediumWidgetView: View {
                     Text("\(nextTime) 출발 · 약 \(entry.arrivalTime) 도착")
                         .font(.system(size: 13, weight: .medium))
                         .monospacedDigit()
-                        .foregroundStyle(.white)
+                        .foregroundStyle(WidgetTheme.primaryText)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                 }
@@ -988,7 +1354,7 @@ struct MediumWidgetView: View {
                                 Text(bus.time)
                                     .font(.system(size: 13, weight: .semibold))
                                     .monospacedDigit()
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(WidgetTheme.primaryText)
                                 if bus.isVia {
                                     Circle().fill(WidgetTheme.secondaryText).frame(width: 5, height: 5)
                                 }
@@ -1069,7 +1435,7 @@ struct MediumWidgetView: View {
                     .font(.system(size: 36, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .tracking(-1)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(WidgetTheme.primaryText)
                 Spacer(minLength: 4)
                 Text("오늘 운행 종료 · 내일 첫차")
                     .font(.system(size: 12, weight: .medium))
@@ -1080,21 +1446,239 @@ struct MediumWidgetView: View {
                         .font(.system(size: 48, weight: .heavy, design: .rounded))
                         .monospacedDigit()
                         .tracking(-1.5)
-                        .foregroundStyle(highlighted ? WidgetTheme.accent : .white)
+                        .foregroundStyle(highlighted ? WidgetTheme.accent : WidgetTheme.primaryText)
                     Text(remaining >= 60 ? "시간" : "분")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(WidgetTheme.primaryText)
                 }
                 Spacer(minLength: 4)
                 Text("\(nextTime ?? "--:--") · 약 \(arrival) 도착")
                     .font(.system(size: 12, weight: .medium))
                     .monospacedDigit()
-                    .foregroundStyle(.white)
+                    .foregroundStyle(WidgetTheme.primaryText)
             }
         }
         .lineLimit(1)
         .minimumScaleFactor(0.85)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// D · 시간대 시간표 — 지금과 다음 시간대의 출발 시각 전체
+    private var styleD: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                DirectionLabel(text: "\(entry.direction) · \(entry.scheduleLabel)")
+                Spacer(minLength: 4)
+                if let next = entry.nextBusTime {
+                    Text("\(next) · \(formatUpcomingMinutes(entry.remainingMinutes)) 후")
+                        .font(.system(size: 12, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(WidgetTheme.accent)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 6)
+            HourGrid(entry: entry, maxRows: 2, cellWidth: 46, cellHeight: 34, cornerRadius: 9, fontSize: 15)
+            Spacer(minLength: 6)
+            Text("막차 \(entry.lastBusTime) · 점은 경유")
+                .font(.system(size: 11, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(WidgetTheme.secondaryText)
+        }
+    }
+
+    /// E · 다음 버스 + 하루 요약 — 막차·심야·첫차를 함께
+    private var styleE: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
+                DirectionLabel(text: entry.direction)
+                Spacer(minLength: 4)
+                RemainingHero(entry: entry)
+                Spacer(minLength: 4)
+                if let nextTime = entry.nextBusTime {
+                    Text("\(nextTime) 출발 · 약 \(entry.arrivalTime) 도착")
+                        .font(.system(size: 13, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(WidgetTheme.primaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(spacing: 0) {
+                summaryRow(label: "막차", value: entry.lastBusTime, valueColor: WidgetTheme.primaryText)
+                Rectangle().fill(WidgetTheme.divider).frame(height: 1)
+                if let start = entry.nightFareStartTime {
+                    summaryRow(label: "심야 요금", value: "\(start)부터", valueColor: WidgetTheme.nightFare)
+                } else {
+                    summaryRow(label: "첫차", value: entry.firstBusTime, valueColor: WidgetTheme.primaryText)
+                }
+                Rectangle().fill(WidgetTheme.divider).frame(height: 1)
+                summaryRow(label: "내일 첫차", value: entry.tomorrowFirstBusTime, valueColor: WidgetTheme.primaryText)
+            }
+            .frame(width: 132)
+        }
+    }
+
+    private func summaryRow(label: String, value: String, valueColor: Color) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(WidgetTheme.secondaryText)
+            Spacer()
+            Text(value)
+                .font(.system(size: 13, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(valueColor)
+        }
+        .frame(height: 34)
+        .lineLimit(1)
+    }
+
+    /// F · 도착 목표 — '도착 시각으로 찾기'를 위젯으로
+    private var styleF: some View {
+        let plan = entry.targetPlan
+        return HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
+                DirectionLabel(text: "\(entry.destinationName)에 \(plan.target)까지")
+                Spacer(minLength: 4)
+                if let best = plan.best, let arrival = plan.bestArrival {
+                    Text(best)
+                        .font(.system(size: 48, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .tracking(-1.5)
+                        .foregroundStyle(WidgetTheme.accent)
+                    Text("이 버스를 타세요")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(WidgetTheme.primaryText)
+                        .padding(.top, 4)
+                    Spacer(minLength: 4)
+                    Text("약 \(arrival) 도착 · \((plan.slackMinutes ?? 0) == 0 ? "딱 맞게" : "\(WidgetDataHelper.spanText(plan.slackMinutes ?? 0)) 여유")")
+                        .font(.system(size: 12, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(WidgetTheme.secondaryText)
+                } else {
+                    Text(plan.later ?? entry.firstBusTime)
+                        .font(.system(size: 48, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .tracking(-1.5)
+                        .foregroundStyle(WidgetTheme.primaryText)
+                    Text("그 시각까지 가는 버스가 없어요")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(WidgetTheme.primaryText)
+                        .padding(.top, 4)
+                    Spacer(minLength: 4)
+                    Text("첫차 \(plan.later ?? entry.firstBusTime) · \(WidgetDataHelper.spanText(plan.lateMinutes ?? 0)) 늦어요")
+                        .font(.system(size: 12, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(WidgetTheme.secondaryText)
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                if let earlier = plan.earlier {
+                    targetRow(label: "한 대 앞", time: earlier, note: "\(WidgetDataHelper.spanText(plan.earlierSlack ?? 0)) 여유", noteColor: WidgetTheme.secondaryText, noteWeight: .medium)
+                    Rectangle().fill(WidgetTheme.divider).frame(height: 1)
+                }
+                if let later = plan.later, plan.best != nil {
+                    targetRow(label: "놓치면", time: later, note: "\(WidgetDataHelper.spanText(plan.lateMinutes ?? 0)) 늦어요", noteColor: WidgetTheme.warning, noteWeight: .semibold)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(width: 148)
+        }
+    }
+
+    private func targetRow(label: String, time: String, note: String, noteColor: Color, noteWeight: Font.Weight) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(label)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(WidgetTheme.secondaryText)
+                Text(time)
+                    .font(.system(size: 13, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(WidgetTheme.primaryText)
+            }
+            Spacer()
+            Text(note)
+                .font(.system(size: 12, weight: noteWeight))
+                .monospacedDigit()
+                .foregroundStyle(noteColor)
+        }
+        .frame(height: 40)
+        .lineLimit(1)
+    }
+}
+
+/// 시간대별 출발 시각 그리드 (중형 D · 대형 B). 지난 시각은 어둡게, 다음 버스만 강조색, 경유는 점.
+private struct HourGrid: View {
+    let entry: BusEntry
+    let maxRows: Int
+    let cellWidth: CGFloat
+    let cellHeight: CGFloat
+    let cornerRadius: CGFloat
+    let fontSize: CGFloat
+    var maxCellsPerRow: Int = 6
+
+    private var rows: [(hour: String, times: [String])] {
+        var order: [String] = []
+        var grouped: [String: [String]] = [:]
+        for time in entry.todayTimes {
+            let hour = String(time.prefix(2))
+            if grouped[hour] == nil { order.append(hour) }
+            grouped[hour, default: []].append(time)
+        }
+        // 다음 버스가 있는 시간대부터 보여준다
+        let nextHour = entry.nextBusTime.map { String($0.prefix(2)) }
+        let start = nextHour.flatMap { order.firstIndex(of: $0) } ?? max(order.count - maxRows, 0)
+        return order[start...].prefix(maxRows).map { ($0, Array((grouped[$0] ?? []).prefix(maxCellsPerRow))) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(rows, id: \.hour) { row in
+                HStack(spacing: 6) {
+                    Text("\(Int(row.hour) ?? 0)시")
+                        .font(.system(size: 12, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(WidgetTheme.secondaryText)
+                        .frame(width: 38, alignment: .leading)
+                    ForEach(row.times, id: \.self) { time in
+                        cell(time)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(height: cellHeight)
+            }
+        }
+    }
+
+    private func cell(_ time: String) -> some View {
+        let isNext = time == entry.nextBusTime
+        let isPast = !isNext && (WidgetDataHelper.minutesUntil(timeString: time, from: entry.date) ?? 0) < 0
+        return ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(isNext ? WidgetTheme.accent : (isPast ? WidgetTheme.pastCell : WidgetTheme.surfaceSecondary))
+            Text(String(time.suffix(2)))
+                .font(.system(size: fontSize, weight: isNext ? .heavy : .semibold))
+                .monospacedDigit()
+                .foregroundStyle(isNext ? WidgetTheme.accentForeground : (isPast ? WidgetTheme.tertiaryText : WidgetTheme.primaryText))
+                .frame(maxHeight: .infinity)
+            if entry.viaTimes.contains(time) {
+                Circle()
+                    .fill(isNext ? WidgetTheme.accentForeground : WidgetTheme.secondaryText)
+                    .frame(width: 4, height: 4)
+                    .padding(.bottom, 4)
+            }
+        }
+        .frame(width: cellWidth, height: cellHeight)
+        .accessibilityLabel("\(time) 출발\(isNext ? ", 다음 버스" : "")\(entry.viaTimes.contains(time) ? ", 경유" : "")")
     }
 }
 
@@ -1104,6 +1688,61 @@ struct LargeWidgetView: View {
     let entry: BusEntry
 
     var body: some View {
+        switch entry.options.large {
+        case .list: listStyle
+        case .grid: gridStyle
+        }
+    }
+
+    /// B · 오늘 시간표 그리드
+    private var gridStyle: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                DirectionLabel(text: "\(entry.direction) · \(entry.scheduleLabel) 시간표")
+                Spacer(minLength: 4)
+                if entry.isServiceEnded {
+                    Text("오늘 운행 종료 · 내일 첫차 \(entry.firstBusTime)")
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(WidgetTheme.primaryText)
+                } else if let next = entry.nextBusTime {
+                    Text("\(next) · \(formatUpcomingMinutes(entry.remainingMinutes)) 후")
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(WidgetTheme.accent)
+                }
+            }
+            .lineLimit(1)
+
+            HourGrid(entry: entry, maxRows: 6, cellWidth: 66, cellHeight: 40, cornerRadius: 10, fontSize: 16, maxCellsPerRow: 4)
+                .padding(.top, 14)
+
+            Spacer(minLength: 0)
+
+            HStack {
+                if let start = entry.nightFareStartTime {
+                    HStack(spacing: 0) {
+                        Text("막차 \(entry.lastBusTime) · ")
+                        Text(start).fontWeight(.bold).foregroundStyle(WidgetTheme.nightFare)
+                        Text("부터 심야")
+                    }
+                } else {
+                    Text("첫차 \(entry.firstBusTime) · 막차 \(entry.lastBusTime)")
+                }
+                Spacer()
+                Text("점은 경유")
+            }
+            .font(.system(size: 11, weight: .medium))
+            .monospacedDigit()
+            .foregroundStyle(WidgetTheme.secondaryText)
+            .lineLimit(1)
+        }
+        .padding(18)
+        .widgetCanvas(alignment: .topLeading)
+    }
+
+    /// A · 다음 버스 + 이어지는 버스 표
+    private var listStyle: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 DirectionLabel(text: "\(entry.direction) · \(entry.scheduleLabel) 시간표")
@@ -1111,7 +1750,7 @@ struct LargeWidgetView: View {
                 if entry.isServiceEnded {
                     Text("오늘 운행 종료")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(WidgetTheme.primaryText)
                 } else {
                     Text("\(formatUpcomingMinutes(entry.remainingMinutes)) 후 출발")
                         .font(.system(size: 13, weight: .bold))
@@ -1162,20 +1801,20 @@ struct LargeWidgetView: View {
                             Text(bus.time)
                                 .font(.system(size: 16, weight: .semibold))
                                 .monospacedDigit()
-                                .foregroundStyle(.white)
+                                .foregroundStyle(WidgetTheme.primaryText)
                                 .frame(width: 64, alignment: .leading)
                             if bus.isVia { ViaChip() }
                             Spacer(minLength: 0)
                             Text("약 \(bus.arrival)")
                                 .font(.system(size: 14, weight: .semibold))
                                 .monospacedDigit()
-                                .foregroundStyle(.white)
+                                .foregroundStyle(WidgetTheme.primaryText)
                                 .frame(width: 84, alignment: .trailing)
                             HStack(spacing: 6) {
                                 BasisDot(usesTraffic: bus.usesTraffic)
                                 Text(bus.usesTraffic ? "교통 반영" : "시간표 기준")
                                     .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(bus.usesTraffic ? .white : WidgetTheme.secondaryText)
+                                    .foregroundStyle(bus.usesTraffic ? WidgetTheme.primaryText : WidgetTheme.secondaryText)
                             }
                             .frame(width: 96, alignment: .trailing)
                         }
@@ -1214,7 +1853,22 @@ struct AccessoryCircularView: View {
     let entry: BusEntry
 
     var body: some View {
-        if entry.isServiceEnded {
+        if entry.options.circular == .departure, !entry.isServiceEnded, let next = entry.nextBusTime {
+            ZStack {
+                AccessoryWidgetBackground()
+                VStack(spacing: 2) {
+                    Text("출발")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Text(next)
+                        .font(.system(size: 19, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                    Text(entry.destinationName)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } else if entry.isServiceEnded {
             ZStack {
                 AccessoryWidgetBackground()
                 VStack(spacing: 2) {
@@ -1320,21 +1974,29 @@ struct LocalBusWidget: Widget {
 #Preview(as: .systemSmall) {
     LocalBusWidget()
 } timeline: {
-    BusEntry.placeholder(style: .remaining)
-    BusEntry.placeholder(style: .arrival)
-    BusEntry.placeholder(style: .list)
+    BusEntry.placeholder(options: WidgetOptions(small: .remaining))
+    BusEntry.placeholder(options: WidgetOptions(small: .arrival))
+    BusEntry.placeholder(options: WidgetOptions(small: .list))
+    BusEntry.placeholder(options: WidgetOptions(small: .lastBus))
+    BusEntry.placeholder(options: WidgetOptions(small: .bothWays))
+    BusEntry.placeholder(options: WidgetOptions(small: .target))
+    BusEntry.placeholder(options: WidgetOptions(small: .timeline))
 }
 
 #Preview(as: .systemMedium) {
     LocalBusWidget()
 } timeline: {
-    BusEntry.placeholder(style: .remaining)
-    BusEntry.placeholder(style: .arrival)
-    BusEntry.placeholder(style: .list)
+    BusEntry.placeholder(options: WidgetOptions(medium: .remaining))
+    BusEntry.placeholder(options: WidgetOptions(medium: .arrival))
+    BusEntry.placeholder(options: WidgetOptions(medium: .bothWays))
+    BusEntry.placeholder(options: WidgetOptions(medium: .hourGrid))
+    BusEntry.placeholder(options: WidgetOptions(medium: .summary))
+    BusEntry.placeholder(options: WidgetOptions(medium: .target))
 }
 
 #Preview(as: .systemLarge) {
     LocalBusWidget()
 } timeline: {
-    BusEntry.placeholder(style: .remaining)
+    BusEntry.placeholder(options: WidgetOptions(large: .list))
+    BusEntry.placeholder(options: WidgetOptions(large: .grid))
 }
