@@ -2,8 +2,8 @@ import SwiftUI
 
 /// 런치 스크린 (스플래시 화면) — 디자인 캔버스 개선안
 ///
-/// 마스코트 하나 + 워드마크 + 한 줄 부제. 시스템 런치 스크린(Info.plist UILaunchScreen)과
-/// 같은 배경색·마스코트를 써서 시스템 → SwiftUI 스플래시 전환이 끊김 없이 이어진다.
+/// 앱 아이콘과 같은 시계 버스 마크 + 워드마크 + 한 줄 부제. 시스템 런치 스크린(Info.plist UILaunchScreen)과
+/// 같은 배경색을 써서 시스템 → SwiftUI 스플래시 전환이 끊김 없이 이어진다.
 /// 종료 시점은 `LaunchTiming`(시간표 준비 시 최소 0.6초 뒤, 늦어도 1.5초)에서 정한다.
 struct LaunchScreenView: View {
 
