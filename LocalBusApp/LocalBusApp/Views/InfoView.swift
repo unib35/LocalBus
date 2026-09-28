@@ -350,6 +350,13 @@ struct InfoView: View {
 
     private var notificationGroup: some View {
         VStack(spacing: 0) {
+            NavigationLink(destination: MyAlertsView(viewModel: viewModel, onAddFromTimetable: onShowTimetable)) {
+                navigationRow("버스 알림", value: viewModel.enabledAlertCount > 0 ? "\(viewModel.enabledAlertCount)개" : nil)
+            }
+            .buttonStyle(.plain)
+
+            RowDivider()
+
             toggleRow(
                 title: "막차 30분 전 알림",
                 description: "매일 막차 출발 30분 전에 알려드려요",
@@ -526,11 +533,18 @@ struct InfoView: View {
             .padding(.bottom, 8)
     }
 
-    private func navigationRow(_ title: String, badge: String? = nil) -> some View {
+    private func navigationRow(_ title: String, badge: String? = nil, value: String? = nil) -> some View {
         HStack(spacing: 8) {
             Text(title)
                 .font(AppTheme.Typography.rowBody)
                 .foregroundStyle(AppTheme.Color.primaryText)
+            if let value {
+                Text("· \(value)")
+                    .font(AppTheme.Typography.rowBody)
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .padding(.leading, -2)
+            }
             if let badge {
                 Text(badge)
                     .font(AppTheme.Typography.footnote.weight(.bold))
