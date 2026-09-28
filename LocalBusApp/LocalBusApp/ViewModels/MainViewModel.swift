@@ -92,6 +92,9 @@ final class MainViewModel: ObservableObject {
     /// 마지막으로 원격 시간표를 확인한 시각
     @Published private(set) var lastUpdateCheckAt: Date? = UserDefaults.standard.object(forKey: "lastUpdateCheckAt") as? Date
 
+    /// 운영 상황 (원격 JSON "ops"). 없으면 배너·업데이트 안내가 뜨지 않는다.
+    @Published private(set) var ops: OperationsInfo?
+
     /// 받은 알림 기록 (홈 종 아이콘 → 알림 모아보기)
     let notificationHistory: NotificationHistoryStore
 
@@ -332,6 +335,12 @@ final class MainViewModel: ObservableObject {
 
     /// 첫차·막차·심야 요금을 한 줄로. 예: "첫차 06:20 · 막차 23:30 · 22:10부터 심야 요금 3,000원"
     var serviceSummaryText: String {
+        if let override = OperationsEvaluator.serviceSummaryOverride(
+            ops: effectiveOps, routeKey: selectedDirection.rawValue, now: Date(),
+            firstBusTime: firstBusTime, lastBusTime: lastBusTime
+        ) {
+            return override
+        }
         var parts = ["첫차 \(firstBusTime)", "막차 \(lastBusTime)"]
         if let nightFare, let nightFareStartTime {
             let formatter = NumberFormatter()
@@ -479,6 +488,7 @@ final class MainViewModel: ObservableObject {
         timetableData = data
         errorMessage = nil
         holidays = data.holidays
+        ops = data.ops
         rebuildNotices(from: data)
         noticeMessage = data.meta.noticeMessage
 
@@ -1035,6 +1045,57 @@ final class MainViewModel: ObservableObject {
                 receivedAt: fireAt,
                 target: .bus(direction: alert.direction, time: alert.busTime)
             ))
+        }
+    }
+
+    // MARK: - 운영 상황 (디자인 캔버스 Ops*)
+
+    /// 지금 홈에 띄울 운영 안내 배너 하나 (운휴 > 변경 예고 > 오래됨 > 점검). 없으면 nil.
+    func operationsBanner(now: Date = Date()) -> OperationsBanner? {
+        if let forced = Self.forcedBanner(updatedAt: updatedAtText) { return forced }
+        return OperationsEvaluator.banner(
+            ops: ops,
+            routeKey: selectedDirection.rawValue,
+            now: now,
+            lastUpdateCheckAt: lastUpdateCheckAt,
+            updatedAt: updatedAtText
+        )
+    }
+
+    /// 앱 버전이 원격 최소·권장 버전보다 낮은지
+    var updateRequirement: UpdateRequirement {
+        let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        switch UserDefaults.standard.string(forKey: "forceUpdate") {
+        case "required": return .required(version: "1.2")
+        case "recommended": return .recommended(version: "1.2")
+        default: break
+        }
+        return OperationsEvaluator.updateRequirement(current: current, min: ops?.minAppVersion, recommended: ops?.recommendedAppVersion)
+    }
+
+    /// 권장 업데이트 시트 본문
+    var updateMessage: String {
+        ops?.updateMessage ?? "도착 예상과 알림 모아보기가 추가됐어요. 지금 버전도 계속 쓸 수 있어요."
+    }
+
+    /// UI 테스트·스크린샷용 강제 운휴 데이터 (`-forceOpsBanner closure`)
+    private var effectiveOps: OperationsInfo? {
+        if UserDefaults.standard.string(forKey: "forceOpsBanner") == "closure" {
+            return OperationsInfo(closure: .init(
+                date: OperationsEvaluator.dayKey(Date()), title: "오늘 22:10 이후 버스는 운행하지 않아요",
+                reason: "도로 공사", lastBus: "21:40", routeKeys: nil
+            ))
+        }
+        return ops
+    }
+
+    private static func forcedBanner(updatedAt: String) -> OperationsBanner? {
+        switch UserDefaults.standard.string(forKey: "forceOpsBanner") {
+        case "closure": return .closure(title: "오늘 22:10 이후 버스는 운행하지 않아요", subtitle: "막차 21:40 · 도로 공사")
+        case "change": return .change(title: "10월 1일부터 시간표가 바뀌어요", noticeID: nil)
+        case "stale": return .stale(baselineText: OperationsEvaluator.baselineText(updatedAt))
+        case "maintenance": return .maintenance(message: "새 시간표 확인을 잠시 멈췄어요")
+        default: return nil
         }
     }
 
