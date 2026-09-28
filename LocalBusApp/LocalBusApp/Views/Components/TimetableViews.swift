@@ -10,6 +10,7 @@ struct TimetableScreenView: View {
     @ObservedObject var viewModel: MainViewModel
     var isPreparingShare: Bool = false
     var onShare: (() -> Void)? = nil
+    @EnvironmentObject private var storeService: StoreService
 
     @State private var showNotificationDeniedAlert = false
     @State private var selectedBusInfo: BusDetailInfo?
@@ -43,6 +44,10 @@ struct TimetableScreenView: View {
 
                 grid
                     .padding(.top, 6)
+
+                AdSlotView(placement: .timetableAnchor, isPro: storeService.isPro)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
             }
         }
         .alert("알림 권한이 필요합니다", isPresented: $showNotificationDeniedAlert) {

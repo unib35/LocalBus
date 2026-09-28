@@ -26,6 +26,7 @@ struct AlertsHubView: View {
     var onShowTimetable: (() -> Void)? = nil
 
     @ObservedObject private var history = NotificationHistoryStore.shared
+    @EnvironmentObject private var storeService: StoreService
     @State private var filter: Filter = .all
     @State private var busDetail: BusDetailInfo?
     @State private var noticeToOpen: NoticeItem?
@@ -110,6 +111,11 @@ struct AlertsHubView: View {
                                 .surfaceCard()
                                 .padding(.top, 16)
                         }
+                    }
+
+                    if !history.items.isEmpty {
+                        AdSlotView(placement: .inboxNative, isPro: storeService.isPro)
+                            .padding(.top, 22)
                     }
 
                     NavigationLink {
