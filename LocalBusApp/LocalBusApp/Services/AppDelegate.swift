@@ -42,21 +42,39 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     // MARK: - UNUserNotificationCenterDelegate
 
-    /// 포그라운드에서 알림 수신 시 배너 표시
+    /// 포그라운드에서 알림 수신 시 배너 표시 + 기록
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        record(notification, isRead: false)
         completionHandler([.banner, .sound, .badge])
     }
 
-    /// 알림 탭 처리
+    /// 알림 탭 처리: 기록에 남기고 읽음 처리
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        record(response.notification, isRead: true)
         completionHandler()
+    }
+
+    /// iOS는 받은 알림 기록을 앱에 남겨주지 않으므로 앱이 직접 저장한다 (알림 모아보기).
+    private func record(_ notification: UNNotification, isRead: Bool) {
+        let content = notification.request.content
+        guard var item = AppNotification.from(
+            identifier: notification.request.identifier,
+            title: content.title,
+            body: content.body,
+            userInfo: content.userInfo,
+            receivedAt: notification.date
+        ) else { return }
+        item.isRead = isRead
+        Task { @MainActor in
+            NotificationHistoryStore.shared.record(item)
+        }
     }
 }

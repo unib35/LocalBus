@@ -86,6 +86,13 @@ final class MainViewModel: ObservableObject {
     /// 마지막으로 원격 시간표를 확인한 시각
     @Published private(set) var lastUpdateCheckAt: Date? = UserDefaults.standard.object(forKey: "lastUpdateCheckAt") as? Date
 
+    /// 받은 알림 기록 (홈 종 아이콘 → 알림 모아보기)
+    let notificationHistory: NotificationHistoryStore
+
+    /// 원본 공지 데이터 (중요 공지 다이얼로그 판단용)
+    private var noticeSource: [NoticeData] = []
+
+
     // MARK: - Private Properties
 
     /// 전체 시간표 데이터 (routes 포함)
@@ -355,7 +362,8 @@ final class MainViewModel: ObservableObject {
 
     // MARK: - Initialization
 
-    init() {
+    init(notificationHistory: NotificationHistoryStore = .shared) {
+        self.notificationHistory = notificationHistory
         let saved = UserDefaults.standard.string(forKey: "selectedDirection") ?? RouteDirection.jangyuToSasang.rawValue
         self.selectedDirection = RouteDirection(rawValue: saved) ?? .jangyuToSasang
     }
@@ -606,6 +614,7 @@ final class MainViewModel: ObservableObject {
 
     /// 이미 울린 한 번 알림은 목록에서 빼고, 반복 알림은 공휴일 반영을 위해 다시 예약한다.
     func refreshScheduledNotifications() async {
+        recordFiredBusAlerts()
         let pending = await NotificationService.shared.pendingAlertIDs()
         busAlerts.removeAll { !$0.repeatsWeekdays && $0.isEnabled && !pending.contains($0.id) }
         alertStore.save(busAlerts)
@@ -821,6 +830,9 @@ final class MainViewModel: ObservableObject {
         if let url = remoteURL {
             do {
                 let remoteData: TimetableData = try await networkService.fetch(from: url)
+                if let cached = timetableService.loadCachedData(), cached.meta.updatedAt != remoteData.meta.updatedAt {
+                    recordTimetableUpdate(to: remoteData.meta.updatedAt, changes: TimetableDiff.changes(old: cached, new: remoteData))
+                }
                 timetableService.saveToCache(remoteData)
                 // App Group 캐시가 갱신됐으니 위젯도 새 시간표로 다시 그리도록 타임라인 리로드
                 WidgetCenter.shared.reloadAllTimelines()
@@ -873,6 +885,9 @@ final class MainViewModel: ObservableObject {
             let current = timetableData?.meta.updatedAt ?? "--"
             let changes = timetableData.map { TimetableDiff.changes(old: $0, new: remoteData) } ?? []
             let result = TimetableUpdateResult.evaluate(current: current, fetched: remoteData.meta.updatedAt, changes: changes)
+            if case .updated(_, let to, let changes) = result {
+                recordTimetableUpdate(to: to, changes: changes)
+            }
 
             // 기준일이 같아도 공지 등 부속 데이터는 최신으로 맞춘다.
             timetableService.saveToCache(remoteData)
@@ -908,6 +923,94 @@ final class MainViewModel: ObservableObject {
     private func rebuildNotices(from data: TimetableData) {
         // 원격 JSON에 notices가 아직 없으면 번들 JSON의 공지를 쓴다.
         let source = data.notices ?? TimetableService().loadLocalData()?.notices ?? []
+        noticeSource = source
         notices = source.map { $0.asNoticeItem(isUnread: !readNoticeIDs.contains($0.id)) }
+        recordNewNotices(source)
+    }
+
+    // MARK: - 받은 알림 기록
+
+    /// 처음 보는 공지는 "새 소식"으로 기록한다 (푸시를 못 받았어도 모아보기에 남도록).
+    private func recordNewNotices(_ source: [NoticeData]) {
+        for notice in source where !readNoticeIDs.contains(notice.id) {
+            let receivedAt = Self.date(fromDotted: notice.date) ?? Date()
+            notificationHistory.record(AppNotification(
+                id: "notice_\(notice.id)",
+                kind: .notice,
+                title: notice.title,
+                body: notice.body.first ?? "",
+                receivedAt: receivedAt,
+                target: .notice(id: notice.id)
+            ))
+        }
+    }
+
+    private func recordTimetableUpdate(to updatedAt: String, changes: [TimetableChange]) {
+        let summary = changes.prefix(2).map { "\($0.label) \($0.oldValue) → \($0.newValue)" }.joined(separator: " · ")
+        notificationHistory.record(AppNotification(
+            id: "timetable_\(updatedAt)",
+            kind: .timetable,
+            title: "새 시간표를 적용했어요",
+            body: summary.isEmpty ? "\(updatedAt.replacingOccurrences(of: "-", with: ".")) 기준 시간표" : summary,
+            receivedAt: Date(),
+            target: .timetable
+        ))
+    }
+
+    /// 오늘 이미 울린 버스 알림을 기록으로 옮긴다 (앱을 켰을 때 호출).
+    func recordFiredBusAlerts(now: Date = Date()) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        let dayFormatter = DateFormatter()
+        dayFormatter.timeZone = calendar.timeZone
+        dayFormatter.dateFormat = "yyyyMMdd"
+
+        for alert in busAlerts where alert.isEnabled {
+            let parts = alert.alertTime.split(separator: ":").compactMap { Int($0) }
+            guard parts.count == 2,
+                  let fireAt = calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: now),
+                  fireAt <= now else { continue }
+            if alert.repeatsWeekdays && !DateService.shouldUseWeekdaySchedule(now, holidays: holidays) { continue }
+            notificationHistory.record(AppNotification(
+                id: "bus_\(alert.id)_\(dayFormatter.string(from: now))",
+                kind: .bus,
+                title: "\(alert.busTime) 버스가 \(alert.leadMinutes)분 후 출발해요",
+                body: "\(alert.direction.displayName) · \(alert.direction.departureName) 출발",
+                receivedAt: fireAt,
+                target: .bus(direction: alert.direction, time: alert.busTime)
+            ))
+        }
+    }
+
+    // MARK: - 중요 공지 다이얼로그
+
+    /// 앱을 열자마자 띄울 중요 공지. 읽었거나, 오늘 하루 보지 않기를 눌렀거나, 게시 종료일이 지났으면 nil.
+    func importantNoticeToShow(now: Date = Date()) -> NoticeItem? {
+        let today = Self.dayKey(now)
+        for notice in noticeSource where notice.important == true {
+            if readNoticeIDs.contains(notice.id) { continue }
+            if let endsAt = notice.endsAt, endsAt < today { continue }
+            if UserDefaults.standard.string(forKey: "noticeDialogSnoozed_\(notice.id)") == today { continue }
+            return notice.asNoticeItem(isUnread: true)
+        }
+        return nil
+    }
+
+    func snoozeImportantNotice(id: String, now: Date = Date()) {
+        UserDefaults.standard.set(Self.dayKey(now), forKey: "noticeDialogSnoozed_\(id)")
+    }
+
+    private static func dayKey(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    private static func date(fromDotted text: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "yyyy.MM.dd"
+        return formatter.date(from: text)
     }
 }

@@ -168,10 +168,21 @@ struct NoticeData: Codable, Equatable {
     let category: String?
     let body: [String]
     let timetableSummary: NoticeSummaryData?
+    /// 임시 운휴·시간표 변경처럼 앱을 열자마자 보여줄 공지
+    let important: Bool?
+    /// 이 날짜(yyyy-MM-dd)가 지나면 다이얼로그로 띄우지 않는다
+    let endsAt: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, title, date, category, body
+        case id, title, date, category, body, important
         case timetableSummary = "timetable_summary"
+        case endsAt = "ends_at"
+    }
+
+    init(id: String, title: String, date: String, category: String?, body: [String], timetableSummary: NoticeSummaryData?, important: Bool? = nil, endsAt: String? = nil) {
+        self.id = id; self.title = title; self.date = date; self.category = category
+        self.body = body; self.timetableSummary = timetableSummary
+        self.important = important; self.endsAt = endsAt
     }
 
     func asNoticeItem(isUnread: Bool) -> NoticeItem {
