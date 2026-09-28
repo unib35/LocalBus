@@ -170,6 +170,11 @@ struct AlertsHubView: View {
                 onRemoveAlert: {
                     if let alert = viewModel.alert(for: info.departureTime) { viewModel.removeAlert(id: alert.id) }
                 }
+                ,
+                onRefreshTraffic: {
+                    await viewModel.refreshTrafficDuration(force: true)
+                    return viewModel.arrivalEstimate(for: info.departureTime)
+                }
             )
         }
         .sheet(item: $noticeToOpen) { notice in

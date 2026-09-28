@@ -90,6 +90,11 @@ struct TimetableScreenView: View {
                         viewModel.removeAlert(id: alert.id)
                     }
                 }
+                ,
+                onRefreshTraffic: {
+                    await viewModel.refreshTrafficDuration(force: true)
+                    return viewModel.arrivalEstimate(for: info.departureTime)
+                }
             )
         }
     }

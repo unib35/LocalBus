@@ -14,22 +14,34 @@ struct BusDetailView: View {
     @State private var repeatsWeekdays: Bool
     @State private var notificationToast: ToastMessage?
     @State private var quickReport: QuickReportContext?
+    /// 도착 예상. 새로고침하면 이 값만 바뀐다.
+    @State private var estimate: ArrivalEstimate
+    @State private var isRefreshingTraffic = false
+    @State private var lastManualRefreshAt: Date?
     /// (lead, 평일 반복) → 권한이 있어서 예약됐으면 true
     let onSetAlert: (Int, Bool) async -> Bool
     let onRemoveAlert: () async -> Void
+    /// 교통정보를 강제로 다시 받고 새 도착 예상을 돌려준다.
+    let onRefreshTraffic: (() async -> ArrivalEstimate?)?
 
     init(
         info: BusDetailInfo,
         alert: BusAlert?,
         onSetAlert: @escaping (Int, Bool) async -> Bool,
-        onRemoveAlert: @escaping () async -> Void
+        onRemoveAlert: @escaping () async -> Void,
+        onRefreshTraffic: (() async -> ArrivalEstimate?)? = nil
     ) {
         self.info = info
         self._alert = State(initialValue: alert)
         self._selectedLead = State(initialValue: alert?.leadMinutes ?? 5)
         self._repeatsWeekdays = State(initialValue: alert?.repeatsWeekdays ?? false)
+        self._estimate = State(initialValue: info.estimate ?? ArrivalEstimate(
+            departureTime: info.departureTime, arrivalTime: info.arrivalTime,
+            durationMinutes: info.durationMinutes, basis: .timetable
+        ))
         self.onSetAlert = onSetAlert
         self.onRemoveAlert = onRemoveAlert
+        self.onRefreshTraffic = onRefreshTraffic
     }
 
     var body: some View {
@@ -37,18 +49,13 @@ struct BusDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 header
 
-                JourneyStripView(
-                    departureTime: info.departureTime,
-                    arrivalTime: info.arrivalTime,
-                    destinationName: info.direction.arrivalName,
-                    durationMinutes: info.durationMinutes
-                )
-                .padding(.top, 18)
+                etaCard
+                    .padding(.top, 16)
 
                 alertSection
                     .padding(.top, 26)
 
-                fareSection
+                boardingAndFareSection
                     .padding(.top, 28)
 
                 stopsSection
@@ -67,38 +74,188 @@ struct BusDetailView: View {
         }
     }
 
-    // MARK: - 헤더
+    // MARK: - 헤더 (디자인 캔버스 EtaBusDetail: "사상에 약 19:04 도착")
+
+    private var displayBasis: TrafficBasis {
+        if isRefreshingTraffic {
+            if case .live(let updatedAt) = estimate.basis { return .refreshing(updatedAt: updatedAt) }
+            if case .refreshing = estimate.basis { return estimate.basis }
+            return .refreshing(updatedAt: nil)
+        }
+        return estimate.basis
+    }
+
+    private var untilText: String? {
+        guard let minutes = info.minutesUntilDeparture, minutes >= 0 else { return nil }
+        if minutes == 0 { return "곧 출발" }
+        if minutes < 60 { return "\(minutes)분 후 출발" }
+        let rest = minutes % 60
+        return rest == 0 ? "\(minutes / 60)시간 후 출발" : "\(minutes / 60)시간 \(rest)분 후 출발"
+    }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(info.departureTime)
-                .font(.system(size: 44, weight: .heavy, design: .rounded))
-                .monospacedDigit()
-                .tracking(-1)
-                .foregroundStyle(AppTheme.Color.primaryText)
-
-            Spacer(minLength: 12)
-
-            VStack(alignment: .trailing, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
                 Text("\(info.directionDisplayName) · \(info.scheduleTypeLabel) · \(info.isVia ? "경유" : "직행")")
                     .font(AppTheme.Typography.caption)
                     .foregroundStyle(AppTheme.Color.secondaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
-
-                HStack(spacing: 6) {
-                    if let platform = info.platformNumber {
-                        LabelChip(text: "탑승 \(platform)")
-                    }
-                    if info.isNightFare {
-                        Text("심야 요금")
-                            .font(AppTheme.Typography.footnote.weight(.bold))
-                            .foregroundStyle(AppTheme.Color.nightFare)
-                    }
+                Spacer(minLength: 8)
+                if let untilText {
+                    Text(untilText)
+                        .font(AppTheme.Typography.caption.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(AppTheme.Color.accent)
+                } else if info.isNightFare {
+                    Text("심야 요금")
+                        .font(AppTheme.Typography.footnote.weight(.bold))
+                        .foregroundStyle(AppTheme.Color.nightFare)
                 }
             }
+
+            HStack(alignment: .lastTextBaseline, spacing: 8) {
+                Text("\(info.direction.arrivalName)에")
+                    .font(AppTheme.Typography.groupTitle)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                HStack(alignment: .lastTextBaseline, spacing: 5) {
+                    Text("약")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                    Text(estimate.arrivalTime)
+                        .font(.system(size: 48, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .tracking(-1)
+                        .foregroundStyle(AppTheme.Color.primaryText)
+                }
+                Text("도착")
+                    .font(AppTheme.Typography.groupTitle)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+            }
+            .padding(.top, 10)
+
+            Text("\(info.departureTime) 출발 · \(estimate.durationText)")
+                .font(AppTheme.Typography.rowValue.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.Color.primaryText)
+                .padding(.top, 8)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - 도착 예상 설명 카드 (근거 · 갱신)
+
+    private var etaCopy: (title: String, body: String) {
+        switch displayBasis {
+        case .live:
+            return ("현재 교통 반영", "현재 교통상황과 정차시간을 반영했어요. 시간표대로 출발할 경우의 예상이며, 실제 도착은 달라질 수 있어요.")
+        case .refreshing:
+            return ("교통정보 갱신 중", "현재 교통상황과 정차시간을 반영했어요. 시간표대로 출발할 경우의 예상이며, 실제 도착은 달라질 수 있어요.")
+        case .timetable:
+            if let minutes = info.minutesUntilDeparture, minutes > ArrivalEstimator.trafficWindowMinutes {
+                return ("시간표 기준", "출발까지 많이 남아 기본 소요시간 \(estimate.durationMinutes)분으로 계산했어요. 출발 1시간 전부터 교통상황을 반영해요.")
+            }
+            return ("시간표 기준", "교통정보를 받지 못해 기본 소요시간 \(estimate.durationMinutes)분으로 계산했어요. 시간표대로 출발할 경우의 예상이에요.")
+        case .offline:
+            return ("오프라인 · 시간표 기준", "인터넷에 연결되면 교통상황을 반영해 다시 계산해요. 시간표와 기본 도착 예상은 그대로 볼 수 있어요.")
+        }
+    }
+
+    private var isFreshlyRefreshed: Bool {
+        guard let at = lastManualRefreshAt else { return false }
+        return Date().timeIntervalSince(at) < 60
+    }
+
+    private var etaFootText: String {
+        if case .timetable = displayBasis, let minutes = info.minutesUntilDeparture, minutes > ArrivalEstimator.trafficWindowMinutes,
+           let start = DateService.timeByAdding(minutes: -ArrivalEstimator.trafficWindowMinutes, to: info.departureTime) {
+            return "\(start)부터 교통 반영"
+        }
+        return ArrivalEstimator.footText(for: displayBasis, lastTrafficAt: info.lastTrafficAt)
+    }
+
+    private var etaCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 7) {
+                TrafficBasisDot(basis: displayBasis)
+                Text(etaCopy.title)
+            }
+            .font(AppTheme.Typography.caption.weight(.bold))
+            .foregroundStyle(AppTheme.Color.primaryText)
+            .padding(.trailing, 8)
+
+            Text(etaCopy.body)
+                .font(AppTheme.Typography.caption)
+                .lineSpacing(3)
+                .foregroundStyle(AppTheme.Color.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 6)
+                .padding(.trailing, 8)
+
+            RowDivider(leadingInset: 0)
+                .padding(.top, 10)
+                .padding(.trailing, 8)
+
+            HStack(spacing: 8) {
+                Text(etaFootText)
+                    .font(AppTheme.Typography.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Spacer(minLength: 0)
+                if let onRefreshTraffic, showsRefreshAction {
+                    Button {
+                        Task { await refreshTraffic(onRefreshTraffic) }
+                    } label: {
+                        HStack(spacing: 5) {
+                            if isRefreshingTraffic {
+                                ProgressView().controlSize(.mini).tint(AppTheme.Color.secondaryText)
+                            } else {
+                                Image(systemName: isFreshlyRefreshed ? "checkmark" : "arrow.clockwise")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            Text(refreshLabel)
+                        }
+                        .font(AppTheme.Typography.caption.weight(.semibold))
+                        .foregroundStyle(isRefreshingTraffic || isFreshlyRefreshed ? AppTheme.Color.tertiaryText : AppTheme.Color.primaryText)
+                        .padding(.horizontal, 10)
+                        .frame(height: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isRefreshingTraffic || isFreshlyRefreshed)
+                }
+            }
+            .frame(height: 48)
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.top, 14)
+        .secondarySurface(cornerRadius: 14)
+    }
+
+    /// 먼 시간대(1시간 이상 남음)에는 새로고침해도 교통을 반영하지 않으므로 버튼을 숨긴다.
+    private var showsRefreshAction: Bool {
+        guard let minutes = info.minutesUntilDeparture else { return false }
+        return minutes >= 0 && minutes <= ArrivalEstimator.trafficWindowMinutes
+    }
+
+    private var refreshLabel: String {
+        if isRefreshingTraffic { return "갱신 중" }
+        if isFreshlyRefreshed { return "방금 갱신됨" }
+        if case .live = displayBasis { return "새로고침" }
+        return "다시 시도"
+    }
+
+    private func refreshTraffic(_ refresh: () async -> ArrivalEstimate?) async {
+        isRefreshingTraffic = true
+        let updated = await refresh()
+        isRefreshingTraffic = false
+        if let updated {
+            withAnimation(.easeInOut(duration: 0.2)) { estimate = updated }
+            if case .live = updated.basis { lastManualRefreshAt = Date() }
+        }
     }
 
     // MARK: - 알림 (디자인 캔버스 AlertSetup)
@@ -239,12 +396,17 @@ struct BusDetailView: View {
 
     // MARK: - 요금
 
-    private var fareSection: some View {
+    private var boardingAndFareSection: some View {
         let base = info.fare
         let effective = info.isNightFare ? (info.nightFare ?? base) : base
 
         return VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(info.isNightFare ? "심야 요금" : "요금", reportKind: .fare, reportLabel: "요금 정보 수정 제보")
+            sectionHeader(info.isNightFare ? "승차 · 심야 요금" : "승차 · 요금", reportKind: .fare, reportLabel: "승차 위치와 요금 정보 수정 제보")
+
+            HStack(spacing: 8) {
+                infoTile(label: "승차 위치", value: info.stops.first?.name ?? info.direction.departureName)
+                infoTile(label: "운행", value: info.isVia ? "경유 · 중간 정류장 정차" : "직행 · 경유 없음")
+            }
 
             HStack(spacing: 8) {
                 fareTile(label: "성인", amount: effective)
@@ -271,11 +433,16 @@ struct BusDetailView: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    private func sectionHeader(_ title: String, reportKind: QuickReportKind, reportLabel: String) -> some View {
-        HStack {
+    private func sectionHeader(_ title: String, caption: String? = nil, reportKind: QuickReportKind, reportLabel: String) -> some View {
+        HStack(alignment: .lastTextBaseline, spacing: 8) {
             Text(title)
                 .font(AppTheme.Typography.groupTitle)
                 .foregroundStyle(AppTheme.Color.primaryText)
+            if let caption {
+                Text(caption)
+                    .font(AppTheme.Typography.footnote)
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+            }
             Spacer(minLength: 0)
             EditReportLink(accessibilityLabel: reportLabel) {
                 quickReport = QuickReportContext(entry: reportKind, info: info)
@@ -283,6 +450,23 @@ struct BusDetailView: View {
             .padding(.trailing, -8)
         }
         .frame(height: 22)
+    }
+
+    private func infoTile(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(AppTheme.Typography.footnote)
+                .foregroundStyle(AppTheme.Color.secondaryText)
+            Text(value)
+                .font(AppTheme.Typography.rowValue.weight(.bold))
+                .foregroundStyle(AppTheme.Color.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .secondarySurface()
+        .accessibilityElement(children: .combine)
     }
 
     private func fareTile(label: String, amount: Int) -> some View {
@@ -317,7 +501,7 @@ struct BusDetailView: View {
 
     private var stopsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("정류장", reportKind: .stops, reportLabel: "정류장 정보 수정 제보")
+            sectionHeader("정류장", caption: "통과 시각은 예상이에요", reportKind: .stops, reportLabel: "정류장 정보 수정 제보")
 
             if info.stops.isEmpty {
                 Text("정류장 정보를 불러올 수 없습니다")
@@ -335,11 +519,6 @@ struct BusDetailView: View {
                     }
                 }
 
-                if info.stops.count > 2 {
-                    Text("중간 정류장 시각은 출발 기준 예상값입니다")
-                        .font(AppTheme.Typography.footnote)
-                        .foregroundStyle(AppTheme.Color.secondaryText)
-                }
             }
         }
     }
@@ -347,7 +526,7 @@ struct BusDetailView: View {
     /// 출발 정류장은 출발 시각, 종점은 도착 예상, 중간 정류장은 1분 간격 예상.
     private func estimatedTime(at index: Int) -> String {
         if index == 0 { return info.departureTime }
-        if index == info.stops.count - 1 { return info.arrivalTime }
+        if index == info.stops.count - 1 { return "약 \(estimate.arrivalTime)" }
         return DateService.timeByAdding(minutes: index, to: info.departureTime) ?? "--:--"
     }
 }
@@ -367,7 +546,7 @@ struct StopTimelineRow: View {
                 .font(AppTheme.Typography.caption.weight(role == .intermediate ? .medium : .semibold))
                 .monospacedDigit()
                 .foregroundStyle(role == .intermediate ? AppTheme.Color.secondaryText : AppTheme.Color.primaryText)
-                .frame(width: 48, alignment: .leading)
+                .frame(width: 64, alignment: .leading)
 
             ZStack {
                 VStack(spacing: 0) {
@@ -392,7 +571,7 @@ struct StopTimelineRow: View {
             Spacer(minLength: 0)
 
             if role != .intermediate {
-                Text(role == .departure ? "출발" : "도착")
+                Text(role == .departure ? "출발" : "도착 예상")
                     .font(AppTheme.Typography.footnote.weight(.semibold))
                     .foregroundStyle(AppTheme.Color.secondaryText)
             }
