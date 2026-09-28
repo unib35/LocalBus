@@ -164,10 +164,12 @@ final class LocalBusAppUITests: XCTestCase {
         cell.tap()
 
         let alarmOff = app.buttons["알림 꺼짐"]
-        let alarmOn = app.buttons["알림 켜짐"]
+        let alarmOn = app.buttons["알림 끄기"]
         let fare = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", "요금")).firstMatch
 
         XCTAssertTrue(alarmOff.waitForExistence(timeout: 5) || alarmOn.exists, "상세 시트에 알림 버튼이 있어야 합니다")
+        XCTAssertTrue(app.buttons["10분 전"].exists, "알림 시점 칩이 있어야 합니다")
+        XCTAssertTrue(app.switches["평일마다 반복"].exists, "평일 반복 토글이 있어야 합니다")
         XCTAssertTrue(fare.exists, "상세 시트에 요금 섹션이 있어야 합니다")
     }
 

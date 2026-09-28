@@ -75,13 +75,19 @@ struct TimetableScreenView: View {
         .sheet(item: $selectedBusInfo) { info in
             BusDetailView(
                 info: info,
-                onNotificationTap: {
+                alert: viewModel.alert(for: info.departureTime),
+                onSetAlert: { lead, repeats in
                     let status = await NotificationService.shared.authorizationStatus()
                     if status == .denied {
                         selectedBusInfo = nil
                         showNotificationDeniedAlert = true
-                    } else {
-                        await viewModel.toggleNotification(for: info.departureTime)
+                        return false
+                    }
+                    return await viewModel.setAlert(for: info.departureTime, leadMinutes: lead, repeatsWeekdays: repeats)
+                },
+                onRemoveAlert: {
+                    if let alert = viewModel.alert(for: info.departureTime) {
+                        viewModel.removeAlert(id: alert.id)
                     }
                 }
             )

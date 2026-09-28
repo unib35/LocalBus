@@ -8,14 +8,27 @@ import UIKit
 
 struct BusDetailView: View {
     let info: BusDetailInfo
-    @State private var isNotificationEnabled: Bool
+    /// 이 버스에 걸린 알림 (없으면 nil). 시트 안에서 켜고 끄면 바로 갱신한다.
+    @State private var alert: BusAlert?
+    @State private var selectedLead: Int
+    @State private var repeatsWeekdays: Bool
     @State private var notificationToast: ToastMessage?
-    let onNotificationTap: () async -> Void
+    /// (lead, 평일 반복) → 권한이 있어서 예약됐으면 true
+    let onSetAlert: (Int, Bool) async -> Bool
+    let onRemoveAlert: () async -> Void
 
-    init(info: BusDetailInfo, onNotificationTap: @escaping () async -> Void) {
+    init(
+        info: BusDetailInfo,
+        alert: BusAlert?,
+        onSetAlert: @escaping (Int, Bool) async -> Bool,
+        onRemoveAlert: @escaping () async -> Void
+    ) {
         self.info = info
-        self._isNotificationEnabled = State(initialValue: info.isNotificationEnabled)
-        self.onNotificationTap = onNotificationTap
+        self._alert = State(initialValue: alert)
+        self._selectedLead = State(initialValue: alert?.leadMinutes ?? 5)
+        self._repeatsWeekdays = State(initialValue: alert?.repeatsWeekdays ?? false)
+        self.onSetAlert = onSetAlert
+        self.onRemoveAlert = onRemoveAlert
     }
 
     var body: some View {
@@ -31,8 +44,8 @@ struct BusDetailView: View {
                 )
                 .padding(.top, 18)
 
-                notificationButton
-                    .padding(.top, 16)
+                alertSection
+                    .padding(.top, 26)
 
                 fareSection
                     .padding(.top, 28)
@@ -84,27 +97,140 @@ struct BusDetailView: View {
         .accessibilityElement(children: .combine)
     }
 
-    // MARK: - 알림 버튼
+    // MARK: - 알림 (디자인 캔버스 AlertSetup)
 
-    private var notificationButton: some View {
-        Button {
-            isNotificationEnabled.toggle()
-            let newState = isNotificationEnabled
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            notificationToast = newState
-                ? ToastMessage(icon: "bell.fill", message: "\(info.departureTime) 버스 알림이 켜졌습니다")
-                : ToastMessage(icon: "bell.slash.fill", message: "\(info.departureTime) 버스 알림이 꺼졌습니다")
-            Task { await onNotificationTap() }
-        } label: {
+    private var isAlertOn: Bool { alert?.isEnabled == true }
+
+    private var previewAlert: BusAlert {
+        BusAlert(busTime: info.departureTime, direction: info.direction, leadMinutes: selectedLead, repeatsWeekdays: repeatsWeekdays)
+    }
+
+    private var alertSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("알림")
+                .font(AppTheme.Typography.groupTitle)
+                .foregroundStyle(AppTheme.Color.primaryText)
+
             HStack(spacing: 8) {
-                Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
-                    .font(.system(size: 16, weight: .semibold))
-                Text(isNotificationEnabled ? "알림 켜짐 · 5분 전에 알려드려요" : "5분 전 알림 받기")
+                ForEach(BusAlert.leadOptions, id: \.self) { lead in
+                    let isSelected = lead == selectedLead
+                    Button {
+                        guard selectedLead != lead else { return }
+                        selectedLead = lead
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        if isAlertOn { Task { await arm() } }
+                    } label: {
+                        Text("\(lead)분 전")
+                            .font(.system(size: 14, weight: isSelected ? .bold : .medium))
+                            .monospacedDigit()
+                            .foregroundStyle(isSelected ? AppTheme.Color.screenBackground : AppTheme.Color.primaryText)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(isSelected ? AppTheme.Color.primaryText : AppTheme.Color.surfaceSecondary)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                }
+            }
+            .padding(.top, 10)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("알림 시점")
+
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("평일마다 반복")
+                        .font(AppTheme.Typography.rowBody)
+                        .foregroundStyle(AppTheme.Color.primaryText)
+                    Text("월–금 같은 시각에 알려드려요. 공휴일은 건너뛰어요")
+                        .font(AppTheme.Typography.caption)
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Toggle("평일마다 반복", isOn: $repeatsWeekdays)
+                    .labelsHidden()
+                    .tint(AppTheme.Color.accent)
+                    .onChange(of: repeatsWeekdays) { _ in
+                        if isAlertOn { Task { await arm() } }
+                    }
+            }
+            .padding(.leading, 16)
+            .padding(.trailing, 14)
+            .padding(.vertical, 12)
+            .secondarySurface(cornerRadius: 12)
+            .padding(.top, 10)
+
+            if isAlertOn {
+                HStack(spacing: 12) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(AppTheme.Color.accent)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(previewAlert.alertTime)에 알려드릴게요")
+                                .font(AppTheme.Typography.rowBody.weight(.semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(AppTheme.Color.primaryText)
+                            Text(previewAlert.repeatText)
+                                .font(AppTheme.Typography.caption)
+                                .foregroundStyle(AppTheme.Color.secondaryText)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+
+                    Spacer(minLength: 0)
+
+                    Button {
+                        Task { await disarm() }
+                    } label: {
+                        Text("알림 끄기")
+                            .font(AppTheme.Typography.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.Color.primaryText)
+                            .padding(.horizontal, 16)
+                            .frame(height: 44)
+                            .background(Capsule().fill(AppTheme.Color.secondaryButton))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 14)
+            } else {
+                Button {
+                    Task { await arm() }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bell")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("\(previewAlert.alertTime)에 알림 받기")
+                            .monospacedDigit()
+                    }
+                }
+                .buttonStyle(.primaryAction)
+                .padding(.top, 14)
+                .accessibilityLabel("알림 꺼짐")
+                .accessibilityHint("탭하여 출발 \(selectedLead)분 전 알림을 설정합니다")
             }
         }
-        .buttonStyle(isNotificationEnabled ? AnyButtonStyle(.secondaryAction) : AnyButtonStyle(.primaryAction))
-        .accessibilityLabel(isNotificationEnabled ? "알림 켜짐" : "알림 꺼짐")
-        .accessibilityHint(isNotificationEnabled ? "탭하여 알림을 끕니다" : "탭하여 출발 5분 전 알림을 설정합니다")
+    }
+
+    private func arm() async {
+        let wasOn = isAlertOn
+        let granted = await onSetAlert(selectedLead, repeatsWeekdays)
+        guard granted else { return }
+        alert = previewAlert
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        if !wasOn {
+            notificationToast = ToastMessage(icon: "bell.fill", message: "\(info.departureTime) 버스 알림이 켜졌습니다")
+        }
+    }
+
+    private func disarm() async {
+        await onRemoveAlert()
+        alert = nil
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        notificationToast = ToastMessage(icon: "bell.slash.fill", message: "\(info.departureTime) 버스 알림이 꺼졌습니다")
     }
 
     // MARK: - 요금
@@ -310,7 +436,9 @@ struct AnyButtonStyle: ButtonStyle {
             nightFareStartTime: "22:10",
             isNotificationEnabled: false
         ),
-        onNotificationTap: {}
+        alert: nil,
+        onSetAlert: { _, _ in true },
+        onRemoveAlert: {}
     )
     .preferredColorScheme(.dark)
 }
