@@ -13,6 +13,7 @@ struct BusDetailView: View {
     @State private var selectedLead: Int
     @State private var repeatsWeekdays: Bool
     @State private var notificationToast: ToastMessage?
+    @State private var quickReport: QuickReportContext?
     /// (lead, 평일 반복) → 권한이 있어서 예약됐으면 true
     let onSetAlert: (Int, Bool) async -> Bool
     let onRemoveAlert: () async -> Void
@@ -61,6 +62,9 @@ struct BusDetailView: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .toast(item: $notificationToast)
+        .sheet(item: $quickReport) { context in
+            QuickReportView(context: context)
+        }
     }
 
     // MARK: - 헤더
@@ -240,9 +244,7 @@ struct BusDetailView: View {
         let effective = info.isNightFare ? (info.nightFare ?? base) : base
 
         return VStack(alignment: .leading, spacing: 10) {
-            Text(info.isNightFare ? "심야 요금" : "요금")
-                .font(AppTheme.Typography.groupTitle)
-                .foregroundStyle(AppTheme.Color.primaryText)
+            sectionHeader(info.isNightFare ? "심야 요금" : "요금", reportKind: .fare, reportLabel: "요금 정보 수정 제보")
 
             HStack(spacing: 8) {
                 fareTile(label: "성인", amount: effective)
@@ -250,21 +252,37 @@ struct BusDetailView: View {
                 fareTile(label: "어린이", amount: Int(Double(effective) * 0.52))
             }
 
-            if !info.isNightFare, let nightFare = info.nightFare, let start = info.nightFareStartTime {
-                HStack(spacing: 4) {
-                    Text(start)
-                        .foregroundStyle(AppTheme.Color.nightFare)
-                        .fontWeight(.bold)
-                    Text("이후 심야 요금 \(formattedFare(nightFare))원")
-                }
-                .font(AppTheme.Typography.caption)
-                .foregroundStyle(AppTheme.Color.secondaryText)
-            }
-
-            Text("청소년(13-18세)·어린이(6-12세) 요금은 성인 기준 추정값입니다")
-                .font(AppTheme.Typography.footnote)
-                .foregroundStyle(AppTheme.Color.secondaryText)
+            fareNote
         }
+    }
+
+    /// "22:10 이후 심야 요금 3,000원 · 청소년·어린이는 추정값" 한 줄
+    private var fareNote: some View {
+        var note = Text("")
+        if !info.isNightFare, let nightFare = info.nightFare, let start = info.nightFareStartTime {
+            note = Text(start).foregroundColor(AppTheme.Color.nightFare).fontWeight(.bold)
+                + Text(" 이후 심야 요금 \(formattedFare(nightFare))원 · ")
+        }
+        note = note + Text("청소년·어린이는 추정값")
+        return note
+            .font(AppTheme.Typography.caption)
+            .monospacedDigit()
+            .foregroundStyle(AppTheme.Color.secondaryText)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func sectionHeader(_ title: String, reportKind: QuickReportKind, reportLabel: String) -> some View {
+        HStack {
+            Text(title)
+                .font(AppTheme.Typography.groupTitle)
+                .foregroundStyle(AppTheme.Color.primaryText)
+            Spacer(minLength: 0)
+            EditReportLink(accessibilityLabel: reportLabel) {
+                quickReport = QuickReportContext(entry: reportKind, info: info)
+            }
+            .padding(.trailing, -8)
+        }
+        .frame(height: 22)
     }
 
     private func fareTile(label: String, amount: Int) -> some View {
@@ -299,9 +317,7 @@ struct BusDetailView: View {
 
     private var stopsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("정류장")
-                .font(AppTheme.Typography.groupTitle)
-                .foregroundStyle(AppTheme.Color.primaryText)
+            sectionHeader("정류장", reportKind: .stops, reportLabel: "정류장 정보 수정 제보")
 
             if info.stops.isEmpty {
                 Text("정류장 정보를 불러올 수 없습니다")
@@ -351,7 +367,7 @@ struct StopTimelineRow: View {
                 .font(AppTheme.Typography.caption.weight(role == .intermediate ? .medium : .semibold))
                 .monospacedDigit()
                 .foregroundStyle(role == .intermediate ? AppTheme.Color.secondaryText : AppTheme.Color.primaryText)
-                .frame(width: 44, alignment: .leading)
+                .frame(width: 48, alignment: .leading)
 
             ZStack {
                 VStack(spacing: 0) {
@@ -375,13 +391,13 @@ struct StopTimelineRow: View {
 
             Spacer(minLength: 0)
 
-            if role == .departure {
-                LabelChip(text: "출발")
-            } else if role == .destination {
-                LabelChip(text: "도착")
+            if role != .intermediate {
+                Text(role == .departure ? "출발" : "도착")
+                    .font(AppTheme.Typography.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.Color.secondaryText)
             }
         }
-        .frame(height: 48)
+        .frame(height: role == .intermediate ? 40 : 44)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(time) \(name)\(role == .departure ? ", 출발 정류장" : role == .destination ? ", 종점" : "")")
     }
