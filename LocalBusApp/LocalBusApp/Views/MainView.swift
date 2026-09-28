@@ -45,6 +45,7 @@ struct MainView: View {
     @State private var selectedTab: MainTab = .home
     @State private var showPaywall = false
     @State private var showAlertsHub = false
+    @State private var homeBusDetail: BusDetailInfo?
     @State private var importantNotice: NoticeItem?
     @State private var noticeToOpen: NoticeItem?
     @State private var hasCheckedImportantNotice = false
@@ -139,6 +140,28 @@ struct MainView: View {
                     onShowTimetable: { showAlertsHub = false; selectedTab = .timetable }
                 )
             }
+        }
+        .sheet(item: $homeBusDetail) { info in
+            BusDetailView(
+                info: info,
+                alert: viewModel.alert(for: info.departureTime),
+                onSetAlert: { lead, repeats in
+                    let status = await NotificationService.shared.authorizationStatus()
+                    if status == .denied {
+                        homeBusDetail = nil
+                        showNotificationDeniedAlert = true
+                        return false
+                    }
+                    return await viewModel.setAlert(for: info.departureTime, leadMinutes: lead, repeatsWeekdays: repeats)
+                },
+                onRemoveAlert: {
+                    if let alert = viewModel.alert(for: info.departureTime) { viewModel.removeAlert(id: alert.id) }
+                },
+                onRefreshTraffic: {
+                    await viewModel.refreshTrafficDuration(force: true)
+                    return viewModel.arrivalEstimate(for: info.departureTime)
+                }
+            )
         }
         .sheet(item: $importantNotice) { notice in
             NoticeDialogView(
@@ -253,6 +276,7 @@ struct MainView: View {
                         buses: followingBuses(in: snapshot),
                         isVia: { viewModel.isViaBus(for: $0) },
                         alertTime: { viewModel.alert(for: $0).flatMap { $0.isEnabled ? $0.alertTime : nil } },
+                        onSelect: isTomorrowList ? nil : { openBusDetail(for: $0) },
                         onShowTimetable: { selectedTab = .timetable }
                     )
                 }
@@ -322,14 +346,14 @@ struct MainView: View {
             )
         } else if let nextBusTime = snapshot.nextBusTime {
             NextBusHeroCard(
-                minuteText: snapshot.nextBusMinuteDisplay,
-                unitText: snapshot.nextBusUnitDisplay,
-                descriptionText: snapshot.nextBusCountdownDescription,
                 departureTime: nextBusTime,
                 arrivalTime: snapshot.nextBusArrivalTime,
+                untilText: untilText(for: snapshot),
+                durationText: snapshot.nextBusDurationText,
+                basis: snapshot.nextBusBasis,
                 destinationName: viewModel.currentArrivalHubName,
-                durationMinutes: viewModel.currentDurationMinutes,
                 isNotificationEnabled: isNextBusNotificationEnabled(for: snapshot),
+                onDetail: { openBusDetail(for: nextBusTime) },
                 onNotificationTap: { handleNotificationTap(for: nextBusTime) }
             )
         } else {
@@ -392,6 +416,19 @@ struct MainView: View {
     }
 
     // MARK: - 헬퍼
+
+    /// "12분 후 출발" / "곧 출발" / "1시간 12분 후 출발"
+    private func untilText(for snapshot: BusTimingSnapshot) -> String {
+        if snapshot.nextBusMinuteDisplay.isEmpty { return "곧 출발" }
+        if snapshot.nextBusUnitDisplay == "분" { return "\(snapshot.nextBusMinuteDisplay)분 후 출발" }
+        let rest = snapshot.nextBusCountdownDescription.replacingOccurrences(of: " 후 출발", with: "").replacingOccurrences(of: "후 출발", with: "")
+        return rest.isEmpty ? "\(snapshot.nextBusMinuteDisplay)시간 후 출발" : "\(snapshot.nextBusMinuteDisplay)시간 \(rest) 후 출발"
+    }
+
+    private func openBusDetail(for time: String) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        homeBusDetail = viewModel.makeBusDetailInfo(for: time)
+    }
 
     private func remainingText(hours: Int, minutes: Int) -> String {
         hours > 0 ? "\(hours)시간 \(minutes)분 후" : "\(minutes)분 후"
