@@ -245,7 +245,7 @@ struct StopsScreenView: View {
         return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 8) {
                 Text(stop.name)
-                    .font(AppTheme.Typography.sheetTitle)
+                    .font(.system(size: 18, weight: .heavy))
                     .foregroundStyle(AppTheme.Color.primaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -256,8 +256,29 @@ struct StopsScreenView: View {
                     LabelChip(text: "종점")
                 }
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 4)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        panelDetent = panelDetent == .large ? .medium : .large
+                    }
+                } label: {
+                    HStack(spacing: 2) {
+                        Text("정류장 \(currentStops.count)곳")
+                        Image(systemName: panelDetent == .large ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .padding(.horizontal, 8)
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, -8)
+                .accessibilityLabel("정류장 \(currentStops.count)곳 목록 \(panelDetent == .large ? "접기" : "펼치기")")
             }
+            .frame(height: 24)
 
             Text(stopMetaText(for: stop))
                 .font(AppTheme.Typography.caption)
@@ -278,7 +299,7 @@ struct StopsScreenView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "map")
                                 .font(.system(size: 16, weight: .semibold))
-                            Text(stop.isDeparture ? "정류장까지 길 찾기" : "길 찾기")
+                            Text("길 찾기")
                         }
                     }
                     .buttonStyle(PrimaryButtonStyle(height: 46))
@@ -290,22 +311,8 @@ struct StopsScreenView: View {
                         mapBusDetail = viewModel.makeBusDetailInfo(for: picked)
                     } label: {
                         HStack(spacing: 4) {
-                            Text("버스 상세")
+                            Text("버스 상세 · 알림")
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .bold))
-                        }
-                    }
-                    .buttonStyle(SecondaryButtonStyle(height: 46))
-                    .frame(width: 116)
-                } else {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            panelDetent = panelDetent == .large ? .medium : .large
-                        }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text("정류장 \(currentStops.count)곳")
-                            Image(systemName: panelDetent == .large ? "chevron.down" : "chevron.up")
                                 .font(.system(size: 12, weight: .bold))
                         }
                     }
@@ -425,7 +432,7 @@ struct StopsScreenView: View {
                             .fixedSize()
                     }
                     .padding(.horizontal, 14)
-                    .frame(height: 66)
+                    .frame(height: 60)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .secondarySurface(cornerRadius: 14)
                     .accessibilityElement(children: .combine)
