@@ -256,6 +256,8 @@ struct RouteHeaderView: View {
     var titleFont: Font = AppTheme.Typography.screenTitle
     /// 첫 줄 오른쪽에 컨텍스트 텍스트 대신 놓을 요소 (공유 버튼 등).
     var trailing: AnyView? = nil
+    /// 컨텍스트 텍스트 오른쪽에 덧붙이는 44px 아이콘 (홈의 알림 종 등).
+    var trailingAccessory: AnyView? = nil
     let onDirectionChange: (RouteDirection) -> Void
 
     var body: some View {
@@ -270,10 +272,16 @@ struct RouteHeaderView: View {
                 if let trailing {
                     trailing
                 } else if let contextText {
-                    Text(contextText)
-                        .font(AppTheme.Typography.caption)
-                        .foregroundStyle(AppTheme.Color.secondaryText)
-                        .lineLimit(1)
+                    HStack(spacing: 2) {
+                        Text(contextText)
+                            .font(AppTheme.Typography.caption)
+                            .foregroundStyle(AppTheme.Color.secondaryText)
+                            .lineLimit(1)
+                        if let trailingAccessory {
+                            trailingAccessory
+                                .padding(.trailing, -12)
+                        }
+                    }
                 }
             }
             .frame(minHeight: 44)

@@ -194,6 +194,8 @@ struct UpcomingBusListView: View {
     var footer: String? = nil
     let buses: [UpcomingBusSnapshot]
     let isVia: (String) -> Bool
+    /// 알림이 걸린 버스면 울릴 시각 ("07:45"), 아니면 nil
+    var alertTime: (String) -> String? = { _ in nil }
     let onShowTimetable: () -> Void
 
     var body: some View {
@@ -228,7 +230,7 @@ struct UpcomingBusListView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(buses.enumerated()), id: \.element.id) { index, bus in
-                        UpcomingBusRow(bus: bus, isVia: isVia(bus.departureTime))
+                        UpcomingBusRow(bus: bus, isVia: isVia(bus.departureTime), alertTime: alertTime(bus.departureTime))
                         if index < buses.count - 1 {
                             RowDivider()
                         }
@@ -252,6 +254,7 @@ struct UpcomingBusListView: View {
 struct UpcomingBusRow: View {
     let bus: UpcomingBusSnapshot
     let isVia: Bool
+    var alertTime: String? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -274,6 +277,17 @@ struct UpcomingBusRow: View {
                     Text(statusLabel)
                         .font(AppTheme.Typography.footnote.weight(.semibold))
                         .foregroundStyle(bus.statusKind == .nextDay ? AppTheme.Color.secondaryText : AppTheme.Color.nightFare)
+                }
+
+                if let alertTime {
+                    HStack(spacing: 3) {
+                        Image(systemName: "bell.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("\(alertTime) 알림")
+                            .font(AppTheme.Typography.footnote.weight(.semibold))
+                            .monospacedDigit()
+                    }
+                    .foregroundStyle(AppTheme.Color.primaryText)
                 }
             }
 
