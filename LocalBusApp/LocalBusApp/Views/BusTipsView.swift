@@ -75,6 +75,20 @@ struct BusTipsView: View {
                 description: "평일과 주말(공휴일 포함)의 운행 시간표가 다릅니다. 탑승 전 시간표를 꼭 확인해 주세요."
             )
         ]),
+        TipSection(header: "위젯 추가 (Pro)", items: [
+            TipItem(
+                title: "홈 화면",
+                description: "홈 화면 빈 곳을 길게 누르고 → 왼쪽 위 편집(또는 +)에서 위젯 추가 → 장유사상버스를 찾아 소형·중형·대형 중 선택."
+            ),
+            TipItem(
+                title: "잠금 화면",
+                description: "잠금 화면을 길게 누르고 → 사용자화 › 잠금 화면 → 시계 아래 위젯 영역에서 장유사상버스를 찾아 사각형·원형 중 선택."
+            ),
+            TipItem(
+                title: "노선·방향 바꾸기",
+                description: "위젯을 길게 눌러 '위젯 편집'에서 노선과 방향을 바꿀 수 있어요."
+            )
+        ]),
         TipSection(header: "이용 팁", items: [
             TipItem(
                 title: "출퇴근·등교 시간대",
