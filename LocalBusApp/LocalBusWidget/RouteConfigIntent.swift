@@ -33,17 +33,47 @@ enum WidgetRouteOption: String, AppEnum {
     }
 }
 
+// MARK: - Style Option (디자인 캔버스 위젯 후보 A · B · C)
+
+enum WidgetStyleOption: String, AppEnum {
+    case remaining = "remaining"
+    case arrival = "arrival"
+    case list = "list"
+
+    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "보기")
+    static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+        .remaining: "남은 시간",
+        .arrival: "출발 → 도착",
+        .list: "다음 3대 · 양방향"
+    ]
+
+    var style: WidgetStyle {
+        switch self {
+        case .remaining: .remaining
+        case .arrival: .arrival
+        case .list: .list
+        }
+    }
+}
+
 // MARK: - Configuration Intent
 
 struct RouteConfigIntent: AppIntent, WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "노선 선택"
-    static var description = IntentDescription("표시할 버스 노선을 선택합니다")
+    static var description = IntentDescription("표시할 버스 노선과 보기 방식을 선택합니다")
 
     @Parameter(title: "노선", default: .jangyuToSasang)
     var route: WidgetRouteOption
 
+    /// 소형: 남은 시간 / 출발 → 도착 / 다음 3대. 중형: 남은 시간 / 출발 → 도착 / 양방향.
+    @Parameter(title: "보기", default: .remaining)
+    var style: WidgetStyleOption
+
     init() {}
-    init(route: WidgetRouteOption) { self.route = route }
+    init(route: WidgetRouteOption, style: WidgetStyleOption = .remaining) {
+        self.route = route
+        self.style = style
+    }
 }
 
 // MARK: - Configurable Provider
@@ -53,26 +83,15 @@ struct ConfigurableProvider: AppIntentTimelineProvider {
     typealias Intent = RouteConfigIntent
 
     func placeholder(in context: Context) -> BusEntry {
-        BusEntry(
-            date: Date(),
-            routeKey: WidgetRouteOption.jangyuToSasang.rawValue,
-            nextBusTime: "07:00",
-            remainingMinutes: 15,
-            direction: "장유 → 사상",
-            isServiceEnded: false,
-            firstBusTime: "06:00",
-            upcomingBuses: [("07:20", 35), ("07:40", 55), ("08:00", 75), ("08:20", 95)],
-            isLastBus: false,
-            isNightBus: false,
-            isPro: true
-        )
+        BusEntry.placeholder(style: .remaining)
     }
 
     func snapshot(for configuration: RouteConfigIntent, in context: Context) async -> BusEntry {
         WidgetDataHelper.createEntry(
             for: Date(),
             routeKey: configuration.route.rawValue,
-            direction: configuration.route.displayName
+            direction: configuration.route.displayName,
+            style: configuration.style.style
         )
     }
 
@@ -85,7 +104,8 @@ struct ConfigurableProvider: AppIntentTimelineProvider {
             entries.append(WidgetDataHelper.createEntry(
                 for: entryDate,
                 routeKey: configuration.route.rawValue,
-                direction: configuration.route.displayName
+                direction: configuration.route.displayName,
+                style: configuration.style.style
             ))
         }
 
@@ -111,7 +131,7 @@ struct LocalBusConfigurableWidget: Widget {
                 }
         }
         .configurationDisplayName("다음 버스")
-        .description("장유·율하 시외버스 다음 출발 시간을 확인하세요")
+        .description("장유·율하 시외버스 다음 출발과 도착 예상을 확인하세요")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge,
                              .accessoryCircular, .accessoryRectangular, .accessoryInline])
         .contentMarginsDisabled()
