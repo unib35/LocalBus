@@ -69,8 +69,9 @@ final class MainViewModel: ObservableObject {
     /// 오프라인 모드 여부
     @Published var isOffline: Bool = false
 
-    /// 알림 예약 상태
-    @Published private(set) var scheduledNotifications: Set<String> = []
+    /// 사용자가 켜 둔 버스 알림 (UserDefaults에 보관, 방향 + 출발 시각이 키)
+    @Published private(set) var busAlerts: [BusAlert] = BusAlertStore().load()
+    private let alertStore = BusAlertStore()
 
     /// 공지사항 (원격 JSON의 notices)
     @Published private(set) var notices: [NoticeItem] = []
@@ -492,48 +493,98 @@ final class MainViewModel: ObservableObject {
         await refresh()
     }
 
-    /// 알림 토글
+    /// 알림 토글 (홈·시간표의 빠른 버튼): 없으면 오늘 한 번 알림을 만들고, 있으면 지운다.
     func toggleNotification(for busTime: String, minutesBefore: Int = 5) async {
-        let key = "\(busTime)_\(minutesBefore)"
-        if scheduledNotifications.contains(key) {
-            NotificationService.shared.cancelNotification(busTime: busTime, minutesBefore: minutesBefore)
-            scheduledNotifications.remove(key)
-            if #available(iOS 16.2, *) {
-                LiveActivityService.shared.endActivity()
-            }
+        if let alert = alert(for: busTime) {
+            removeAlert(id: alert.id)
         } else {
-            let granted = await NotificationService.shared.requestAuthorization()
-            if granted {
-                NotificationService.shared.scheduleBusNotification(
-                    busTime: busTime,
-                    minutesBefore: minutesBefore,
-                    direction: currentDirectionName
-                )
-                scheduledNotifications.insert(key)
-
-                // 20분 이내 버스면 Live Activity 시작 (설정에서 활성화된 경우)
-                let liveActivityEnabled = UserDefaults.standard.object(forKey: "liveActivityEnabled") as? Bool ?? true
-                if #available(iOS 16.2, *),
-                   liveActivityEnabled,
-                   let minutes = DateService.minutesUntil(timeString: busTime, from: Date()),
-                   minutes >= 0 && minutes <= 20 {
-                    LiveActivityService.shared.startActivity(
-                        departureTime: busTime,
-                        direction: currentDirectionName,
-                        durationMinutes: effectiveDurationMinutes
-                    )
-                }
-            }
+            await setAlert(for: busTime, leadMinutes: minutesBefore, repeatsWeekdays: false)
         }
     }
 
-    /// 알림이 예약되어 있는지 확인
-    func isNotificationScheduled(for busTime: String, minutesBefore: Int = 5) -> Bool {
-        scheduledNotifications.contains("\(busTime)_\(minutesBefore)")
+    /// 선택된 방향의 특정 버스 알림
+    func alert(for busTime: String) -> BusAlert? {
+        let id = BusAlert.makeID(busTime: busTime, direction: selectedDirection)
+        return busAlerts.first { $0.id == id }
     }
 
+    /// 알림을 만들거나 lead·반복을 바꾼다. 권한이 없으면 false.
+    @discardableResult
+    func setAlert(for busTime: String, leadMinutes: Int, repeatsWeekdays: Bool) async -> Bool {
+        let granted = await NotificationService.shared.requestAuthorization()
+        guard granted else { return false }
+
+        let alert = BusAlert(
+            busTime: busTime,
+            direction: selectedDirection,
+            leadMinutes: leadMinutes,
+            repeatsWeekdays: repeatsWeekdays,
+            isEnabled: true
+        )
+        upsert(alert)
+        NotificationService.shared.schedule(alert, holidays: holidays)
+
+        // 20분 이내 버스면 Live Activity 시작 (설정에서 활성화된 경우)
+        let liveActivityEnabled = UserDefaults.standard.object(forKey: "liveActivityEnabled") as? Bool ?? true
+        if #available(iOS 16.2, *),
+           liveActivityEnabled,
+           let minutes = DateService.minutesUntil(timeString: busTime, from: Date()),
+           minutes >= 0 && minutes <= 20 {
+            LiveActivityService.shared.startActivity(
+                departureTime: busTime,
+                direction: currentDirectionName,
+                durationMinutes: effectiveDurationMinutes
+            )
+        }
+        return true
+    }
+
+    /// 알림을 켜거나 끈다 (목록은 유지).
+    func setAlertEnabled(id: String, _ isEnabled: Bool) {
+        guard var alert = busAlerts.first(where: { $0.id == id }) else { return }
+        alert.isEnabled = isEnabled
+        upsert(alert)
+        NotificationService.shared.schedule(alert, holidays: holidays)
+    }
+
+    /// 알림을 목록에서 지운다.
+    func removeAlert(id: String) {
+        busAlerts.removeAll { $0.id == id }
+        alertStore.save(busAlerts)
+        NotificationService.shared.cancel(alertID: id)
+        if #available(iOS 16.2, *) {
+            LiveActivityService.shared.endActivity()
+        }
+    }
+
+    /// 켜져 있는 알림 수 (설정 화면 표시용)
+    var enabledAlertCount: Int {
+        busAlerts.filter(\.isEnabled).count
+    }
+
+    /// 알림이 예약되어 있는지 확인
+    func isNotificationScheduled(for busTime: String) -> Bool {
+        alert(for: busTime)?.isEnabled == true
+    }
+
+    /// 이미 울린 한 번 알림은 목록에서 빼고, 반복 알림은 공휴일 반영을 위해 다시 예약한다.
     func refreshScheduledNotifications() async {
-        scheduledNotifications = await NotificationService.shared.scheduledBusNotificationKeys()
+        let pending = await NotificationService.shared.pendingAlertIDs()
+        busAlerts.removeAll { !$0.repeatsWeekdays && $0.isEnabled && !pending.contains($0.id) }
+        alertStore.save(busAlerts)
+        for alert in busAlerts where alert.repeatsWeekdays && alert.isEnabled {
+            NotificationService.shared.schedule(alert, holidays: holidays)
+        }
+    }
+
+    private func upsert(_ alert: BusAlert) {
+        if let index = busAlerts.firstIndex(where: { $0.id == alert.id }) {
+            busAlerts[index] = alert
+        } else {
+            busAlerts.append(alert)
+        }
+        busAlerts.sort { ($0.busTime, $0.direction.rawValue) < ($1.busTime, $1.direction.rawValue) }
+        alertStore.save(busAlerts)
     }
 
     // MARK: - Private Methods

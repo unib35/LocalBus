@@ -59,6 +59,60 @@ final class NotificationService {
         UNUserNotificationCenter.current().add(request)
     }
 
+    // MARK: - BusAlert 기반 예약 (방향 포함, 평일 반복 지원)
+
+    private let alertPrefix = "alert_"
+
+    /// 알림 하나를 (다시) 예약한다. 반복 알림은 공휴일을 뺀 다음 평일들에 하나씩 건다.
+    func schedule(_ alert: BusAlert, holidays: [String], now: Date = Date()) {
+        cancel(alertID: alert.id)
+        guard alert.isEnabled else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "버스 출발 알림"
+        content.body = "\(alert.direction.displayName) \(alert.busTime) 버스가 \(alert.leadMinutes)분 후 출발합니다"
+        content.sound = .default
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        let dates = BusAlertScheduler.fireDates(for: alert, from: now, holidays: holidays)
+        for (index, date) in dates.enumerated() {
+            let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            let request = UNNotificationRequest(
+                identifier: "\(alertPrefix)\(alert.id)_\(index)",
+                content: content,
+                trigger: trigger
+            )
+            UNUserNotificationCenter.current().add(request)
+        }
+    }
+
+    /// 알림 하나의 예약을 모두 지운다.
+    func cancel(alertID: String) {
+        let center = UNUserNotificationCenter.current()
+        let prefix = "\(alertPrefix)\(alertID)_"
+        center.getPendingNotificationRequests { requests in
+            let ids = requests.map(\.identifier).filter { $0.hasPrefix(prefix) }
+            if !ids.isEmpty { center.removePendingNotificationRequests(withIdentifiers: ids) }
+        }
+    }
+
+    /// 아직 예약이 남아 있는 알림 id 집합. 예전 방식(bus_ 접두사) 예약은 정리한다.
+    func pendingAlertIDs() async -> Set<String> {
+        let center = UNUserNotificationCenter.current()
+        let requests = await center.pendingNotificationRequests()
+        let legacy = requests.map(\.identifier).filter { $0.hasPrefix(busNotificationPrefix) }
+        if !legacy.isEmpty { center.removePendingNotificationRequests(withIdentifiers: legacy) }
+
+        return Set(requests.compactMap { request -> String? in
+            let identifier = request.identifier
+            guard identifier.hasPrefix(alertPrefix),
+                  let underscore = identifier.lastIndex(of: "_") else { return nil }
+            return String(identifier[identifier.index(identifier.startIndex, offsetBy: alertPrefix.count)..<underscore])
+        })
+    }
+
     /// 특정 버스 알림 취소
     func cancelNotification(busTime: String, minutesBefore: Int) {
         let identifier = busNotificationIdentifier(busTime: busTime, minutesBefore: minutesBefore)
