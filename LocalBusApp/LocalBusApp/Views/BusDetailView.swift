@@ -18,6 +18,9 @@ struct BusDetailView: View {
     @State private var estimate: ArrivalEstimate
     @State private var isRefreshingTraffic = false
     @State private var lastManualRefreshAt: Date?
+    /// 통합안: 계산 근거와 알림 옵션은 눌렀을 때만 펼친다
+    @State private var isEtaExpanded = false
+    @State private var isAlertOptionsExpanded = false
     /// (lead, 평일 반복) → 권한이 있어서 예약됐으면 true
     let onSetAlert: (Int, Bool) async -> Bool
     let onRemoveAlert: () async -> Void
@@ -50,10 +53,10 @@ struct BusDetailView: View {
                 header
 
                 etaCard
-                    .padding(.top, 16)
+                    .padding(.top, 14)
 
                 alertSection
-                    .padding(.top, 26)
+                    .padding(.top, 22)
 
                 boardingAndFareSection
                     .padding(.top, 28)
@@ -174,29 +177,73 @@ struct BusDetailView: View {
         return ArrivalEstimator.footText(for: displayBasis, lastTrafficAt: info.lastTrafficAt)
     }
 
+    /// 접힌 상태 한 줄: "현재 교통 반영 · 예상 소요 34분"
+    private var etaStatusLine: String {
+        switch displayBasis {
+        case .live: return "현재 교통 반영 · \(estimate.durationText)"
+        case .refreshing: return "교통정보 갱신 중 · \(estimate.durationText)"
+        case .timetable: return "시간표 기준 · \(estimate.durationText)"
+        case .offline: return "오프라인 · 시간표 기준 \(estimate.durationMinutes)분"
+        }
+    }
+
     private var etaCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 7) {
-                TrafficBasisDot(basis: displayBasis)
-                Text(etaCopy.title)
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { isEtaExpanded.toggle() }
+            } label: {
+                HStack(spacing: 8) {
+                    HStack(spacing: 7) {
+                        TrafficBasisDot(basis: displayBasis)
+                        Text(etaStatusLine)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
+                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.primaryText)
+
+                    Spacer(minLength: 0)
+
+                    HStack(spacing: 4) {
+                        Text(isEtaExpanded ? "접기" : "계산 기준")
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .bold))
+                            .rotationEffect(.degrees(isEtaExpanded ? 180 : 0))
+                    }
+                    .font(AppTheme.Typography.footnote)
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .padding(.trailing, 6)
+                }
+                .frame(height: 44)
+                .contentShape(Rectangle())
             }
-            .font(AppTheme.Typography.caption.weight(.bold))
-            .foregroundStyle(AppTheme.Color.primaryText)
-            .padding(.trailing, 8)
+            .buttonStyle(.plain)
+            .accessibilityLabel("도착 예상 근거, \(etaStatusLine)")
+            .accessibilityHint(isEtaExpanded ? "탭하여 접기" : "탭하여 계산 기준 보기")
 
-            Text(etaCopy.body)
-                .font(AppTheme.Typography.caption)
-                .lineSpacing(3)
-                .foregroundStyle(AppTheme.Color.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 6)
-                .padding(.trailing, 8)
+            if isEtaExpanded {
+                Text(etaCopy.body)
+                    .font(AppTheme.Typography.caption)
+                    .lineSpacing(3)
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.trailing, 8)
 
-            RowDivider(leadingInset: 0)
-                .padding(.top, 10)
-                .padding(.trailing, 8)
+                RowDivider(leadingInset: 0)
+                    .padding(.top, 10)
+                    .padding(.trailing, 8)
 
-            HStack(spacing: 8) {
+                etaFooter
+            }
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
+        .secondarySurface(cornerRadius: 12)
+    }
+
+    private var etaFooter: some View {
+        HStack(spacing: 8) {
                 Text(etaFootText)
                     .font(AppTheme.Typography.footnote)
                     .monospacedDigit()
@@ -228,11 +275,6 @@ struct BusDetailView: View {
                 }
             }
             .frame(height: 48)
-        }
-        .padding(.leading, 16)
-        .padding(.trailing, 8)
-        .padding(.top, 14)
-        .secondarySurface(cornerRadius: 14)
     }
 
     /// 먼 시간대(1시간 이상 남음)에는 새로고침해도 교통을 반영하지 않으므로 버튼을 숨긴다.
@@ -266,12 +308,50 @@ struct BusDetailView: View {
         BusAlert(busTime: info.departureTime, direction: info.direction, leadMinutes: selectedLead, repeatsWeekdays: repeatsWeekdays)
     }
 
+    private var alertOptionSummary: String {
+        "\(selectedLead)분 전 · \(repeatsWeekdays ? "평일마다" : "오늘 한 번")"
+    }
+
     private var alertSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("알림")
-                .font(AppTheme.Typography.groupTitle)
-                .foregroundStyle(AppTheme.Color.primaryText)
+            HStack {
+                Text("알림")
+                    .font(AppTheme.Typography.groupTitle)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                Spacer(minLength: 0)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { isAlertOptionsExpanded.toggle() }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(alertOptionSummary)
+                            .monospacedDigit()
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .bold))
+                            .rotationEffect(.degrees(isAlertOptionsExpanded ? 180 : 0))
+                    }
+                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                    .padding(.horizontal, 8)
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, -8)
+                .accessibilityLabel("알림 옵션 \(alertOptionSummary)")
+                .accessibilityHint(isAlertOptionsExpanded ? "탭하여 접기" : "탭하여 시점과 반복을 바꾸기")
+            }
+            .frame(height: 22)
 
+            if isAlertOptionsExpanded {
+                alertOptions
+            }
+
+            alertAction
+        }
+    }
+
+    private var alertOptions: some View {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 ForEach(BusAlert.leadOptions, id: \.self) { lead in
                     let isSelected = lead == selectedLead
@@ -296,7 +376,7 @@ struct BusDetailView: View {
                     .accessibilityAddTraits(isSelected ? [.isSelected] : [])
                 }
             }
-            .padding(.top, 10)
+            .padding(.top, 12)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("알림 시점")
 
@@ -322,23 +402,22 @@ struct BusDetailView: View {
             .padding(.trailing, 14)
             .padding(.vertical, 12)
             .secondarySurface(cornerRadius: 12)
-            .padding(.top, 10)
+            .padding(.top, 8)
+        }
+    }
 
+    @ViewBuilder
+    private var alertAction: some View {
             if isAlertOn {
                 HStack(spacing: 12) {
                     HStack(spacing: 10) {
                         Image(systemName: "checkmark.circle")
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(AppTheme.Color.accent)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(previewAlert.alertTime)에 알려드릴게요")
-                                .font(AppTheme.Typography.rowBody.weight(.semibold))
-                                .monospacedDigit()
-                                .foregroundStyle(AppTheme.Color.primaryText)
-                            Text(previewAlert.repeatText)
-                                .font(AppTheme.Typography.caption)
-                                .foregroundStyle(AppTheme.Color.secondaryText)
-                        }
+                        Text("\(previewAlert.alertTime)에 알려드릴게요")
+                            .font(AppTheme.Typography.rowBody.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(AppTheme.Color.primaryText)
                     }
                     .accessibilityElement(children: .combine)
 
@@ -356,7 +435,8 @@ struct BusDetailView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.top, 14)
+                .frame(minHeight: 50)
+                .padding(.top, 12)
             } else {
                 Button {
                     Task { await arm() }
@@ -369,11 +449,10 @@ struct BusDetailView: View {
                     }
                 }
                 .buttonStyle(.primaryAction)
-                .padding(.top, 14)
+                .padding(.top, 12)
                 .accessibilityLabel("알림 꺼짐")
                 .accessibilityHint("탭하여 출발 \(selectedLead)분 전 알림을 설정합니다")
             }
-        }
     }
 
     private func arm() async {
@@ -382,6 +461,7 @@ struct BusDetailView: View {
         guard granted else { return }
         alert = previewAlert
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        withAnimation(.easeInOut(duration: 0.2)) { isAlertOptionsExpanded = false }
         if !wasOn {
             notificationToast = ToastMessage(icon: "bell.fill", message: "\(info.departureTime) 버스 알림이 켜졌습니다")
         }
