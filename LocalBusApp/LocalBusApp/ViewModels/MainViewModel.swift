@@ -19,6 +19,8 @@ struct UpcomingBusSnapshot: Identifiable, Equatable {
     let arrivalTime: String
     let statusText: String
     let statusKind: UpcomingBusStatusKind
+    /// 도착 시각이 현재 교통을 반영한 값인지 (목록 "기준" 열)
+    var usesTraffic: Bool = false
 }
 
 struct BusTimingSnapshot {
@@ -33,6 +35,10 @@ struct BusTimingSnapshot {
     let minutesUntilFirstBus: Int
     let minutesUntilNextBus: Int?
     let nextBusArrivalTime: String
+    /// 다음 버스 도착 예상의 근거 (교통 반영 / 시간표 기준 …)
+    let nextBusBasis: TrafficBasis
+    /// "예상 소요 34분" / "기본 소요 26분"
+    let nextBusDurationText: String
     let followingBusTime: String
     let nextBusProgress: Double
     let upcomingBuses: [UpcomingBusSnapshot]
@@ -319,7 +325,7 @@ final class MainViewModel: ObservableObject {
     /// 큰 제목 아래 한 줄 노선 요약. 예: "장유 터미널 출발 · 26분 소요 · 2,500원"
     var routeSummaryText: String {
         var parts = ["\(currentTerminalName) 출발"]
-        if effectiveDurationMinutes > 0 { parts.append("\(effectiveDurationMinutes)분 소요") }
+        if durationMinutes > 0 { parts.append("평소 \(durationMinutes)분") }
         if fare > 0 { parts.append(fareText) }
         return parts.joined(separator: " · ")
     }
@@ -349,6 +355,12 @@ final class MainViewModel: ObservableObject {
     /// 실시간 교통 기반 소요시간 (nil이면 고정값 사용)
     @Published var trafficDurationMinutes: Int? = nil
 
+    /// 교통 소요시간을 받은 시각 ("3분 전 갱신")
+    @Published private(set) var trafficUpdatedAt: Date? = nil
+
+    /// 교통정보를 새로 받는 중 (기존 예상값은 그대로 보여준다)
+    @Published private(set) var isRefreshingTraffic = false
+
     /// 실제 사용할 소요시간 (실시간 > 고정)
     private var effectiveDurationMinutes: Int {
         trafficDurationMinutes ?? durationMinutes
@@ -370,7 +382,8 @@ final class MainViewModel: ObservableObject {
 
     // MARK: - Public Methods
 
-    func makeBusDetailInfo(for time: String) -> BusDetailInfo {
+    func makeBusDetailInfo(for time: String, at date: Date = Date()) -> BusDetailInfo {
+        let estimate = arrivalEstimate(for: time, at: date)
         let arrival = DateService.timeByAdding(minutes: effectiveDurationMinutes, to: time) ?? "--:--"
         return BusDetailInfo(
             departureTime: time,
@@ -386,7 +399,10 @@ final class MainViewModel: ObservableObject {
             directionDisplayName: selectedDirection.displayName,
             scheduleTypeLabel: selectedScheduleType.displayLabel,
             nightFareStartTime: nightFareStartTime,
-            isNotificationEnabled: isNotificationScheduled(for: time)
+            isNotificationEnabled: isNotificationScheduled(for: time),
+            estimate: estimate,
+            minutesUntilDeparture: DateService.minutesUntil(timeString: time, from: date),
+            lastTrafficAt: trafficUpdatedAt
         )
     }
 
@@ -399,6 +415,7 @@ final class MainViewModel: ObservableObject {
         let minutesUntilNextBus = minutesUntilNextBus(at: referenceDate, nextBusTime: nextBusTime)
         let secondsUntilNextBus = secondsUntilNextBus(at: referenceDate, nextBusTime: nextBusTime)
         let firstBusLeadTime = firstBusLeadTime(at: referenceDate)
+        let nextBusEstimate = nextBusTime.map { arrivalEstimate(for: $0, at: referenceDate) }
 
         let isServiceEnded: Bool = {
             guard !currentTimes.isEmpty else { return false }
@@ -416,7 +433,9 @@ final class MainViewModel: ObservableObject {
             hoursUntilFirstBus: firstBusLeadTime.hours,
             minutesUntilFirstBus: firstBusLeadTime.minutes,
             minutesUntilNextBus: minutesUntilNextBus,
-            nextBusArrivalTime: nextBusArrivalTime(for: nextBusTime),
+            nextBusArrivalTime: nextBusEstimate?.arrivalTime ?? "--:--",
+            nextBusBasis: nextBusEstimate?.basis ?? .timetable,
+            nextBusDurationText: nextBusEstimate?.durationText ?? "기본 소요 \(durationMinutes)분",
             followingBusTime: followingBusTime(after: nextBusTime),
             nextBusProgress: nextBusProgress(nextBusTime: nextBusTime, minutesUntilNextBus: minutesUntilNextBus),
             upcomingBuses: buildUpcomingBuses(limit: 5, at: referenceDate)
@@ -489,14 +508,32 @@ final class MainViewModel: ObservableObject {
     }
 
     /// 실시간 교통 소요시간 갱신
-    func refreshTrafficDuration() async {
+    func refreshTrafficDuration(force: Bool = false) async {
         guard let origin = currentRouteOrigin,
               let destination = currentRouteDestination else { return }
-        let minutes = await TrafficService.shared.fetchDuration(
+        if force { TrafficService.shared.invalidateCache() }
+        isRefreshingTraffic = true
+        defer { isRefreshingTraffic = false }
+        let detail = await TrafficService.shared.fetchDurationDetail(
             origin: origin,
             destination: destination
         )
-        trafficDurationMinutes = minutes
+        trafficDurationMinutes = detail?.minutes
+        trafficUpdatedAt = detail?.updatedAt
+    }
+
+    /// 특정 버스의 도착 예상. 출발 1시간 이내면 교통을 반영하고 그 밖에는 기본 소요시간.
+    func arrivalEstimate(for busTime: String, isNextDay: Bool = false, at date: Date = Date()) -> ArrivalEstimate {
+        let minutesUntil = isNextDay ? nil : DateService.minutesUntil(timeString: busTime, from: date)
+        return ArrivalEstimator.estimate(
+            departureTime: busTime,
+            minutesUntilDeparture: minutesUntil,
+            baseDurationMinutes: durationMinutes,
+            trafficDurationMinutes: trafficDurationMinutes,
+            trafficUpdatedAt: trafficUpdatedAt,
+            isRefreshing: isRefreshingTraffic,
+            isOffline: isOffline
+        )
     }
 
     /// 현재 노선 출발지 좌표
@@ -759,15 +796,16 @@ final class MainViewModel: ObservableObject {
                 isLastToday: !isNextDay && time == actualLastTodayTime,
                 isNightBus: !isNextDay && isNightFare(for: time)
             )
-            let totalMinutes = effectiveDurationMinutes + (status.kind == .delayed ? 5 : 0)
+            let estimate = arrivalEstimate(for: time, isNextDay: isNextDay, at: referenceDate)
 
             return UpcomingBusSnapshot(
                 id: "\(time)_\(isNextDay)",
                 departureTime: time,
                 relativeText: relativeDepartureText(for: minutesUntilDeparture, isNextDay: isNextDay),
-                arrivalTime: DateService.timeByAdding(minutes: totalMinutes, to: time) ?? time,
+                arrivalTime: estimate.arrivalTime,
                 statusText: status.text,
-                statusKind: status.kind
+                statusKind: status.kind,
+                usesTraffic: estimate.basis.usesTraffic
             )
         }
     }

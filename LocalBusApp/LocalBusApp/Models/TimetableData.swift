@@ -276,6 +276,12 @@ struct BusDetailInfo: Identifiable {
     let scheduleTypeLabel: String
     let nightFareStartTime: String?
     var isNotificationEnabled: Bool
+    /// 도착 예상 (교통 반영 여부 포함). 없으면 durationMinutes로 계산한 arrivalTime을 쓴다.
+    var estimate: ArrivalEstimate? = nil
+    /// 출발까지 남은 분 (지났으면 음수, 내일 편이면 nil)
+    var minutesUntilDeparture: Int? = nil
+    /// 마지막으로 교통정보를 받은 시각
+    var lastTrafficAt: Date? = nil
 }
 
 /// 시간표 (평일/주말)
