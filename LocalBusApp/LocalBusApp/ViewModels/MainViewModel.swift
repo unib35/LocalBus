@@ -783,7 +783,8 @@ final class MainViewModel: ObservableObject {
             isOffline = false
 
             let current = timetableData?.meta.updatedAt ?? "--"
-            let result = TimetableUpdateResult.evaluate(current: current, fetched: remoteData.meta.updatedAt)
+            let changes = timetableData.map { TimetableDiff.changes(old: $0, new: remoteData) } ?? []
+            let result = TimetableUpdateResult.evaluate(current: current, fetched: remoteData.meta.updatedAt, changes: changes)
 
             // 기준일이 같아도 공지 등 부속 데이터는 최신으로 맞춘다.
             timetableService.saveToCache(remoteData)

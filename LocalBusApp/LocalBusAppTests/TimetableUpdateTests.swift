@@ -10,7 +10,35 @@ struct TimetableUpdateTests {
 
     @Test func 기준일이_다르면_적용됨이다() {
         let result = TimetableUpdateResult.evaluate(current: "2026-03-08", fetched: "2026-09-28")
-        #expect(result == .updated(from: "2026-03-08", to: "2026-09-28"))
+        #expect(result == .updated(from: "2026-03-08", to: "2026-09-28", changes: []))
+    }
+
+    @Test func 바뀐_시각을_첫차_막차_일반으로_구분해_요약한다() {
+        let old = makeData(weekday: ["06:20", "07:20", "23:30"], weekend: ["07:00", "23:00"])
+        let new = makeData(weekday: ["06:20", "07:25", "23:40"], weekend: ["07:00", "23:00"])
+
+        let changes = TimetableDiff.changes(old: old, new: new)
+
+        #expect(changes.count == 2)
+        #expect(changes[0] == TimetableChange(label: "평일 막차 · 장유 → 사상", oldValue: "23:30", newValue: "23:40"))
+        #expect(changes[1] == TimetableChange(label: "평일 · 장유 → 사상", oldValue: "07:20", newValue: "07:25"))
+    }
+
+    @Test func 시간표가_같으면_변경이_없다() {
+        let data = makeData(weekday: ["06:20"], weekend: ["07:00"])
+        #expect(TimetableDiff.changes(old: data, new: data).isEmpty)
+    }
+
+    private func makeData(weekday: [String], weekend: [String]) -> TimetableData {
+        let route = RouteData(
+            name: "장유 → 사상", durationMinutes: 26, fare: 2500, nightFare: nil, nightFareStartTime: nil,
+            platformNumber: nil, viaTimes: nil, stops: [], timetable: Timetable(weekday: weekday, weekend: weekend), path: nil
+        )
+        return TimetableData(
+            meta: Meta(version: 1, updatedAt: "2026-01-10", noticeMessage: nil, contactEmail: "a@b.c"),
+            holidays: [], timetable: nil,
+            routes: [RouteDirection.jangyuToSasang.rawValue: route]
+        )
     }
 
     @Test func 같은_날_확인이면_오늘로_표시한다() {
