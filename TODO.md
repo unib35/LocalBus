@@ -221,4 +221,4 @@
 
 - [ ] 인앱 결제 / Paywall (`StoreService`, `PaywallView`, `EntitlementStore`, `Products.storekit`) — 상태 점검 필요
 - [ ] 전반 UI 디자인 개선 (Views/Components 다수)
-- [ ] 앱 아이콘 적용
+- [x] 앱 아이콘 적용 — 캔버스 후보 D(시계 버스)를 기본·다크·틴트 세 칸에 적용(2026-09-28). 평면 벡터 기준, 스플래시 마스코트는 그대로
