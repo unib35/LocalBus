@@ -53,18 +53,28 @@ final class TrafficService {
         origin: Coordinate,
         destination: Coordinate
     ) async -> Int? {
+        await fetchDurationDetail(origin: origin, destination: destination)?.minutes
+    }
+
+    /// 소요시간과 함께 그 값을 받은 시각도 돌려준다 ("3분 전 갱신" 표시용).
+    func fetchDurationDetail(
+        origin: Coordinate,
+        destination: Coordinate
+    ) async -> (minutes: Int, updatedAt: Date)? {
         let cacheKey = "\(origin.latitude),\(origin.longitude)→\(destination.latitude),\(destination.longitude)"
 
         if let cached = cache[cacheKey], !cached.isExpired {
-            return cached.durationMinutes
+            return (cached.durationMinutes, cached.cachedAt)
         }
 
         guard let minutes = await requestDuration(origin: origin, destination: destination) else {
-            return cache[cacheKey]?.durationMinutes  // 실패 시 만료된 캐시라도 반환
+            // 실패 시 만료된 캐시라도 반환
+            return cache[cacheKey].map { ($0.durationMinutes, $0.cachedAt) }
         }
 
-        cache[cacheKey] = TrafficCache(durationMinutes: minutes, cachedAt: Date())
-        return minutes
+        let entry = TrafficCache(durationMinutes: minutes, cachedAt: Date())
+        cache[cacheKey] = entry
+        return (minutes, entry.cachedAt)
     }
 
     func invalidateCache() {
