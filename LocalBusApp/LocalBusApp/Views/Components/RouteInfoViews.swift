@@ -28,6 +28,10 @@ struct StopsScreenView: View {
     // 하단 패널 상태. 모달 시트가 아니라 뷰 안의 패널이라 탭 바가 가려지지 않는다.
     @State private var panelDetent: MapPanelDetent = .medium
 
+    // 도착 예상 (EtaMap): 시트에서 고른 버스와 상세 시트
+    @State private var pickedBusTime: String? = nil
+    @State private var mapBusDetail: BusDetailInfo? = nil
+
     @Environment(\.colorScheme) private var colorScheme
 
     private var stopsDirection: RouteDirection { viewModel.selectedDirection }
@@ -262,7 +266,7 @@ struct StopsScreenView: View {
                 .padding(.top, 4)
 
             if stop.isDeparture {
-                nextBusRow
+                busPickerSection
                     .padding(.top, 12)
             }
 
@@ -274,26 +278,159 @@ struct StopsScreenView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "map")
                                 .font(.system(size: 16, weight: .semibold))
-                            Text("길 찾기")
+                            Text(stop.isDeparture ? "정류장까지 길 찾기" : "길 찾기")
                         }
                     }
                     .buttonStyle(PrimaryButtonStyle(height: 46))
                 }
 
-                Button {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        panelDetent = panelDetent == .large ? .medium : .large
+                if stop.isDeparture, let picked = pickedBusTime ?? pickerBusTimes.first {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        mapBusDetail = viewModel.makeBusDetailInfo(for: picked)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("버스 상세")
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .bold))
+                        }
                     }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text("정류장 \(currentStops.count)곳")
-                        Image(systemName: panelDetent == .large ? "chevron.down" : "chevron.up")
-                            .font(.system(size: 12, weight: .bold))
+                    .buttonStyle(SecondaryButtonStyle(height: 46))
+                    .frame(width: 116)
+                } else {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            panelDetent = panelDetent == .large ? .medium : .large
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text("정류장 \(currentStops.count)곳")
+                            Image(systemName: panelDetent == .large ? "chevron.down" : "chevron.up")
+                                .font(.system(size: 12, weight: .bold))
+                        }
                     }
+                    .buttonStyle(SecondaryButtonStyle(height: 46))
                 }
-                .buttonStyle(SecondaryButtonStyle(height: 46))
             }
             .padding(.top, 12)
+        }
+        .sheet(item: $mapBusDetail) { info in
+            BusDetailView(
+                info: info,
+                alert: viewModel.alert(for: info.departureTime),
+                onSetAlert: { lead, repeats in
+                    await viewModel.setAlert(for: info.departureTime, leadMinutes: lead, repeatsWeekdays: repeats)
+                },
+                onRemoveAlert: {
+                    if let alert = viewModel.alert(for: info.departureTime) { viewModel.removeAlert(id: alert.id) }
+                },
+                onRefreshTraffic: {
+                    await viewModel.refreshTrafficDuration(force: true)
+                    return viewModel.arrivalEstimate(for: info.departureTime)
+                }
+            )
+        }
+    }
+
+    // MARK: - 버스 선택 · 도착 예상 (디자인 캔버스 EtaMap)
+
+    /// 오늘 남은 버스 앞 4대
+    private var pickerBusTimes: [String] {
+        Array(viewModel.buildUpcomingBuses(limit: 4).filter { $0.statusKind != .nextDay }.map(\.departureTime))
+    }
+
+    private var busPickerSection: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            let times = pickerBusTimes
+            let snapshot = viewModel.makeTimingSnapshot(at: context.date)
+            VStack(spacing: 8) {
+                if times.isEmpty {
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("오늘 운행 종료")
+                                .font(AppTheme.Typography.footnote.weight(.semibold))
+                                .foregroundStyle(AppTheme.Color.secondaryText)
+                            Text("내일 첫차 \(snapshot.firstBusTime)")
+                                .font(AppTheme.Typography.rowTime)
+                                .monospacedDigit()
+                                .foregroundStyle(AppTheme.Color.primaryText)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 66)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .secondarySurface(cornerRadius: 14)
+                } else {
+                    let picked = (pickedBusTime.flatMap { times.contains($0) ? $0 : nil }) ?? times[0]
+                    HStack(spacing: 8) {
+                        ForEach(times, id: \.self) { time in
+                            let isSelected = time == picked
+                            Button {
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                pickedBusTime = time
+                            } label: {
+                                Text(time)
+                                    .font(.system(size: 14, weight: isSelected ? .bold : .semibold))
+                                    .monospacedDigit()
+                                    .foregroundStyle(isSelected ? AppTheme.Color.screenBackground : AppTheme.Color.primaryText)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 44)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .fill(isSelected ? AppTheme.Color.primaryText : AppTheme.Color.secondaryButton)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                        }
+                    }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("버스 선택")
+
+                    let estimate = viewModel.arrivalEstimate(for: picked, at: context.date)
+                    let minutes = DateService.minutesUntil(timeString: picked, from: context.date) ?? 0
+                    HStack(alignment: .center, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text("\(picked) 출발")
+                                Image(systemName: "arrow.right")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(AppTheme.Color.tertiaryText)
+                                Text("약 \(estimate.arrivalTime) 도착")
+                            }
+                            .font(AppTheme.Typography.rowValue.weight(.bold))
+                            .monospacedDigit()
+                            .foregroundStyle(AppTheme.Color.primaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+
+                            HStack(spacing: 6) {
+                                TrafficBasisDot(basis: estimate.basis)
+                                Text("\(viewModel.isViaBus(for: picked) ? "경유 · " : "")\(estimate.basis.usesTraffic ? "현재 교통 반영" : "시간표 기준") · \(estimate.durationText)")
+                            }
+                            .font(AppTheme.Typography.footnote)
+                            .monospacedDigit()
+                            .foregroundStyle(AppTheme.Color.secondaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                        }
+
+                        Spacer(minLength: 4)
+
+                        Text(minutes <= 0 ? "곧 출발" : (minutes < 60 ? "\(minutes)분 후" : "\(minutes / 60)시간 \(minutes % 60)분 후"))
+                            .font(.system(size: 17, weight: .heavy, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(AppTheme.Color.accent)
+                            .fixedSize()
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 66)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .secondarySurface(cornerRadius: 14)
+                    .accessibilityElement(children: .combine)
+                }
+            }
         }
     }
 
@@ -307,47 +444,6 @@ struct StopsScreenView: View {
             parts.append("도보 \(walkMinutes)분 (\(distanceText))")
         }
         return parts.isEmpty ? stopsDirection.displayName : parts.joined(separator: " · ")
-    }
-
-    /// 출발 정류장일 때 다음 버스 한 줄
-    private var nextBusRow: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { context in
-            let snapshot = viewModel.makeTimingSnapshot(at: context.date)
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(snapshot.isServiceEnded ? "오늘 운행 종료" : "다음 버스")
-                        .font(AppTheme.Typography.footnote.weight(.semibold))
-                        .foregroundStyle(AppTheme.Color.secondaryText)
-                    if snapshot.isServiceEnded {
-                        Text("내일 첫차 \(snapshot.firstBusTime)")
-                            .font(AppTheme.Typography.rowTime)
-                            .monospacedDigit()
-                            .foregroundStyle(AppTheme.Color.primaryText)
-                    } else if let next = snapshot.nextBusTime {
-                        Text("\(next) 출발 · \(snapshot.nextBusArrivalTime) \(viewModel.currentArrivalHubName) 도착")
-                            .font(AppTheme.Typography.rowTime)
-                            .monospacedDigit()
-                            .foregroundStyle(AppTheme.Color.primaryText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                    }
-                }
-
-                Spacer(minLength: 8)
-
-                if !snapshot.isServiceEnded {
-                    Text(snapshot.nextBusMinuteDisplay.isEmpty
-                         ? snapshot.nextBusCountdownDescription
-                         : "\(snapshot.nextBusMinuteDisplay)\(snapshot.nextBusUnitDisplay) 후")
-                        .font(.system(size: 20, weight: .heavy, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(AppTheme.Color.accent)
-                }
-            }
-            .padding(.horizontal, 14)
-            .frame(height: 56)
-            .secondarySurface(cornerRadius: 14)
-        }
     }
 
     // MARK: - 정류장 목록
