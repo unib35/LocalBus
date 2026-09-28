@@ -125,44 +125,73 @@ struct DashboardLoadingCard: View {
 }
 
 struct DashboardServiceEndedCard: View {
-    let firstBusTime: String
+    let eyebrow: String
     let remainingText: String
+    let busTime: String
+    let busLabel: String
+    let arrivalTime: String
+    let destinationName: String
+    let durationMinutes: Int
+    let isNotificationEnabled: Bool
+    let notificationTitle: String
+    let onNotificationTap: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("오늘 운행 종료")
+                Text(eyebrow)
                     .font(AppTheme.Typography.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.Color.secondaryText)
                 Spacer()
-                Text("내일 첫차")
+                Text(remainingText)
                     .font(AppTheme.Typography.caption.weight(.semibold))
+                    .monospacedDigit()
                     .foregroundStyle(AppTheme.Color.primaryText)
             }
 
-            Text(firstBusTime)
-                .font(.system(size: 64, weight: .heavy, design: .rounded))
-                .monospacedDigit()
-                .tracking(-2)
-                .foregroundStyle(AppTheme.Color.primaryText)
-                .padding(.top, 10)
+            HStack(alignment: .lastTextBaseline, spacing: 10) {
+                Text(busTime)
+                    .font(.system(size: 64, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .tracking(-2)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                Text(busLabel)
+                    .font(AppTheme.Typography.heroUnitLabel)
+                    .foregroundStyle(AppTheme.Color.primaryText)
+            }
+            .padding(.top, 10)
 
-            Text(remainingText)
-                .font(AppTheme.Typography.caption)
-                .foregroundStyle(AppTheme.Color.secondaryText)
-                .padding(.top, 4)
+            JourneyStripView(
+                departureTime: busTime,
+                arrivalTime: arrivalTime,
+                destinationName: destinationName,
+                durationMinutes: durationMinutes
+            )
+            .padding(.top, 18)
+
+            Button(action: onNotificationTap) {
+                HStack(spacing: 8) {
+                    Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(isNotificationEnabled ? "\(busTime) 버스 5분 전에 알려드려요" : notificationTitle)
+                }
+            }
+            .buttonStyle(SecondaryButtonStyle(height: 46))
+            .padding(.top, 20)
+            .accessibilityLabel(isNotificationEnabled ? "알림 켜짐" : "알림 꺼짐")
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .surfaceCard(cornerRadius: AppTheme.Radius.hero)
-        .accessibilityElement(children: .combine)
     }
 }
 
 // MARK: - 이어지는 버스
 
 struct UpcomingBusListView: View {
+    var title: String = "이어지는 버스"
+    var footer: String? = nil
     let buses: [UpcomingBusSnapshot]
     let isVia: (String) -> Bool
     let onShowTimetable: () -> Void
@@ -170,7 +199,7 @@ struct UpcomingBusListView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("이어지는 버스")
+                Text(title)
                     .font(AppTheme.Typography.groupTitle)
                     .foregroundStyle(AppTheme.Color.primaryText)
 
@@ -206,6 +235,15 @@ struct UpcomingBusListView: View {
                     }
                 }
                 .surfaceCard()
+            }
+
+            if let footer {
+                Text(footer)
+                    .font(AppTheme.Typography.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .padding(.horizontal, 2)
+                    .padding(.top, 2)
             }
         }
     }
@@ -255,10 +293,12 @@ struct UpcomingBusRow: View {
         .accessibilityLabel(accessibilityText)
     }
 
-    /// 막차·심야만 라벨로 보여준다. "정시 운행"은 정보가 없어 생략.
+    /// 막차·심야·내일 첫차만 라벨로 보여준다. "정시 운행"·"내일 운행"은 정보가 없어 생략.
     private var statusLabel: String? {
         switch bus.statusKind {
-        case .lastBus, .nightBus, .nextDay:
+        case .nextDay:
+            return bus.statusText == "내일 첫차" ? bus.statusText : nil
+        case .lastBus, .nightBus:
             return bus.statusText
         case .onTime, .delayed:
             return nil
@@ -332,7 +372,11 @@ struct DashboardNoticeCard: View {
             onShowTimetable: {}
         )
 
-        DashboardServiceEndedCard(firstBusTime: "06:20", remainingText: "6시간 40분 후 첫차")
+        DashboardServiceEndedCard(
+            eyebrow: "오늘 운행 종료", remainingText: "6시간 32분 후", busTime: "06:20", busLabel: "내일 첫차",
+            arrivalTime: "06:46", destinationName: "사상", durationMinutes: 26,
+            isNotificationEnabled: false, notificationTitle: "내일 첫차 5분 전 알림", onNotificationTap: {}
+        )
     }
     .padding(20)
     .background(AppTheme.Color.screenBackground)

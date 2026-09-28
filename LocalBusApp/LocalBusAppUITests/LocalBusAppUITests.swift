@@ -103,7 +103,8 @@ final class LocalBusAppUITests: XCTestCase {
         XCTAssertTrue(waitForHome())
 
         let listTitle = app.staticTexts["이어지는 버스"]
-        XCTAssertTrue(listTitle.waitForExistence(timeout: 3), "이어지는 버스 섹션이 있어야 합니다")
+        let tomorrowTitle = app.staticTexts["내일 아침 버스"]
+        XCTAssertTrue(listTitle.waitForExistence(timeout: 3) || tomorrowTitle.exists, "이어지는 버스(또는 내일 아침 버스) 섹션이 있어야 합니다")
 
         let timeRow = app.staticTexts.matching(
             NSPredicate(format: "label MATCHES %@", "^\\d{2}:\\d{2}$")

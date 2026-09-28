@@ -158,10 +158,13 @@ struct MainView: View {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let snapshot = viewModel.makeTimingSnapshot(at: context.date)
 
+                let isTomorrowList = isShowingTomorrow(snapshot)
                 VStack(alignment: .leading, spacing: 22) {
                     heroSection(using: snapshot)
 
                     UpcomingBusListView(
+                        title: isTomorrowList ? "내일 아침 버스" : "이어지는 버스",
+                        footer: isTomorrowList ? viewModel.tomorrowContextText(at: context.date) : nil,
                         buses: followingBuses(in: snapshot),
                         isVia: { viewModel.isViaBus(for: $0) },
                         onShowTimetable: { selectedTab = .timetable }
@@ -190,8 +193,16 @@ struct MainView: View {
         .padding(.bottom, 28)
     }
 
-    /// 히어로에 이미 보이는 다음 버스는 목록에서 뺀다.
+    /// 오늘 운행이 끝나 히어로가 내일 첫차를 보여주는 상태
+    private func isShowingTomorrow(_ snapshot: BusTimingSnapshot) -> Bool {
+        !viewModel.isLoading && snapshot.isServiceEnded && snapshot.nextBusTime == nil
+    }
+
+    /// 히어로에 이미 보이는 버스(다음 버스 또는 내일 첫차)는 목록에서 뺀다.
     private func followingBuses(in snapshot: BusTimingSnapshot) -> [UpcomingBusSnapshot] {
+        if isShowingTomorrow(snapshot) {
+            return Array(snapshot.upcomingBuses.filter { $0.statusKind == .nextDay }.dropFirst().prefix(4))
+        }
         guard let nextBusTime = snapshot.nextBusTime,
               let first = snapshot.upcomingBuses.first,
               first.departureTime == nextBusTime,
@@ -206,9 +217,22 @@ struct MainView: View {
         if viewModel.isLoading {
             DashboardLoadingCard()
         } else if snapshot.isServiceEnded {
+            // 오늘 막차가 지났으면 내일 첫차, 아직 오늘 버스가 남았지만 한참 뒤면 그 버스를 주인공으로
+            let busTime = snapshot.nextBusTime ?? snapshot.firstBusTime
+            let isTomorrow = snapshot.nextBusTime == nil
             DashboardServiceEndedCard(
-                firstBusTime: snapshot.firstBusTime,
-                remainingText: firstBusRemainingText(for: snapshot)
+                eyebrow: isTomorrow ? "오늘 운행 종료" : "지금은 운행 간격이 길어요",
+                remainingText: isTomorrow
+                    ? remainingText(hours: snapshot.hoursUntilFirstBus, minutes: snapshot.minutesUntilFirstBus)
+                    : remainingText(hours: (snapshot.minutesUntilNextBus ?? 0) / 60, minutes: (snapshot.minutesUntilNextBus ?? 0) % 60),
+                busTime: busTime,
+                busLabel: isTomorrow ? "내일 첫차" : "다음 버스",
+                arrivalTime: DateService.timeByAdding(minutes: viewModel.currentDurationMinutes, to: busTime) ?? "--:--",
+                destinationName: viewModel.currentArrivalHubName,
+                durationMinutes: viewModel.currentDurationMinutes,
+                isNotificationEnabled: viewModel.isNotificationScheduled(for: busTime),
+                notificationTitle: isTomorrow ? "내일 첫차 5분 전 알림" : "\(busTime) 버스 5분 전 알림",
+                onNotificationTap: { handleNotificationTap(for: busTime) }
             )
         } else if let nextBusTime = snapshot.nextBusTime {
             NextBusHeroCard(
@@ -283,11 +307,8 @@ struct MainView: View {
 
     // MARK: - 헬퍼
 
-    private func firstBusRemainingText(for snapshot: BusTimingSnapshot) -> String {
-        if snapshot.hoursUntilFirstBus > 0 {
-            return "\(snapshot.hoursUntilFirstBus)시간 \(snapshot.minutesUntilFirstBus)분 후 첫차"
-        }
-        return "\(snapshot.minutesUntilFirstBus)분 후 첫차"
+    private func remainingText(hours: Int, minutes: Int) -> String {
+        hours > 0 ? "\(hours)시간 \(minutes)분 후" : "\(minutes)분 후"
     }
 
     private func isNextBusNotificationEnabled(for snapshot: BusTimingSnapshot) -> Bool {
