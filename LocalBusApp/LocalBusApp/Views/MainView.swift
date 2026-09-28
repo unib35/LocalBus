@@ -44,6 +44,11 @@ struct MainView: View {
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
     @State private var selectedTab: MainTab = .home
     @State private var showPaywall = false
+    @State private var showAlertsHub = false
+    @State private var importantNotice: NoticeItem?
+    @State private var noticeToOpen: NoticeItem?
+    @State private var hasCheckedImportantNotice = false
+    @ObservedObject private var notificationHistory = NotificationHistoryStore.shared
     @EnvironmentObject private var storeService: StoreService
     @State private var stopsSheetPresentationToken = 0
     @State private var showTimetableShareSheet = false
@@ -128,7 +133,76 @@ struct MainView: View {
             }
             .background(AmbientBackground())
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(isPresented: $showAlertsHub) {
+                AlertsHubView(
+                    viewModel: viewModel,
+                    onShowTimetable: { showAlertsHub = false; selectedTab = .timetable }
+                )
+            }
         }
+        .sheet(item: $importantNotice) { notice in
+            NoticeDialogView(
+                notice: notice,
+                onOpen: {
+                    viewModel.markNoticeRead(notice.id)
+                    importantNotice = nil
+                    noticeToOpen = notice
+                },
+                onSnooze: {
+                    viewModel.snoozeImportantNotice(id: notice.id)
+                    importantNotice = nil
+                },
+                onClose: { importantNotice = nil }
+            )
+        }
+        .sheet(item: $noticeToOpen) { notice in
+            NavigationStack {
+                NoticeDetailView(notice: notice)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("닫기") { noticeToOpen = nil }
+                                .foregroundStyle(AppTheme.Color.primaryText)
+                        }
+                    }
+            }
+        }
+        .onChange(of: viewModel.isLoading) { isLoading in
+            guard !isLoading, !hasCheckedImportantNotice else { return }
+            hasCheckedImportantNotice = true
+            // 스플래시가 닫힌 뒤에 띄운다.
+            DispatchQueue.main.asyncAfter(deadline: .now() + LaunchTiming.maximumDuration) {
+                if UserDefaults.standard.bool(forKey: "forceNoticeDialog"), let first = viewModel.notices.first {
+                    importantNotice = first
+                } else {
+                    importantNotice = viewModel.importantNoticeToShow()
+                }
+            }
+        }
+    }
+
+    /// 홈 상단 오른쪽 종. 읽지 않은 알림이 있을 때만 강조색 점.
+    private var alertsBell: some View {
+        Button {
+            showAlertsHub = true
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "bell")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                    .frame(width: 44, height: 44)
+                if notificationHistory.unreadCount > 0 {
+                    Circle()
+                        .fill(AppTheme.Color.accent)
+                        .frame(width: 8, height: 8)
+                        .overlay(Circle().stroke(AppTheme.Color.screenBackground, lineWidth: 2))
+                        .padding(.top, 9)
+                        .padding(.trailing, 9)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(notificationHistory.unreadCount > 0 ? "알림 모아보기, 새 소식 있음" : "알림 모아보기")
     }
 
     private var mainContent: some View {
@@ -149,6 +223,7 @@ struct MainView: View {
                 direction: viewModel.selectedDirection,
                 contextText: viewModel.scheduleContextText(),
                 subtitle: viewModel.hasRoutes ? viewModel.routeSummaryText : nil,
+                trailingAccessory: AnyView(alertsBell),
                 onDirectionChange: { direction in
                     withAnimation(.easeInOut(duration: 0.25)) {
                         viewModel.changeDirection(to: direction)
@@ -177,6 +252,7 @@ struct MainView: View {
                         footer: isTomorrowList ? viewModel.tomorrowContextText(at: context.date) : nil,
                         buses: followingBuses(in: snapshot),
                         isVia: { viewModel.isViaBus(for: $0) },
+                        alertTime: { viewModel.alert(for: $0).flatMap { $0.isEnabled ? $0.alertTime : nil } },
                         onShowTimetable: { selectedTab = .timetable }
                     )
                 }
