@@ -194,7 +194,7 @@ struct ContactView: View {
             .frame(height: 52)
             .surfaceCard(cornerRadius: 14)
 
-            Text("검토 후 이메일로 답변 드려요. 빠른 답변을 위해 유형을 정확히 골라 주세요.")
+            Text("검토 후 이메일로 답변 드려요. 유형을 정확히 고르면 더 빨리 답할 수 있어요.")
                 .font(AppTheme.Typography.caption)
                 .foregroundStyle(AppTheme.Color.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)

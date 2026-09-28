@@ -19,6 +19,8 @@ private struct TipSection: Identifiable {
 // 처음 타는 사람이 꼭 알아야 할 3가지를 맨 위 강조 그룹으로. 나머지는 아이콘 없는 평면 리스트.
 
 struct BusTipsView: View {
+    @State private var quickReport: QuickReportContext?
+
     private let essentials: [TipItem] = [
         TipItem(
             title: "하차벨이 없어요",
@@ -103,21 +105,33 @@ struct BusTipsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .legacyToolbarBackground(AppTheme.Color.screenBackground.opacity(0.95))
         .toolbar(.hidden, for: .tabBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                EditReportLink(accessibilityLabel: "이용 안내 수정 제보") {
+                    quickReport = QuickReportContext(entry: .guide, info: nil)
+                }
+            }
+        }
+        .sheet(item: $quickReport) { context in
+            QuickReportView(context: context)
+        }
     }
 
     // MARK: - 처음 타신다면
 
     private var essentialsGroup: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 0) {
             Text("처음 타신다면")
-                .font(AppTheme.Typography.groupTitle)
-                .foregroundStyle(AppTheme.Color.primaryText)
+                .font(AppTheme.Typography.caption.weight(.bold))
+                .foregroundStyle(AppTheme.Color.secondaryText)
+                .padding(.horizontal, 18)
+                .padding(.top, 18)
 
             VStack(spacing: 0) {
                 ForEach(Array(essentials.enumerated()), id: \.element.id) { index, item in
                     HStack(alignment: .top, spacing: 14) {
                         Text("\(index + 1)")
-                            .font(.system(size: 28, weight: .heavy, design: .rounded))
+                            .font(.system(size: 32, weight: .heavy, design: .rounded))
                             .foregroundStyle(AppTheme.Color.accent)
                             .frame(width: 28, alignment: .leading)
 
@@ -134,17 +148,17 @@ struct BusTipsView: View {
 
                         Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 18)
                     .padding(.vertical, 14)
                     .accessibilityElement(children: .combine)
 
                     if index < essentials.count - 1 {
-                        RowDivider()
+                        RowDivider(leadingInset: 18)
                     }
                 }
             }
-            .surfaceCard()
         }
+        .surfaceCard()
     }
 
     // MARK: - 섹션 뷰
