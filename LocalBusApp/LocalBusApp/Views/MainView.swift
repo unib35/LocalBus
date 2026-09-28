@@ -290,6 +290,8 @@ struct MainView: View {
                     .padding(.horizontal, 2)
             }
 
+            AdSlotView(placement: .homeBottom, isPro: storeService.isPro, onProTap: { showPaywall = true })
+
             if viewModel.hasNotice, let noticeMessage = viewModel.noticeMessage {
                 DashboardNoticeCard(
                     title: "운행 일정 조정 안내",
@@ -330,18 +332,20 @@ struct MainView: View {
             // 오늘 막차가 지났으면 내일 첫차, 아직 오늘 버스가 남았지만 한참 뒤면 그 버스를 주인공으로
             let busTime = snapshot.nextBusTime ?? snapshot.firstBusTime
             let isTomorrow = snapshot.nextBusTime == nil
+            let isTodayFirst = !isTomorrow && snapshot.nextBusTime == viewModel.firstBusTime
             DashboardServiceEndedCard(
-                eyebrow: isTomorrow ? "오늘 운행 종료" : "지금은 운행 간격이 길어요",
+                eyebrow: isTomorrow ? "오늘 운행 종료" : (isTodayFirst ? "오늘 운행 시작 전" : "지금은 운행 간격이 길어요"),
                 remainingText: isTomorrow
                     ? remainingText(hours: snapshot.hoursUntilFirstBus, minutes: snapshot.minutesUntilFirstBus)
                     : remainingText(hours: (snapshot.minutesUntilNextBus ?? 0) / 60, minutes: (snapshot.minutesUntilNextBus ?? 0) % 60),
                 busTime: busTime,
-                busLabel: isTomorrow ? "내일 첫차" : "다음 버스",
+                busLabel: isTomorrow ? "내일 첫차" : (isTodayFirst ? "오늘 첫차" : "다음 버스"),
                 arrivalTime: DateService.timeByAdding(minutes: viewModel.currentDurationMinutes, to: busTime) ?? "--:--",
                 destinationName: viewModel.currentArrivalHubName,
                 durationMinutes: viewModel.currentDurationMinutes,
                 isNotificationEnabled: viewModel.isNotificationScheduled(for: busTime),
-                notificationTitle: isTomorrow ? "내일 첫차 5분 전 알림" : "\(busTime) 버스 5분 전 알림",
+                notificationTitle: isTomorrow ? "내일 첫차 5분 전 알림" : (isTodayFirst ? "첫차 5분 전 알림" : "\(busTime) 버스 5분 전 알림"),
+                alertTime: viewModel.alert(for: busTime)?.alertTime,
                 onNotificationTap: { handleNotificationTap(for: busTime) }
             )
         } else if let nextBusTime = snapshot.nextBusTime {
@@ -353,6 +357,7 @@ struct MainView: View {
                 basis: snapshot.nextBusBasis,
                 destinationName: viewModel.currentArrivalHubName,
                 isNotificationEnabled: isNextBusNotificationEnabled(for: snapshot),
+                alertTime: viewModel.alert(for: nextBusTime)?.alertTime,
                 onDetail: { openBusDetail(for: nextBusTime) },
                 onNotificationTap: { handleNotificationTap(for: nextBusTime) }
             )

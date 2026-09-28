@@ -15,6 +15,8 @@ struct NextBusHeroCard: View {
     let basis: TrafficBasis
     let destinationName: String
     let isNotificationEnabled: Bool
+    /// 알림이 켜져 있으면 울릴 시각 ("18:25") — 버튼이 "18:25 알림 예약됨"으로 바뀐다
+    var alertTime: String? = nil
     let onDetail: () -> Void
     let onNotificationTap: () -> Void
 
@@ -105,8 +107,9 @@ struct NextBusHeroCard: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(isNotificationEnabled ? AppTheme.Color.accent : AppTheme.Color.primaryText)
                     Text(isNotificationEnabled
-                         ? "\(departureTime) 버스 5분 전에 알려드려요"
+                         ? "\(alertTime ?? departureTime) 알림 예약됨"
                          : "\(departureTime) 버스 5분 전 알림")
+                        .monospacedDigit()
                 }
             }
             .buttonStyle(SecondaryButtonStyle(height: 46))
@@ -187,6 +190,7 @@ struct DashboardServiceEndedCard: View {
     let durationMinutes: Int
     let isNotificationEnabled: Bool
     let notificationTitle: String
+    var alertTime: String? = nil
     let onNotificationTap: () -> Void
 
     var body: some View {
@@ -226,7 +230,8 @@ struct DashboardServiceEndedCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
                         .font(.system(size: 15, weight: .semibold))
-                    Text(isNotificationEnabled ? "\(busTime) 버스 5분 전에 알려드려요" : notificationTitle)
+                    Text(isNotificationEnabled ? "\(alertTime ?? busTime) 알림 예약됨" : notificationTitle)
+                        .monospacedDigit()
                 }
             }
             .buttonStyle(SecondaryButtonStyle(height: 46))
@@ -355,8 +360,9 @@ struct UpcomingBusRow: View {
 
                     if alertTime != nil {
                         Image(systemName: "bell.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(AppTheme.Color.primaryText)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(AppTheme.Color.accent)
+                            .accessibilityLabel("알림 예약됨")
                     }
                 }
                 .lineLimit(1)
@@ -407,7 +413,7 @@ struct UpcomingBusRow: View {
     private var accessibilityText: String {
         var parts = ["\(bus.departureTime) 출발", isVia ? "경유" : "직행", "약 \(bus.arrivalTime) 도착 예상", bus.usesTraffic ? "교통 반영" : "시간표 기준"]
         if let statusLabel { parts.append(statusLabel) }
-        if let alertTime { parts.append("\(alertTime) 알림") }
+        if let alertTime { parts.append("\(alertTime) 알림 예약됨") }
         return parts.joined(separator: ", ")
     }
 }
