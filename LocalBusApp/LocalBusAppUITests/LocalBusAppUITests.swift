@@ -39,9 +39,11 @@ final class LocalBusAppUITests: XCTestCase {
     private func waitForHome(timeout: TimeInterval = 10) -> Bool {
         let nextBus = app.staticTexts["다음 버스"]
         let ended = app.staticTexts["오늘 운행 종료"]
+        let beforeFirst = app.staticTexts["오늘 운행 시작 전"]
+        let longGap = app.staticTexts["지금은 운행 간격이 길어요"]
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if nextBus.exists || ended.exists { return true }
+            if nextBus.exists || ended.exists || beforeFirst.exists || longGap.exists { return true }
             app.tap() // 인터럽션 모니터 트리거
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
@@ -169,7 +171,9 @@ final class LocalBusAppUITests: XCTestCase {
         let fare = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", "요금")).firstMatch
 
         XCTAssertTrue(alarmOff.waitForExistence(timeout: 5) || alarmOn.exists, "상세 시트에 알림 버튼이 있어야 합니다")
-        XCTAssertTrue(app.buttons["10분 전"].exists, "알림 시점 칩이 있어야 합니다")
+        // 통합안: 시점·반복 옵션은 '알림' 제목 옆 요약을 눌러야 펼쳐진다
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "알림 옵션")).firstMatch.tap()
+        XCTAssertTrue(app.buttons["10분 전"].waitForExistence(timeout: 3), "알림 시점 칩이 있어야 합니다")
         XCTAssertTrue(app.switches["평일마다 반복"].exists, "평일 반복 토글이 있어야 합니다")
         XCTAssertTrue(fare.exists, "상세 시트에 요금 섹션이 있어야 합니다")
     }
