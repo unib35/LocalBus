@@ -13,6 +13,8 @@ struct TimetableScreenView: View {
 
     @State private var showNotificationDeniedAlert = false
     @State private var selectedBusInfo: BusDetailInfo?
+    @State private var showArriveBy = false
+    @State private var notificationToast: ToastMessage?
 
     var body: some View {
         ZStack {
@@ -52,6 +54,24 @@ struct TimetableScreenView: View {
         } message: {
             Text("버스 출발 알림을 받으려면\n설정 > 장유시외버스 > 알림을 허용해주세요.")
         }
+        .toast(item: $notificationToast)
+        .sheet(isPresented: $showArriveBy) {
+            ArriveByView(viewModel: viewModel) { time in
+                Task {
+                    let status = await NotificationService.shared.authorizationStatus()
+                    if status == .denied {
+                        showArriveBy = false
+                        showNotificationDeniedAlert = true
+                    } else {
+                        await viewModel.toggleNotification(for: time)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        notificationToast = viewModel.isNotificationScheduled(for: time)
+                            ? ToastMessage(icon: "bell.fill", message: "\(time) 버스 알림이 켜졌습니다")
+                            : ToastMessage(icon: "bell.slash.fill", message: "\(time) 버스 알림이 꺼졌습니다")
+                    }
+                }
+            }
+        }
         .sheet(item: $selectedBusInfo) { info in
             BusDetailView(
                 info: info,
@@ -71,22 +91,44 @@ struct TimetableScreenView: View {
     // MARK: - 헤더 공유 버튼
 
     private var shareButton: AnyView? {
-        guard let onShare else { return nil }
-        return AnyView(
-            Button(action: onShare) {
-                if isPreparingShare {
-                    ProgressView()
-                        .tint(AppTheme.Color.secondaryText)
-                } else {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(AppTheme.Color.secondaryText)
+        AnyView(
+            HStack(spacing: 2) {
+                Button {
+                    showArriveBy = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("도착 시각으로 찾기")
+                            .font(AppTheme.Typography.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                    .padding(.horizontal, 12)
+                    .frame(height: 32)
+                    .background(Capsule().fill(AppTheme.Color.surfaceSecondary))
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if let onShare {
+                    Button(action: onShare) {
+                        if isPreparingShare {
+                            ProgressView()
+                                .tint(AppTheme.Color.secondaryText)
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundStyle(AppTheme.Color.secondaryText)
+                        }
+                    }
+                    .frame(width: 44, height: 44)
+                    .buttonStyle(.plain)
+                    .disabled(isPreparingShare)
+                    .accessibilityLabel("시간표 이미지 공유")
                 }
             }
-            .frame(width: 44, height: 44)
-            .buttonStyle(.plain)
-            .disabled(isPreparingShare)
-            .accessibilityLabel("시간표 이미지 공유")
+            .padding(.trailing, -12)
         )
     }
 
