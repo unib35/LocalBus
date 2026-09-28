@@ -15,7 +15,18 @@ final class LiveActivityService {
     ///   - departureTime: 출발 시간 문자열 ("07:20")
     ///   - direction: 방향 표시 이름 ("장유 → 사상")
     ///   - durationMinutes: 소요 시간 (분)
-    func startActivity(departureTime: String, direction: String, durationMinutes: Int) {
+    func startActivity(
+        departureTime: String,
+        direction: String,
+        durationMinutes: Int,
+        destinationName: String = "사상",
+        boardingStopName: String = "",
+        isLastBus: Bool = false,
+        nextDayFirstBusTime: String? = nil,
+        nightFareText: String? = nil,
+        usesTraffic: Bool = false,
+        trafficUpdatedAt: Date? = nil
+    ) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
         // 기존 활동 종료 (참조를 먼저 분리해 레이스 컨디션 방지)
@@ -35,13 +46,20 @@ final class LiveActivityService {
         let attributes = BusLiveActivityAttributes(
             direction: direction,
             departureTime: departureTime,
-            durationMinutes: durationMinutes
+            durationMinutes: durationMinutes,
+            destinationName: destinationName,
+            boardingStopName: boardingStopName,
+            isLastBus: isLastBus,
+            nextDayFirstBusTime: nextDayFirstBusTime,
+            nightFareText: nightFareText,
+            usesTraffic: usesTraffic,
+            trafficUpdatedAt: trafficUpdatedAt
         )
 
         let initialState = BusLiveActivityAttributes.ContentState(
             departureDate: departureDate,
             arrivalDate: arrivalDate,
-            phase: .waitingForDeparture
+            phase: departureDate.timeIntervalSinceNow <= Self.departingSoonLead ? .departingSoon : .waitingForDeparture
         )
 
         do {
@@ -75,13 +93,45 @@ final class LiveActivityService {
 
     // MARK: - Private
 
-    /// 출발 시각에 phase를 inTransit으로 전환, 도착 시각에 종료
+    /// 출발 5분 전부터 "곧 출발" 단계
+    static let departingSoonLead: TimeInterval = 5 * 60
+
+    /// 출발 5분 전에 departingSoon, 출발 시각에 inTransit으로 전환, 도착 시각에 종료
     private func schedulePhaseTransition(departureDate: Date, arrivalDate: Date) {
         phaseTimer?.invalidate()
 
         let now = Date()
+        let soonDelay = departureDate.timeIntervalSince(now) - Self.departingSoonLead
         let departureDelay = departureDate.timeIntervalSince(now)
 
+        if soonDelay > 0 {
+            phaseTimer = Timer.scheduledTimer(withTimeInterval: soonDelay, repeats: false) { [weak self] _ in
+                Task { @MainActor in
+                    self?.transitionToDepartingSoon(departureDate: departureDate, arrivalDate: arrivalDate)
+                }
+            }
+        } else if departureDelay > 0 {
+            phaseTimer = Timer.scheduledTimer(withTimeInterval: departureDelay, repeats: false) { [weak self] _ in
+                Task { @MainActor in
+                    self?.transitionToInTransit(departureDate: departureDate, arrivalDate: arrivalDate)
+                }
+            }
+        } else {
+            transitionToInTransit(departureDate: departureDate, arrivalDate: arrivalDate)
+        }
+    }
+
+    private func transitionToDepartingSoon(departureDate: Date, arrivalDate: Date) {
+        let soonState = BusLiveActivityAttributes.ContentState(
+            departureDate: departureDate,
+            arrivalDate: arrivalDate,
+            phase: .departingSoon
+        )
+        Task {
+            await currentActivity?.update(.init(state: soonState, staleDate: nil))
+        }
+
+        let departureDelay = departureDate.timeIntervalSince(Date())
         if departureDelay > 0 {
             phaseTimer = Timer.scheduledTimer(withTimeInterval: departureDelay, repeats: false) { [weak self] _ in
                 Task { @MainActor in
