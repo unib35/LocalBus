@@ -42,28 +42,38 @@ struct RowDivider: View {
 
 // MARK: - Buttons
 
-/// 기본 행동 버튼 — 강조색 배경.
+/// 기본 행동 버튼 — 강조색 배경. 화면마다 하나.
+///
+/// 쓸 수 없을 때는 중립 배경으로 바뀐다. 진행 중처럼 눌리지는 않지만 강조색을 유지해야 하면 `isBusy`를 켠다.
 struct PrimaryButtonStyle: ButtonStyle {
     var height: CGFloat = 50
+    var isBusy: Bool = false
+
+    @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
+        let isUnavailable = !isEnabled && !isBusy
         configuration.label
             .font(AppTheme.Typography.buttonLabelStrong)
-            .foregroundStyle(AppTheme.Color.accentForeground)
+            .foregroundStyle(isUnavailable ? AppTheme.Color.tertiaryText : AppTheme.Color.accentForeground)
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.Radius.primaryButton, style: .continuous)
-                    .fill(AppTheme.Color.accent)
+                    .fill(background(isPressed: configuration.isPressed, isUnavailable: isUnavailable))
             )
-            .opacity(configuration.isPressed ? 0.8 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private func background(isPressed: Bool, isUnavailable: Bool) -> Color {
+        if isUnavailable { return AppTheme.Color.secondaryButton }
+        return isPressed ? AppTheme.Color.accentPressed : AppTheme.Color.accent
     }
 }
 
 /// 보조 행동 버튼 — 중립 배경.
 struct SecondaryButtonStyle: ButtonStyle {
-    var height: CGFloat = 50
+    var height: CGFloat = 46
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -72,7 +82,7 @@ struct SecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.primaryButton, style: .continuous)
+                RoundedRectangle(cornerRadius: AppTheme.Radius.secondaryButton, style: .continuous)
                     .fill(AppTheme.Color.secondaryButton)
             )
             .opacity(configuration.isPressed ? 0.8 : 1)
@@ -219,7 +229,7 @@ struct SelectableChip: View {
                 .padding(.horizontal, height < 40 ? 14 : 16)
                 .frame(height: height)
                 .background(
-                    Capsule().fill(isSelected ? AppTheme.Color.primaryText : AppTheme.Color.surfaceSecondary)
+                    Capsule().fill(isSelected ? AppTheme.Color.primaryText : AppTheme.Color.secondaryButton)
                 )
                 .contentShape(Capsule())
         }
@@ -234,7 +244,7 @@ struct LabelChip: View {
 
     var body: some View {
         Text(text)
-            .font(AppTheme.Typography.footnote)
+            .font(AppTheme.Typography.footnote.weight(.semibold))
             .foregroundStyle(AppTheme.Color.primaryText)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)

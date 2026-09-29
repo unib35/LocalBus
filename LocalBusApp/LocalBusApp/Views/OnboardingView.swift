@@ -387,14 +387,14 @@ struct OnboardingView: View {
                 Button {
                     enableNotifications()
                 } label: {
-                    ZStack {
-                        Text("알림 켜기").opacity(isRequestingPermission ? 0 : 1)
+                    HStack(spacing: 8) {
                         if isRequestingPermission {
                             ProgressView().tint(AppTheme.Color.accentForeground)
                         }
+                        Text("알림 켜기")
                     }
                 }
-                .buttonStyle(PrimaryButtonStyle(height: 52))
+                .buttonStyle(PrimaryButtonStyle(height: 52, isBusy: isRequestingPermission))
                 .disabled(isRequestingPermission)
 
                 Button("나중에") {

@@ -215,7 +215,6 @@ struct ContactView: View {
         }
         .buttonStyle(PrimaryButtonStyle(height: 52))
         .disabled(!canSend)
-        .opacity(canSend ? 1 : 0.45)
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 12)

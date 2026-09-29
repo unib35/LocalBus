@@ -60,7 +60,7 @@ struct ErrorView: View {
                     Text(isRetrying ? "다시 불러오는 중" : "다시 시도")
                 }
             }
-            .buttonStyle(PrimaryButtonStyle(height: 52))
+            .buttonStyle(PrimaryButtonStyle(height: 52, isBusy: isRetrying))
             .disabled(isRetrying)
 
             if let onContact {

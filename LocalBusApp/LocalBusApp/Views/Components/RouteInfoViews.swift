@@ -180,7 +180,7 @@ struct StopsScreenView: View {
                         .foregroundStyle(AppTheme.Color.secondaryText)
                         .padding(.leading, 2)
                 }
-                .font(AppTheme.Typography.buttonLabelStrong)
+                .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(AppTheme.Color.primaryText)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
