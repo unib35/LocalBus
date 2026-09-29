@@ -966,7 +966,7 @@ struct SmallWidgetView: View {
 
     var body: some View {
         Group {
-            if entry.isServiceEnded {
+            if entry.isServiceEnded && !entry.showsBothWays(entry.options.small == .bothWays) {
                 ended
             } else {
                 switch entry.options.small {
@@ -1148,7 +1148,7 @@ struct SmallWidgetView: View {
     /// E · 양방향 — 작은 칸에서 두 방향 모두. 먼저 출발하는 쪽만 강조색
     private var styleE: some View {
         let counterpart = entry.counterpart
-        let thisFirst = counterpart.map { $0.isServiceEnded || entry.remainingMinutes <= $0.remainingMinutes } ?? true
+        let thisFirst = entry.departsBeforeCounterpart
         return VStack(alignment: .leading, spacing: 0) {
             compactDirection(
                 direction: entry.direction, time: entry.nextBusTime ?? entry.firstBusTime,
@@ -1306,7 +1306,7 @@ struct MediumWidgetView: View {
 
     var body: some View {
         Group {
-            if entry.isServiceEnded {
+            if entry.isServiceEnded && !entry.showsBothWays(entry.options.medium == .bothWays) {
                 ended
             } else {
                 switch entry.options.medium {
@@ -1431,7 +1431,7 @@ struct MediumWidgetView: View {
     /// C · 양방향 — 먼저 출발하는 쪽만 강조색
     private var styleC: some View {
         let counterpart = entry.counterpart
-        let thisFirst = counterpart.map { $0.isServiceEnded || entry.remainingMinutes <= $0.remainingMinutes } ?? true
+        let thisFirst = entry.departsBeforeCounterpart
         return HStack(alignment: .top, spacing: 14) {
             directionColumn(
                 direction: entry.direction, isEnded: entry.isServiceEnded, nextTime: entry.nextBusTime,
