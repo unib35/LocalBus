@@ -143,6 +143,7 @@ struct WidgetDataHelper {
             nightFare: summary.nightFare,
             nightFareStartTime: summary.nightFareStartTime,
             tomorrowFirstBusTime: summary.tomorrowFirstBusTime,
+            serviceNowMinutes: summary.serviceNowMinutes,
             options: options,
             counterpart: counterpart,
             isPro: isPro
@@ -171,20 +172,30 @@ struct WidgetDataHelper {
         let nightFare: Int?
         let nightFareStartTime: String?
         let tomorrowFirstBusTime: String
+        /// 운행일 기준 현재 분 (자정 넘긴 막차 계산용)
+        let serviceNowMinutes: Int
     }
 
     static func summary(for date: Date, routeKey: String, direction: String) -> RouteSummary {
         let json = loadTimetableData()
         let route = json?.routes?[routeKey]
-        let times = loadTimetable(for: date, routeKey: routeKey, json: json)
+        // 자정 직후에 전날 막차(00:10 등)가 남아 있으면 운행일은 아직 어제다
+        let yesterday = koreaCalendar.date(byAdding: .day, value: -1, to: date) ?? date
+        let schedule = ServiceDaySchedule.resolve(
+            todayTimes: loadTimetable(for: date, routeKey: routeKey, json: json),
+            yesterdayTimes: loadTimetable(for: yesterday, routeKey: routeKey, json: json),
+            clockMinutes: clockMinutes(of: date)
+        )
+        let serviceDate = schedule.isOvernightTail ? yesterday : date
+        let times = schedule.times
         let viaTimes = Set(route?.viaTimes ?? [])
         let baseDuration = route?.durationMinutes ?? 26
         let traffic = EntitlementStore.loadTraffic(routeKey: routeKey)
         let freshTraffic: (minutes: Int, updatedAt: Date)? = traffic.flatMap { $0.isFresh ? ($0.durationMinutes, $0.updatedAt) : nil }
         let firstBusTime = times.first ?? "06:00"
         let lastBusTime = times.last ?? "23:30"
-        let scheduleLabel = usesWeekday(date, holidays: json?.holidays ?? []) ? "평일" : "주말"
-        let tomorrow = koreaCalendar.date(byAdding: .day, value: 1, to: date) ?? date
+        let scheduleLabel = usesWeekday(serviceDate, holidays: json?.holidays ?? []) ? "평일" : "주말"
+        let tomorrow = koreaCalendar.date(byAdding: .day, value: 1, to: serviceDate) ?? date
         let tomorrowLabel = usesWeekday(tomorrow, holidays: json?.holidays ?? []) ? "내일 평일" : "내일 주말"
 
         // 내일 첫차는 내일 시간표 기준
@@ -198,7 +209,7 @@ struct WidgetDataHelper {
             return (timeByAdding(minutes: baseDuration, to: time), false)
         }
 
-        guard let nextIndex = findNextBusIndex(times: times, from: date) else {
+        guard let nextIndex = schedule.nextIndex else {
             return RouteSummary(
                 nextBusTime: nil, remainingMinutes: 0, isServiceEnded: true,
                 firstBusTime: tomorrowFirst, lastBusTime: lastBusTime, upcomingBuses: [],
@@ -209,20 +220,20 @@ struct WidgetDataHelper {
                 scheduleLabel: scheduleLabel, tomorrowLabel: tomorrowLabel,
                 todayTimes: times, viaTimes: viaTimes,
                 nightFare: route?.nightFare, nightFareStartTime: route?.nightFareStartTime,
-                tomorrowFirstBusTime: tomorrowFirst
+                tomorrowFirstBusTime: tomorrowFirst,
+                serviceNowMinutes: schedule.nowMinutes
             )
         }
 
         let nextBus = times[nextIndex]
-        let remaining = minutesUntil(timeString: nextBus, from: date) ?? 0
+        let remaining = schedule.minutesUntil(index: nextIndex)
         let nextEstimate = estimate(nextBus, minutes: remaining)
 
         var upcoming: [WidgetBus] = []
         for i in (nextIndex + 1)..<min(nextIndex + 5, times.count) {
-            if let mins = minutesUntil(timeString: times[i], from: date) {
-                let e = estimate(times[i], minutes: mins)
-                upcoming.append(WidgetBus(time: times[i], minutes: mins, isVia: viaTimes.contains(times[i]), arrival: e.arrival, usesTraffic: e.usesTraffic))
-            }
+            let mins = schedule.minutesUntil(index: i)
+            let e = estimate(times[i], minutes: mins)
+            upcoming.append(WidgetBus(time: times[i], minutes: mins, isVia: viaTimes.contains(times[i]), arrival: e.arrival, usesTraffic: e.usesTraffic))
         }
 
         return RouteSummary(
@@ -246,18 +257,19 @@ struct WidgetDataHelper {
             viaTimes: viaTimes,
             nightFare: route?.nightFare,
             nightFareStartTime: route?.nightFareStartTime,
-            tomorrowFirstBusTime: tomorrowFirst
+            tomorrowFirstBusTime: tomorrowFirst,
+            serviceNowMinutes: schedule.nowMinutes
         )
     }
 
-    /// 목표 도착 시각까지 탈 버스 고르기 (앱의 ArrivalPlanner 규칙과 동일)
+    /// 목표 도착 시각까지 탈 버스 고르기. 자정 넘긴 막차를 아침 버스로 착각하지 않게 운행일 기준으로 센다.
     static func targetPlan(times: [String], durationMinutes: Int, target: String) -> WidgetTargetPlan {
-        let arrivals = times.map { ($0, timeByAdding(minutes: durationMinutes, to: $0)) }
-        let onTime = arrivals.filter { $0.1 <= target }.map(\.0)
-        let best = onTime.last
+        let times = times.filter { ServiceDaySchedule.clockMinutes($0) != nil }
+        let bestIndex = ServiceDaySchedule.lastIndex(arrivingBy: target, times: times, durationMinutes: durationMinutes)
+        let best = bestIndex.map { times[$0] }
         var earlier: String?
         var later: String?
-        if let best, let index = times.firstIndex(of: best) {
+        if let index = bestIndex {
             earlier = index > 0 ? times[index - 1] : nil
             later = index + 1 < times.count ? times[index + 1] : nil
         } else {
@@ -362,32 +374,10 @@ struct WidgetDataHelper {
         return holidays.contains(dateString)
     }
 
-    static func findNextBusIndex(times: [String], from date: Date) -> Int? {
+    /// 지금 시각을 자정부터 센 분 (KST)
+    static func clockMinutes(of date: Date) -> Int {
         let calendar = koreaCalendar
-        let currentHour = calendar.component(.hour, from: date)
-        let currentMinute = calendar.component(.minute, from: date)
-        let currentTotal = currentHour * 60 + currentMinute
-
-        for (index, time) in times.enumerated() {
-            let parts = time.split(separator: ":")
-            guard parts.count == 2,
-                  let hour = Int(parts[0]),
-                  let minute = Int(parts[1]) else { continue }
-            if hour * 60 + minute >= currentTotal { return index }
-        }
-        return nil
-    }
-
-    static func minutesUntil(timeString: String, from date: Date) -> Int? {
-        let calendar = koreaCalendar
-        let parts = timeString.split(separator: ":")
-        guard parts.count == 2,
-              let targetHour = Int(parts[0]),
-              let targetMinute = Int(parts[1]) else { return nil }
-
-        let currentHour = calendar.component(.hour, from: date)
-        let currentMinute = calendar.component(.minute, from: date)
-        return (targetHour * 60 + targetMinute) - (currentHour * 60 + currentMinute)
+        return calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
     }
 
     static func timeByAdding(minutes: Int, to timeString: String) -> String {
@@ -401,7 +391,7 @@ struct WidgetDataHelper {
     static func isNightBusTime(_ timeString: String) -> Bool {
         let parts = timeString.split(separator: ":")
         guard let hour = Int(parts.first ?? "") else { return false }
-        return hour >= 21
+        return hour >= 21 || hour < 4
     }
 }
 
@@ -481,6 +471,8 @@ struct BusEntry: TimelineEntry {
     let nightFareStartTime: String?
     /// 내일 시간표의 첫차 (운행 중에도 하루 요약에 쓴다)
     let tomorrowFirstBusTime: String
+    /// 운행일 기준 현재 분. 자정을 넘긴 막차(00:10)도 오늘 운행으로 센다
+    let serviceNowMinutes: Int
     let options: WidgetOptions
     let counterpart: WidgetCounterpart?
     let isPro: Bool
@@ -506,9 +498,31 @@ struct BusEntry: TimelineEntry {
         return "\(formatter.string(from: NSNumber(value: nightFare)) ?? "\(nightFare)")원"
     }
 
+    private var schedule: ServiceDaySchedule {
+        ServiceDaySchedule(times: todayTimes, nowMinutes: serviceNowMinutes)
+    }
+
     /// 막차까지 남은 분 (지났으면 0)
     var minutesUntilLastBus: Int {
-        max(WidgetDataHelper.minutesUntil(timeString: lastBusTime, from: date) ?? 0, 0)
+        schedule.minutesUntilLast ?? 0
+    }
+
+    /// 이미 떠난 버스인지 (시간표 그리드에서 어둡게)
+    func isPast(_ time: String) -> Bool {
+        schedule.isPast(time)
+    }
+
+    /// 양방향 보기는 반대 방향에 버스가 남아 있으면 운행 종료 화면으로 바꾸지 않는다.
+    func showsBothWays(_ isBothWaysStyle: Bool) -> Bool {
+        guard isBothWaysStyle, let counterpart else { return false }
+        return !counterpart.isServiceEnded
+    }
+
+    /// 두 방향 중 이쪽이 먼저 출발하는지 (먼저 출발하는 쪽만 강조색)
+    var departsBeforeCounterpart: Bool {
+        guard let counterpart, !counterpart.isServiceEnded else { return true }
+        if isServiceEnded { return false }
+        return remainingMinutes <= counterpart.remainingMinutes
     }
 
     var targetPlan: WidgetTargetPlan {
@@ -530,6 +544,7 @@ struct BusEntry: TimelineEntry {
             scheduleLabel: "평일", tomorrowLabel: "내일 평일",
             todayTimes: ["06:20", "06:40", "07:00", "07:20", "07:35", "07:50", "08:05", "08:20", "18:10", "18:30", "18:50", "19:10", "19:30", "19:50", "20:10", "20:30", "20:45", "21:20", "21:40", "22:10", "22:40", "23:10", "23:30"],
             viaTimes: ["19:10"], nightFare: 3000, nightFareStartTime: "22:10", tomorrowFirstBusTime: "06:20",
+            serviceNowMinutes: 18 * 60 + 18,
             options: options,
             counterpart: WidgetCounterpart(direction: "사상 → 장유", nextBusTime: "18:40", remainingMinutes: 22, arrivalTime: "19:19", usesTraffic: true, isServiceEnded: false, firstBusTime: "06:20"),
             isPro: true
@@ -1661,7 +1676,7 @@ private struct HourGrid: View {
 
     private func cell(_ time: String) -> some View {
         let isNext = time == entry.nextBusTime
-        let isPast = !isNext && (WidgetDataHelper.minutesUntil(timeString: time, from: entry.date) ?? 0) < 0
+        let isPast = !isNext && entry.isPast(time)
         return ZStack(alignment: .bottom) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(isNext ? WidgetTheme.accent : (isPast ? WidgetTheme.pastCell : WidgetTheme.surfaceSecondary))
