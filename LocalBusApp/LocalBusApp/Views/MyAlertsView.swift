@@ -3,7 +3,7 @@ import UIKit
 
 // MARK: - 버스 알림 관리 (설정 → 버스 알림, 디자인 캔버스 MyAlerts)
 //
-// "오늘 한 번" / "평일마다 반복" 두 그룹. 행마다 토글, 왼쪽으로 밀어 삭제.
+// "오늘 한 번" / "평일마다 반복" 두 그룹. 행을 누르면 그 버스의 상세에서 수정, 행마다 토글, 왼쪽으로 밀어 삭제.
 
 struct MyAlertsView: View {
     @ObservedObject var viewModel: MainViewModel
@@ -11,6 +11,7 @@ struct MyAlertsView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var isPermissionDenied = false
+    @State private var busDetail: BusDetailInfo?
 
     private var onceAlerts: [BusAlert] { viewModel.busAlerts.filter { !$0.repeatsWeekdays } }
     private var repeatAlerts: [BusAlert] { viewModel.busAlerts.filter(\.repeatsWeekdays) }
@@ -49,8 +50,8 @@ struct MyAlertsView: View {
                 }
 
                 Group {
-                    if !viewModel.busAlerts.isEmpty {
-                        Text("공휴일에는 울리지 않아요. 왼쪽으로 밀면 지울 수 있어요.")
+                    if let footnote {
+                        Text(footnote)
                             .font(AppTheme.Typography.footnote)
                             .foregroundStyle(AppTheme.Color.tertiaryText)
                             .padding(.horizontal, 4)
@@ -66,8 +67,17 @@ struct MyAlertsView: View {
                                 .font(.system(size: 15, weight: .bold))
                             Text("시간표에서 알림 추가")
                         }
+                        .font(AppTheme.Typography.rowTitle)
+                        .foregroundStyle(AppTheme.Color.primaryText)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(AppTheme.Color.surfaceSecondary)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
-                    .buttonStyle(.secondaryAction)
+                    .buttonStyle(.plain)
                     .padding(.top, 24)
                     .padding(.bottom, 32)
                 }
@@ -84,6 +94,14 @@ struct MyAlertsView: View {
         .task {
             isPermissionDenied = await NotificationService.shared.authorizationStatus() == .denied
         }
+        .alertBusDetailSheet(item: $busDetail, viewModel: viewModel)
+    }
+
+    /// 공휴일 안내는 반복 알림이 있을 때만. 한 번 알림만 있으면 지우는 방법만 알려준다.
+    private var footnote: String? {
+        if !repeatAlerts.isEmpty { return "공휴일에는 울리지 않아요. 왼쪽으로 밀면 지울 수 있어요." }
+        if !onceAlerts.isEmpty { return "왼쪽으로 밀면 지울 수 있어요." }
+        return nil
     }
 
     // MARK: - 그룹
@@ -117,30 +135,45 @@ struct MyAlertsView: View {
 
     private func alertRow(_ alert: BusAlert, isFirst: Bool, isLast: Bool) -> some View {
         let textColor = alert.isEnabled ? AppTheme.Color.primaryText : AppTheme.Color.secondaryText
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: isFirst ? AppTheme.Radius.surface : 0,
+            bottomLeadingRadius: isLast ? AppTheme.Radius.surface : 0,
+            bottomTrailingRadius: isLast ? AppTheme.Radius.surface : 0,
+            topTrailingRadius: isFirst ? AppTheme.Radius.surface : 0,
+            style: .continuous
+        )
         return VStack(spacing: 0) {
             HStack(spacing: 12) {
-                HStack(spacing: 14) {
-                    Text(alert.busTime)
-                        .font(.system(size: 22, weight: .heavy, design: .rounded))
-                        .monospacedDigit()
-                        .tracking(-0.5)
-                        .foregroundStyle(textColor)
-                        .fixedSize()
-                        .frame(minWidth: 62, alignment: .leading)
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(alert.direction.displayName)
-                            .font(AppTheme.Typography.rowBody)
-                            .foregroundStyle(textColor)
-                        Text(alert.detailText)
-                            .font(AppTheme.Typography.caption)
+                Button {
+                    busDetail = viewModel.makeBusDetailInfo(for: alert.busTime, direction: alert.direction)
+                } label: {
+                    HStack(spacing: 14) {
+                        Text(alert.busTime)
+                            .font(.system(size: 22, weight: .heavy, design: .rounded))
                             .monospacedDigit()
-                            .foregroundStyle(AppTheme.Color.secondaryText)
-                    }
-                }
-                .accessibilityElement(children: .combine)
+                            .tracking(-0.5)
+                            .foregroundStyle(textColor)
+                            .fixedSize()
+                            .frame(minWidth: 62, alignment: .leading)
 
-                Spacer(minLength: 0)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(alert.direction.displayName)
+                                .font(AppTheme.Typography.rowBody.weight(.medium))
+                                .foregroundStyle(textColor)
+                            Text(alert.detailText)
+                                .font(AppTheme.Typography.caption)
+                                .monospacedDigit()
+                                .foregroundStyle(AppTheme.Color.secondaryText)
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityElement(children: .combine)
+                .accessibilityHint("버스 상세에서 알림을 수정해요")
 
                 Toggle(
                     "\(alert.repeatsWeekdays ? "평일 " : "")\(alert.busTime) \(alert.direction.displayName) 알림",
@@ -164,16 +197,8 @@ struct MyAlertsView: View {
                 RowDivider()
             }
         }
-        .background(AppTheme.Color.surface)
-        .clipShape(
-            UnevenRoundedRectangle(
-                topLeadingRadius: isFirst ? AppTheme.Radius.surface : 0,
-                bottomLeadingRadius: isLast ? AppTheme.Radius.surface : 0,
-                bottomTrailingRadius: isLast ? AppTheme.Radius.surface : 0,
-                topTrailingRadius: isFirst ? AppTheme.Radius.surface : 0,
-                style: .continuous
-            )
-        )
+        // 권한 안내·빈 상태 카드와 같은 재질 (iOS 26+는 글래스, 이하는 평면 서피스)
+        .glassCard(in: shape, fallback: AppTheme.Color.surface)
     }
 
     // MARK: - 권한 / 빈 상태
@@ -187,7 +212,7 @@ struct MyAlertsView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("알림이 꺼져 있어요")
-                    .font(AppTheme.Typography.rowBody.weight(.semibold))
+                    .font(AppTheme.Typography.rowTitle)
                     .foregroundStyle(AppTheme.Color.primaryText)
                 Text("iPhone 설정에서 알림을 허용해야 울려요")
                     .font(AppTheme.Typography.caption)
@@ -202,7 +227,7 @@ struct MyAlertsView: View {
                 UIApplication.shared.open(url)
             } label: {
                 Text("설정 열기")
-                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(AppTheme.Color.primaryText)
                     .padding(.horizontal, 16)
                     .frame(height: 44)
@@ -229,6 +254,41 @@ struct MyAlertsView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .surfaceCard()
+    }
+}
+
+// MARK: - 알림에서 여는 버스 상세
+
+private struct AlertBusDetailSheet: ViewModifier {
+    @Binding var item: BusDetailInfo?
+    @ObservedObject var viewModel: MainViewModel
+
+    func body(content: Content) -> some View {
+        content.sheet(item: $item) { info in
+            BusDetailView(
+                info: info,
+                alert: viewModel.alert(for: info.departureTime, direction: info.direction),
+                onSetAlert: { lead, repeats in
+                    await viewModel.setAlert(for: info.departureTime, leadMinutes: lead, repeatsWeekdays: repeats)
+                },
+                onRemoveAlert: {
+                    if let alert = viewModel.alert(for: info.departureTime, direction: info.direction) {
+                        viewModel.removeAlert(id: alert.id)
+                    }
+                },
+                onRefreshTraffic: {
+                    await viewModel.refreshTrafficDuration(force: true)
+                    return viewModel.arrivalEstimate(for: info.departureTime)
+                }
+            )
+        }
+    }
+}
+
+extension View {
+    /// 알림 관리·받은 알림에서 버스 상세(알림 수정)를 띄운다. 알림은 그 버스의 방향으로 찾는다.
+    func alertBusDetailSheet(item: Binding<BusDetailInfo?>, viewModel: MainViewModel) -> some View {
+        modifier(AlertBusDetailSheet(item: item, viewModel: viewModel))
     }
 }
 

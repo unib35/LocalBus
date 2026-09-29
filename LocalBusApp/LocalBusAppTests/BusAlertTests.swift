@@ -40,6 +40,17 @@ struct BusAlertTests {
         #expect(dates == [kst(2026, 9, 29, 7, 15), kst(2026, 9, 30, 7, 15), kst(2026, 10, 1, 7, 15)])
     }
 
+    @Test func 예약_식별자는_조회_없이_모두_만들_수_있다() {
+        let alert = BusAlert(busTime: "07:50", direction: .jangyuToSasang, repeatsWeekdays: true)
+        let ids = NotificationService.requestIdentifiers(alertID: alert.id)
+        #expect(ids.count == BusAlertScheduler.maxFireDates)
+        #expect(ids.first == "alert_jangyu_to_sasang_07:50_0")
+        #expect(ids.last == "alert_jangyu_to_sasang_07:50_9")
+        // 반복 알림이 거는 예약 수보다 적으면 지우지 못한 예약이 남는다
+        let fireDates = BusAlertScheduler.fireDates(for: alert, from: kst(2026, 9, 28, 6, 0), holidays: [])
+        #expect(fireDates.count <= ids.count)
+    }
+
     @Test func 저장하고_다시_읽을_수_있다() {
         let defaults = UserDefaults(suiteName: "BusAlertTests")!
         defaults.removePersistentDomain(forName: "BusAlertTests")

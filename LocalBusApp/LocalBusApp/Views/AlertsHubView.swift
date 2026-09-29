@@ -30,6 +30,8 @@ struct AlertsHubView: View {
     @State private var filter: Filter = .all
     @State private var busDetail: BusDetailInfo?
     @State private var noticeToOpen: NoticeItem?
+    @State private var showNoticeList = false
+    @State private var showPaywall = false
 
     private var visibleItems: [AppNotification] {
         history.items.filter { filter.matches($0.kind) }
@@ -114,7 +116,7 @@ struct AlertsHubView: View {
                     }
 
                     if !history.items.isEmpty {
-                        AdSlotView(placement: .inboxNative, isPro: storeService.isPro)
+                        AdSlotView(placement: .inboxNative, isPro: storeService.isPro, onProTap: { showPaywall = true })
                             .padding(.top, 22)
                     }
 
@@ -123,12 +125,12 @@ struct AlertsHubView: View {
                     } label: {
                         HStack {
                             Text("예약한 버스 알림")
-                                .font(AppTheme.Typography.rowBody)
+                                .font(AppTheme.Typography.rowBody.weight(.medium))
                                 .foregroundStyle(AppTheme.Color.primaryText)
                             Spacer()
                             HStack(spacing: 6) {
-                                Text("\(viewModel.enabledAlertCount)개")
-                                    .font(AppTheme.Typography.rowValue)
+                                Text("\(viewModel.alertCount)개")
+                                    .font(.system(size: 15))
                                     .monospacedDigit()
                                     .foregroundStyle(AppTheme.Color.secondaryText)
                                 Image(systemName: "chevron.right")
@@ -166,22 +168,15 @@ struct AlertsHubView: View {
                     .disabled(history.unreadCount == 0)
             }
         }
-        .sheet(item: $busDetail) { info in
-            BusDetailView(
-                info: info,
-                alert: viewModel.alert(for: info.departureTime),
-                onSetAlert: { lead, repeats in
-                    await viewModel.setAlert(for: info.departureTime, leadMinutes: lead, repeatsWeekdays: repeats)
-                },
-                onRemoveAlert: {
-                    if let alert = viewModel.alert(for: info.departureTime) { viewModel.removeAlert(id: alert.id) }
-                }
-                ,
-                onRefreshTraffic: {
-                    await viewModel.refreshTrafficDuration(force: true)
-                    return viewModel.arrivalEstimate(for: info.departureTime)
-                }
-            )
+        .alertBusDetailSheet(item: $busDetail, viewModel: viewModel)
+        .navigationDestination(isPresented: $showNoticeList) {
+            NoticeListView(notices: viewModel.notices) { notice in
+                viewModel.markNoticeRead(notice.id)
+            }
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
+                .environmentObject(storeService)
         }
         .sheet(item: $noticeToOpen) { notice in
             NavigationStack {
@@ -204,7 +199,7 @@ struct AlertsHubView: View {
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: item.kind.systemImage)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(AppTheme.Color.primaryText)
                     .frame(width: 36, height: 36)
                     .background(Circle().fill(AppTheme.Color.secondaryButton))
@@ -252,19 +247,32 @@ struct AlertsHubView: View {
         history.markRead(id: item.id)
         switch item.target {
         case .bus(let direction, let time):
-            if viewModel.selectedDirection != direction {
-                viewModel.changeDirection(to: direction)
-            }
-            busDetail = viewModel.makeBusDetailInfo(for: time)
+            busDetail = viewModel.makeBusDetailInfo(for: time, direction: direction)
         case .notice(let id):
             if let notice = viewModel.notices.first(where: { $0.id == id }) {
                 viewModel.markNoticeRead(id)
                 noticeToOpen = notice
+            } else {
+                // 목록에서 내려간 공지: 공지 목록을 보여준다
+                showNoticeList = true
             }
         case .timetable:
             onShowTimetable?()
         case nil:
-            break
+            openWithoutTarget(item)
+        }
+    }
+
+    /// 대상을 남기지 못한 예전 기록. 종류로 갈 곳을 정한다.
+    private func openWithoutTarget(_ item: AppNotification) {
+        switch item.kind {
+        case .bus, .lastBus:
+            guard !viewModel.currentTimes.isEmpty else { return }
+            busDetail = viewModel.makeBusDetailInfo(for: viewModel.lastBusTime)
+        case .notice:
+            showNoticeList = true
+        case .timetable:
+            onShowTimetable?()
         }
     }
 
@@ -272,15 +280,16 @@ struct AlertsHubView: View {
 
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Image(systemName: "bell.slash")
-                .font(.system(size: 28, weight: .medium))
+            Image(systemName: "bell")
+                .font(.system(size: 30, weight: .regular))
                 .foregroundStyle(AppTheme.Color.secondaryText)
             Text("아직 받은 알림이 없어요")
                 .font(AppTheme.Typography.groupTitle)
                 .foregroundStyle(AppTheme.Color.primaryText)
                 .padding(.top, 6)
             Text("버스 출발 알림, 공지사항, 시간표 업데이트가 오면 여기에 모여요")
-                .font(AppTheme.Typography.rowValue)
+                .font(.system(size: 14))
+                .lineSpacing(3)
                 .foregroundStyle(AppTheme.Color.secondaryText)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)

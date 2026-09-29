@@ -35,14 +35,14 @@ struct NoticeListView: View {
                         }
                         .buttonStyle(.plain)
 
-                        if index < notices.count - 1 {
-                            RowDivider(leadingInset: 0)
-                        }
+                        RowDivider(leadingInset: 0)
                     }
 
                     Text("시간표가 바뀌면 여기와 푸시 알림으로 알려드려요")
-                        .font(AppTheme.Typography.caption)
+                        .font(AppTheme.Typography.caption.weight(.regular))
                         .foregroundStyle(AppTheme.Color.tertiaryText)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                         .padding(.top, 24)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -63,9 +63,10 @@ struct NoticeListView: View {
             Circle()
                 .fill(notice.isNew ? AppTheme.Color.accent : Color.clear)
                 .frame(width: 6, height: 6)
-                .padding(.top, 8)
+                .padding(.top, 9)
                 .accessibilityHidden(true)
 
+            // 제목 → 미리보기 → 날짜 · 카테고리
             VStack(alignment: .leading, spacing: 6) {
                 Text(notice.title.replacingOccurrences(of: "\n", with: " "))
                     .font(AppTheme.Typography.rowTitle)
@@ -74,29 +75,30 @@ struct NoticeListView: View {
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("\(notice.date) · \(notice.category)")
-                    .font(AppTheme.Typography.caption)
-                    .foregroundStyle(AppTheme.Color.secondaryText)
-
                 if showsPreview, let preview = notice.body.first, !preview.isEmpty {
                     Text(preview)
-                        .font(AppTheme.Typography.caption)
+                        .font(.system(size: 13))
+                        .lineSpacing(3)
                         .foregroundStyle(AppTheme.Color.secondaryText)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 2)
                 }
+
+                Text("\(notice.date) · \(notice.category)")
+                    .font(.system(size: 13))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.secondaryText)
             }
 
             Spacer(minLength: 0)
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(AppTheme.Color.secondaryText)
+                .foregroundStyle(AppTheme.Color.tertiaryText)
                 .padding(.top, 4)
         }
-        .padding(.vertical, 16)
+        .padding(.vertical, 18)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(notice.isNew ? "읽지 않음, " : "")\(notice.title), \(notice.date), \(notice.category)")
@@ -110,8 +112,9 @@ extension NoticeItem {
     var category: String {
         if let categoryLabel, !categoryLabel.isEmpty { return categoryLabel }
         if title.contains("시간표") { return "시간표 변경" }
-        if title.contains("점검") { return "점검 안내" }
-        if title.contains("연휴") || title.contains("운행") { return "운행 안내" }
+        if title.contains("점검") { return "서비스 안내" }
+        if title.contains("연휴") { return "연휴 운행" }
+        if title.contains("운행") { return "운행 안내" }
         return "공지"
     }
 }

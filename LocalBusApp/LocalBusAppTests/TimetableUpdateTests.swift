@@ -47,10 +47,37 @@ struct TimetableUpdateTests {
         #expect(LastCheckedFormatter.text(for: checked, now: now) == "오늘 09:12")
     }
 
+    @Test func 받은_알림_본문은_방향을_빼고_두_건까지_보여준다() {
+        let changes = [
+            TimetableChange(label: "평일 · 장유 → 사상", oldValue: "07:20", newValue: "07:25"),
+            TimetableChange(label: "평일 막차 · 장유 → 사상", oldValue: "23:30", newValue: "23:40"),
+            TimetableChange(label: "주말 첫차 · 장유 → 사상", oldValue: "06:30", newValue: "06:40")
+        ]
+        #expect(changes[0].shortLabel == "평일")
+        #expect(changes[1].shortLabel == "평일 막차")
+        #expect(TimetableDiff.summaryText(for: changes) == "평일 07:20 → 07:25 · 평일 막차 23:30 → 23:40")
+        #expect(TimetableDiff.summaryText(for: []) == nil)
+    }
+
+    @Test func 일분_안에_확인했으면_방금으로_표시한다() {
+        let now = makeKST(year: 2026, month: 9, day: 28, hour: 14, minute: 0)
+        #expect(LastCheckedFormatter.text(for: now.addingTimeInterval(-20), now: now) == "방금")
+        #expect(LastCheckedFormatter.text(for: now.addingTimeInterval(-59), now: now) == "방금")
+        #expect(LastCheckedFormatter.text(for: now.addingTimeInterval(-60), now: now) == "오늘 13:59")
+    }
+
     @Test func 다른_날_확인이면_날짜를_표시한다() {
         let now = makeKST(year: 2026, month: 9, day: 28, hour: 14, minute: 0)
         let checked = makeKST(year: 2026, month: 9, day: 25, hour: 18, minute: 5)
         #expect(LastCheckedFormatter.text(for: checked, now: now) == "9월 25일 18:05")
+    }
+
+    @Test func 공지_다이얼로그_날짜는_월일로_보여준다() {
+        #expect(NoticeDateText.monthDay(from: "2026.09.21") == "9월 21일")
+        #expect(NoticeDateText.monthDay(from: "2026-09-21") == "9월 21일")
+        #expect(NoticeDateText.monthDay(from: "2025.08.04") == "8월 4일")
+        // 읽을 수 없는 값은 그대로 둔다
+        #expect(NoticeDateText.monthDay(from: "곧 공개") == "곧 공개")
     }
 
     @Test func notices_배열이_있으면_디코딩된다() throws {

@@ -22,6 +22,11 @@ struct TimetableChange: Equatable, Identifiable {
     let newValue: String
 
     var id: String { "\(label)|\(oldValue)|\(newValue)" }
+
+    /// 방향을 뺀 이름. "평일 막차 · 장유 → 사상" → "평일 막차"
+    var shortLabel: String {
+        label.components(separatedBy: " · ").first ?? label
+    }
 }
 
 enum TimetableDiff {
@@ -75,9 +80,17 @@ enum TimetableDiff {
 
         return Array(result.prefix(limit))
     }
+
+    /// 받은 알림 본문. "평일 07:20 → 07:25 · 평일 막차 23:30 → 23:40". 바뀐 것이 없으면 nil.
+    static func summaryText(for changes: [TimetableChange], limit: Int = 2) -> String? {
+        guard !changes.isEmpty else { return nil }
+        return changes.prefix(limit)
+            .map { "\($0.shortLabel) \($0.oldValue) → \($0.newValue)" }
+            .joined(separator: " · ")
+    }
 }
 
-/// "마지막 확인 오늘 09:12" 같은 문구를 만든다.
+/// "마지막 확인 방금" / "마지막 확인 오늘 09:12" 같은 문구를 만든다.
 enum LastCheckedFormatter {
     static func text(for date: Date, now: Date = Date()) -> String {
         var calendar = Calendar(identifier: .gregorian)
@@ -86,6 +99,9 @@ enum LastCheckedFormatter {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ko_KR")
         formatter.timeZone = calendar.timeZone
+
+        let elapsed = now.timeIntervalSince(date)
+        if elapsed >= 0 && elapsed < 60 { return "방금" }
 
         if calendar.isDate(date, inSameDayAs: now) {
             formatter.dateFormat = "HH:mm"

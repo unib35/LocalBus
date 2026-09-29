@@ -14,8 +14,10 @@ private struct WebViewWrapper: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
         webView.navigationDelegate = context.coordinator
-        webView.backgroundColor = UIColor.black
-        webView.scrollView.backgroundColor = UIColor.black
+        // 페이지가 뜨기 전 바탕은 화면 바탕색 (라이트·다크에 따라 바뀐다)
+        let background = UIColor(AppTheme.Color.screenBackground)
+        webView.backgroundColor = background
+        webView.scrollView.backgroundColor = background
         webView.load(URLRequest(url: url))
         return webView
     }
@@ -52,18 +54,20 @@ struct PrivacyPolicyView: View {
 
     var body: some View {
         ZStack {
+            AppTheme.Color.screenBackground
+                .ignoresSafeArea()
+
             WebViewWrapper(url: legalURL, isLoading: $isLoading)
                 .ignoresSafeArea(edges: .bottom)
 
             if isLoading {
                 ProgressView()
-                    .tint(.white)
+                    .tint(AppTheme.Color.secondaryText)
             }
         }
         .navigationTitle("이용약관 및 개인정보")
         .navigationBarTitleDisplayMode(.inline)
-        .legacyToolbarBackground(Color.black.opacity(0.95))
-        .toolbarColorScheme(.dark, for: .navigationBar)
+        .legacyToolbarBackground(AppTheme.Color.screenBackground.opacity(0.95))
         .toolbar(.hidden, for: .tabBar)
     }
 }

@@ -20,7 +20,7 @@ struct NoticeDialogView: View {
                     .padding(.horizontal, 9)
                     .frame(height: 22)
                     .background(Capsule().fill(AppTheme.Color.primaryText))
-                Text(notice.date)
+                Text(NoticeDateText.monthDay(from: notice.date))
                     .font(AppTheme.Typography.footnote)
                     .monospacedDigit()
                     .foregroundStyle(AppTheme.Color.secondaryText)
@@ -69,9 +69,33 @@ struct NoticeDialogView: View {
         .padding(.horizontal, 20)
         .padding(.top, 24)
         .padding(.bottom, 8)
-        .background(AppTheme.Color.surfaceSecondary.ignoresSafeArea())
+        .background(AppTheme.Color.sheetTile.ignoresSafeArea())
         .presentationDetents([.height(370)])
         .presentationDragIndicator(.hidden)
+        .noticeDialogCorners()
+    }
+}
+
+private extension View {
+    /// 시트 위 모서리 24. iOS 16.4 미만은 시스템 기본 모서리를 쓴다.
+    @ViewBuilder
+    func noticeDialogCorners() -> some View {
+        if #available(iOS 16.4, *) {
+            presentationCornerRadius(24)
+        } else {
+            self
+        }
+    }
+}
+
+/// 공지 날짜 표기. 목록은 "2025.08.14" 그대로, 다이얼로그는 "8월 14일".
+enum NoticeDateText {
+    static func monthDay(from text: String) -> String {
+        let parts = text
+            .split(whereSeparator: { $0 == "." || $0 == "-" })
+            .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+        guard parts.count == 3, (1...12).contains(parts[1]), (1...31).contains(parts[2]) else { return text }
+        return "\(parts[1])월 \(parts[2])일"
     }
 }
 

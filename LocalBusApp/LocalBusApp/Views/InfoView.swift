@@ -81,8 +81,16 @@ struct InfoView: View {
                         .foregroundStyle(AppTheme.Color.primaryText)
                         .frame(height: 44)
 
+                    sectionHeader("시간표 데이터", topPadding: 20)
                     timetableDataCard
-                        .padding(.top, 20)
+
+                    Text(updateFootnote)
+                        .font(AppTheme.Typography.footnote)
+                        .monospacedDigit()
+                        .foregroundStyle(AppTheme.Color.tertiaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 4)
+                        .padding(.top, 8)
 
                     // v1.0 무료 출시: IAP 미적용 상태이므로 Pro 업그레이드 진입점을 숨긴다.
                     // IAP 도입 시 아래 줄의 주석을 해제하면 결제 화면 진입점이 복원된다.
@@ -138,90 +146,83 @@ struct InfoView: View {
                 Button {
                     runUpdateCheck()
                 } label: {
-                    Text(refreshButtonTitle)
-                        .font(AppTheme.Typography.caption.weight(.semibold))
-                        .foregroundStyle(updatePhase == .checking ? AppTheme.Color.tertiaryText : AppTheme.Color.primaryText)
-                        .padding(.horizontal, 16)
-                        .frame(minWidth: 104)
-                        .frame(height: 44)
-                        .background(Capsule().fill(AppTheme.Color.secondaryButton))
-                        .contentShape(Capsule())
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 13, weight: .bold))
+                        Text(refreshButtonTitle)
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(updatePhase == .checking ? AppTheme.Color.tertiaryText : AppTheme.Color.primaryText)
+                    .padding(.horizontal, 14)
+                    .frame(minWidth: 104)
+                    .frame(height: 44)
+                    .background(Capsule().fill(AppTheme.Color.secondaryButton))
+                    .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .disabled(updatePhase == .checking)
                 .accessibilityLabel("시간표 \(refreshButtonTitle)")
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 14)
+            .padding(.leading, 16)
+            .padding(.trailing, 12)
+            .padding(.vertical, 12)
+            .frame(minHeight: 76)
 
             if case .updated(_, _, let changes) = updatePhase, !changes.isEmpty {
-                RowDivider()
+                insetDivider
                 changedTimesSection(changes)
             }
-
-            RowDivider()
-
-            Text(updateFootnote)
-                .font(AppTheme.Typography.footnote)
-                .monospacedDigit()
-                .foregroundStyle(AppTheme.Color.tertiaryText)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
         }
         .surfaceCard()
+    }
+
+    /// 카드 안에서 양쪽을 16씩 띄운 구분선
+    private var insetDivider: some View {
+        RowDivider()
+            .padding(.trailing, 16)
     }
 
     private func changedTimesSection(_ changes: [TimetableChange]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("바뀐 시간")
-                .font(AppTheme.Typography.footnote.weight(.bold))
+                .font(AppTheme.Typography.footnote.weight(.semibold))
                 .foregroundStyle(AppTheme.Color.secondaryText)
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
-                .padding(.bottom, 6)
+                .padding(.bottom, 4)
 
             ForEach(changes) { change in
                 HStack(spacing: 8) {
                     Text(change.label)
-                        .font(AppTheme.Typography.caption)
+                        .font(.system(size: 14))
                         .foregroundStyle(AppTheme.Color.secondaryText)
                         .lineLimit(1)
-                    Spacer(minLength: 8)
+                    Spacer(minLength: 12)
                     Text(change.oldValue)
                         .strikethrough()
                         .foregroundStyle(AppTheme.Color.tertiaryText)
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(AppTheme.Color.tertiaryText)
                     Text(change.newValue)
-                        .fontWeight(.bold)
+                        .fontWeight(.semibold)
                         .foregroundStyle(AppTheme.Color.primaryText)
                 }
-                .font(AppTheme.Typography.rowValue)
+                .font(.system(size: 15))
                 .monospacedDigit()
                 .padding(.horizontal, 16)
-                .frame(height: 34)
+                .frame(height: 44)
                 .accessibilityElement(children: .combine)
             }
+
+            insetDivider
 
             Button {
                 onShowTimetable?()
             } label: {
-                HStack(spacing: 4) {
-                    Text("전체 시간표에서 확인")
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .font(AppTheme.Typography.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.Color.accent)
-                .padding(.horizontal, 16)
-                .frame(height: 40)
-                .contentShape(Rectangle())
+                navigationRow("전체 시간표에서 확인")
             }
             .buttonStyle(.plain)
-            .padding(.bottom, 2)
         }
     }
 
@@ -232,12 +233,12 @@ struct InfoView: View {
                 ProgressView()
                     .tint(AppTheme.Color.secondaryText)
             case .failed:
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 18, weight: .semibold))
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(AppTheme.Color.warning)
             case .idle, .latest, .updated:
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 22, weight: .semibold))
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 21, weight: .semibold))
                     .foregroundStyle(AppTheme.Color.accent)
             }
         }
@@ -351,7 +352,7 @@ struct InfoView: View {
     private var notificationGroup: some View {
         VStack(spacing: 0) {
             NavigationLink(destination: MyAlertsView(viewModel: viewModel, onAddFromTimetable: onShowTimetable)) {
-                navigationRow("버스 알림", value: viewModel.enabledAlertCount > 0 ? "\(viewModel.enabledAlertCount)개" : nil)
+                navigationRow("버스 알림", value: viewModel.alertCount > 0 ? "\(viewModel.alertCount)개" : nil)
             }
             .buttonStyle(.plain)
 
@@ -413,7 +414,7 @@ struct InfoView: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(AppTheme.Typography.rowBody)
+                    .font(AppTheme.Typography.rowBody.weight(.medium))
                     .foregroundStyle(AppTheme.Color.primaryText)
                 Text(description)
                     .font(AppTheme.Typography.caption)
@@ -436,7 +437,7 @@ struct InfoView: View {
     private var displayGroup: some View {
         HStack(spacing: 12) {
             Text("화면 모드")
-                .font(AppTheme.Typography.rowBody)
+                .font(AppTheme.Typography.rowBody.weight(.medium))
                 .foregroundStyle(AppTheme.Color.primaryText)
 
             Spacer(minLength: 8)
@@ -459,7 +460,7 @@ struct InfoView: View {
     private var infoGroup: some View {
         VStack(spacing: 0) {
             NavigationLink(destination: noticeList) {
-                navigationRow("공지사항", badge: viewModel.unreadNoticeCount > 0 ? "\(viewModel.unreadNoticeCount)" : nil)
+                navigationRow("공지사항", unreadCount: viewModel.unreadNoticeCount)
             }
             .buttonStyle(.plain)
 
@@ -524,38 +525,37 @@ struct InfoView: View {
 
     // MARK: - 헬퍼 뷰
 
-    private func sectionHeader(_ title: String) -> some View {
+    private func sectionHeader(_ title: String, topPadding: CGFloat = 24) -> some View {
         Text(title)
             .font(AppTheme.Typography.caption.weight(.semibold))
             .foregroundStyle(AppTheme.Color.secondaryText)
             .padding(.horizontal, 4)
-            .padding(.top, 24)
+            .padding(.top, topPadding)
             .padding(.bottom, 8)
     }
 
-    private func navigationRow(_ title: String, badge: String? = nil, value: String? = nil) -> some View {
+    /// 이동 행. 값은 오른쪽 끝 chevron 옆에, 읽지 않은 것이 있으면 제목 옆에 점 하나.
+    private func navigationRow(_ title: String, unreadCount: Int = 0, value: String? = nil) -> some View {
         HStack(spacing: 8) {
             Text(title)
-                .font(AppTheme.Typography.rowBody)
+                .font(AppTheme.Typography.rowBody.weight(.medium))
                 .foregroundStyle(AppTheme.Color.primaryText)
-            if let value {
-                Text("· \(value)")
-                    .font(AppTheme.Typography.rowBody)
-                    .monospacedDigit()
-                    .foregroundStyle(AppTheme.Color.secondaryText)
-                    .padding(.leading, -2)
+            if unreadCount > 0 {
+                Circle()
+                    .fill(AppTheme.Color.accent)
+                    .frame(width: 6, height: 6)
+                    .accessibilityLabel("읽지 않은 공지 \(unreadCount)개")
             }
-            if let badge {
-                Text(badge)
-                    .font(AppTheme.Typography.footnote.weight(.bold))
-                    .foregroundStyle(AppTheme.Color.accentForeground)
-                    .padding(.horizontal, 7)
-                    .frame(height: 20)
-                    .background(Capsule().fill(AppTheme.Color.accent))
-                    .accessibilityLabel("읽지 않은 공지 \(badge)개")
+            Spacer(minLength: 12)
+            HStack(spacing: 6) {
+                if let value {
+                    Text(value)
+                        .font(.system(size: 15))
+                        .monospacedDigit()
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                }
+                chevron
             }
-            Spacer()
-            chevron
         }
         .padding(.horizontal, 16)
         .frame(height: 52)
