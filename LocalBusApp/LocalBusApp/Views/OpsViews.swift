@@ -84,9 +84,11 @@ struct RequiredUpdateView: View {
 
             Text("업데이트가\n필요해요")
                 .font(.system(size: 28, weight: .heavy))
+                .tracking(-0.5)
                 .lineSpacing(3)
                 .foregroundStyle(AppTheme.Color.primaryText)
                 .padding(.top, 20)
+                .accessibilityAddTraits(.isHeader)
 
             Text("이 버전에서는 새 시간표를 받을 수 없어요. 업데이트하면 바로 이어서 쓸 수 있어요.")
                 .font(AppTheme.Typography.rowValue)
@@ -97,17 +99,20 @@ struct RequiredUpdateView: View {
 
             VStack(spacing: 0) {
                 infoRow("지금 버전", value: currentVersion)
-                RowDivider()
+                RowDivider(leadingInset: 0)
                 infoRow("필요한 버전", value: "\(requiredVersion) 이상")
             }
-            .background(AppTheme.Color.surfaceSecondary)
+            .background(AppTheme.Color.sheetTile)
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.surface, style: .continuous))
             .padding(.top, 28)
 
             Spacer(minLength: 24)
 
-            Button("App Store에서 업데이트") {
+            Button {
                 UIApplication.shared.open(AppStoreLink.url)
+            } label: {
+                Text("App Store에서 업데이트")
+                    .font(.system(size: 17, weight: .bold))
             }
             .buttonStyle(PrimaryButtonStyle(height: 52))
 
@@ -120,14 +125,14 @@ struct RequiredUpdateView: View {
         }
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color(white: 0.067).ignoresSafeArea()) // #111111 — 런치 스크린과 같은 바탕
+        .background(OpsPalette.fullScreenBackground.ignoresSafeArea())
         .interactiveDismissDisabled(true)
     }
 
     private func infoRow(_ title: String, value: String) -> some View {
         HStack {
             Text(title)
-                .font(AppTheme.Typography.rowBody)
+                .font(AppTheme.Typography.rowBody.weight(.medium))
                 .foregroundStyle(AppTheme.Color.primaryText)
             Spacer()
             Text(value)
@@ -138,6 +143,29 @@ struct RequiredUpdateView: View {
         .padding(.horizontal, 16)
         .frame(height: 52)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// 운영 화면 전용 색. 필수 업데이트는 다크에서 런치 스크린과 같은 #111111, 라이트에서는 화면 바탕 #F5F5F5.
+enum OpsPalette {
+    static let fullScreenBackground = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(white: 0.067, alpha: 1)   // #111111
+            : UIColor(white: 0.96, alpha: 1)    // #F5F5F5
+    })
+}
+
+private extension View {
+    /// 아래쪽 시트의 바탕과 위 모서리 (iOS 16.4 미만은 시스템 기본 모서리)
+    @ViewBuilder
+    func opsSheetChrome(background: Color, cornerRadius: CGFloat) -> some View {
+        if #available(iOS 16.4, *) {
+            self
+                .presentationBackground(background)
+                .presentationCornerRadius(cornerRadius)
+        } else {
+            self.background(background.ignoresSafeArea())
+        }
     }
 }
 
@@ -205,7 +233,8 @@ struct RecommendedUpdateSheet: View {
         .padding(.horizontal, 20)
         .padding(.top, 24)
         .padding(.bottom, 8)
-        .background(AppTheme.Color.surfaceSecondary.ignoresSafeArea())
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .opsSheetChrome(background: AppTheme.Color.sheetTile, cornerRadius: 24)
         .presentationDetents([.height(330)])
         .presentationDragIndicator(.hidden)
     }
