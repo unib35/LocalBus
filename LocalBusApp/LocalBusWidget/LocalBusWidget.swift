@@ -1340,7 +1340,7 @@ struct MediumWidgetView: View {
 
     /// A · 남은 시간 + 이후 3대 (예상 도착 열)
     private var styleA: some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 0) {
                 DirectionLabel(text: "\(entry.direction) · \(entry.scheduleLabel)")
                 Spacer(minLength: 4)
@@ -1388,7 +1388,6 @@ struct MediumWidgetView: View {
                         }
                         .frame(height: 34)
                     }
-                    Spacer(minLength: 0)
                 }
                 .frame(width: 148)
             }
@@ -1510,7 +1509,7 @@ struct MediumWidgetView: View {
 
     /// E · 다음 버스 + 하루 요약 — 막차·심야·첫차를 함께
     private var styleE: some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 0) {
                 DirectionLabel(text: entry.direction)
                 Spacer(minLength: 4)
@@ -1665,7 +1664,7 @@ private struct HourGrid: View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(rows, id: \.hour) { row in
                 HStack(spacing: 6) {
-                    Text("\(Int(row.hour) ?? 0)시")
+                    Text("\(row.hour)시")
                         .font(.system(size: 12, weight: .semibold))
                         .monospacedDigit()
                         .foregroundStyle(WidgetTheme.secondaryText)
@@ -1673,8 +1672,8 @@ private struct HourGrid: View {
                     ForEach(row.times, id: \.self) { time in
                         cell(time)
                     }
-                    Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: cellHeight)
             }
         }
@@ -1690,6 +1689,8 @@ private struct HourGrid: View {
                 .font(.system(size: fontSize, weight: isNext ? .heavy : .semibold))
                 .monospacedDigit()
                 .foregroundStyle(isNext ? WidgetTheme.accentForeground : (isPast ? WidgetTheme.tertiaryText : WidgetTheme.primaryText))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .frame(maxHeight: .infinity)
             if entry.viaTimes.contains(time) {
                 Circle()
@@ -1698,7 +1699,9 @@ private struct HourGrid: View {
                     .padding(.bottom, 4)
             }
         }
-        .frame(width: cellWidth, height: cellHeight)
+        // 폭이 모자라면 같은 비율로 줄어든다 (한 시간에 4대인 시간대, 작은 기기)
+        .frame(minWidth: 0, maxWidth: cellWidth)
+        .frame(height: cellHeight)
         .accessibilityLabel("\(time) 출발\(isNext ? ", 다음 버스" : "")\(entry.viaTimes.contains(time) ? ", 경유" : "")")
     }
 }
