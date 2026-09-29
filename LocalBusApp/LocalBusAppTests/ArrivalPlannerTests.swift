@@ -37,6 +37,31 @@ struct ArrivalPlannerTests {
         #expect(plan.later == "06:40")
     }
 
+    @Test func 기본_목표는_한시간_뒤를_십분_단위로_올린다() {
+        #expect(ArrivalPlanner.defaultTargetMinutes(nowMinutes: 7 * 60 + 41) == 8 * 60 + 50)
+        #expect(ArrivalPlanner.defaultTargetMinutes(nowMinutes: 7 * 60 + 50) == 8 * 60 + 50)
+    }
+
+    @Test func 현재_분이_51분_이상이면_다음_정시로_올린다() {
+        #expect(ArrivalPlanner.defaultTargetMinutes(nowMinutes: 7 * 60 + 51) == 9 * 60)
+        #expect(ArrivalPlanner.defaultTargetMinutes(nowMinutes: 7 * 60 + 59) == 9 * 60)
+    }
+
+    @Test func 기본_목표는_새벽_다섯시부터_밤_열한시_오십분_사이다() {
+        #expect(ArrivalPlanner.defaultTargetMinutes(nowMinutes: 3 * 60) == 5 * 60)
+        #expect(ArrivalPlanner.defaultTargetMinutes(nowMinutes: 22 * 60 + 55) == 23 * 60 + 50)
+        // 자정을 넘기면 다음 날 새벽 첫 범위로
+        #expect(ArrivalPlanner.defaultTargetMinutes(nowMinutes: 23 * 60 + 30) == 5 * 60)
+    }
+
+    @Test func 목표_시각은_범위를_벗어나지_않는다() {
+        #expect(ArrivalPlanner.clampedTarget(minutes: 200) == 300)
+        #expect(ArrivalPlanner.clampedTarget(minutes: 1439) == 1430)
+        #expect(ArrivalPlanner.shiftedTarget(minutes: 510, by: -10) == 500)
+        #expect(ArrivalPlanner.shiftedTarget(minutes: 300, by: -10) == 300)
+        #expect(ArrivalPlanner.shiftedTarget(minutes: 1430, by: 10) == 1430)
+    }
+
     @Test func 시간_표기() {
         #expect(ArrivalPlanner.spanText(14) == "14분")
         #expect(ArrivalPlanner.spanText(60) == "1시간")
