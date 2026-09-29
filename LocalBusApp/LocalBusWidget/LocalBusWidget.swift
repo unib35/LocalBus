@@ -8,7 +8,7 @@ import SwiftUI
 
 // MARK: - 위젯 보기 방식 (디자인 캔버스 WidgetSmallSet · WidgetMediumSet)
 
-/// 소형 위젯 보기 (캔버스 A–G). 위젯 편집에서 고른다.
+/// 소형 위젯 보기 (캔버스 A–G). 위젯 추가 화면에서 위젯을 골라 정한다.
 enum SmallWidgetStyle: String {
     case remaining    // A 남은 시간
     case arrival      // B 출발 → 도착
@@ -41,7 +41,7 @@ enum LockCircularStyle: String {
     case departure    // 출발 시각
 }
 
-/// 위젯 편집에서 고른 값 묶음. 크기마다 자기 것만 쓴다.
+/// 위젯마다 정해진 보기 묶음. 크기마다 자기 것만 쓴다.
 struct WidgetOptions {
     var small: SmallWidgetStyle = .remaining
     var medium: MediumWidgetStyle = .remaining
@@ -529,10 +529,16 @@ struct BusEntry: TimelineEntry {
         WidgetDataHelper.targetPlan(times: todayTimes, durationMinutes: durationMinutes, target: options.targetTime)
     }
 
-    static func placeholder(options: WidgetOptions = .default) -> BusEntry {
-        BusEntry(
-            date: Date(), routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "18:30", remainingMinutes: 12,
-            direction: WidgetDataHelper.defaultDirection, isServiceEnded: false, firstBusTime: "06:20", lastBusTime: "23:30",
+    /// 예시 값 (위젯 추가 화면 미리보기 · 자리 표시)
+    static func placeholder(
+        options: WidgetOptions = .default,
+        routeKey: String = WidgetDataHelper.defaultRouteKey,
+        direction: String = WidgetDataHelper.defaultDirection
+    ) -> BusEntry {
+        let opposite = WidgetDataHelper.oppositeRoute(of: routeKey)?.direction ?? "사상 → 장유"
+        return BusEntry(
+            date: Date(), routeKey: routeKey, nextBusTime: "18:30", remainingMinutes: 12,
+            direction: direction, isServiceEnded: false, firstBusTime: "06:20", lastBusTime: "23:30",
             upcomingBuses: [
                 WidgetBus(time: "18:50", minutes: 32, isVia: false, arrival: "19:24", usesTraffic: true),
                 WidgetBus(time: "19:10", minutes: 52, isVia: true, arrival: "19:46", usesTraffic: true),
@@ -546,7 +552,7 @@ struct BusEntry: TimelineEntry {
             viaTimes: ["19:10"], nightFare: 3000, nightFareStartTime: "22:10", tomorrowFirstBusTime: "06:20",
             serviceNowMinutes: 18 * 60 + 18,
             options: options,
-            counterpart: WidgetCounterpart(direction: "사상 → 장유", nextBusTime: "18:40", remainingMinutes: 22, arrivalTime: "19:19", usesTraffic: true, isServiceEnded: false, firstBusTime: "06:20"),
+            counterpart: WidgetCounterpart(direction: opposite, nextBusTime: "18:40", remainingMinutes: 22, arrivalTime: "19:19", usesTraffic: true, isServiceEnded: false, firstBusTime: "06:20"),
             isPro: true
         )
     }
