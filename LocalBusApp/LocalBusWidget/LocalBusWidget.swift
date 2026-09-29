@@ -300,6 +300,29 @@ struct WidgetDataHelper {
         return h * 60 + m
     }
 
+    /// 큰 숫자 자리: 60분 미만은 분, 그 이상은 시간
+    static func remainingNumber(_ minutes: Int) -> String {
+        minutes >= 60 ? String(minutes / 60) : String(minutes)
+    }
+
+    /// 큰 숫자 옆 단위. 90분이면 "시간 30분"이라 숫자와 이어 읽으면 "1시간 30분"
+    static func remainingUnit(_ minutes: Int) -> String {
+        guard minutes >= 60 else { return "분" }
+        let rest = minutes % 60
+        return rest == 0 ? "시간" : "시간 \(rest)분"
+    }
+
+    /// 60분 기준 고리. 출발이 가까울수록 채워진다 (12분 남으면 80%)
+    static func ringFraction(remainingMinutes: Int) -> Double {
+        let remaining = Double(min(max(remainingMinutes, 0), 60))
+        return (60 - remaining) / 60
+    }
+
+    /// 좁은 칸용 "1:30" (1시간 30분)
+    static func clockText(_ minutes: Int) -> String {
+        String(format: "%d:%02d", minutes / 60, minutes % 60)
+    }
+
     /// "1시간 12분" 표기
     static func spanText(_ minutes: Int) -> String {
         if minutes < 60 { return "\(minutes)분" }
@@ -478,11 +501,11 @@ struct BusEntry: TimelineEntry {
     let isPro: Bool
 
     var remainingDisplay: String {
-        remainingMinutes >= 60 ? String(remainingMinutes / 60) : String(remainingMinutes)
+        WidgetDataHelper.remainingNumber(remainingMinutes)
     }
 
     var remainingUnit: String {
-        remainingMinutes >= 60 ? "시간" : "분"
+        WidgetDataHelper.remainingUnit(remainingMinutes)
     }
 
     /// "사상" — 방향 문자열의 도착지
@@ -640,6 +663,8 @@ private enum WidgetTheme {
     static let selectedText = dynamic(dark: .black, light: .white)
     /// 심야 요금 (#FB923C / #C2410C)
     static let nightFare = dynamic(dark: UIColor(red: 251/255, green: 146/255, blue: 60/255, alpha: 1), light: UIColor(red: 194/255, green: 65/255, blue: 12/255, alpha: 1))
+    /// 잠긴 위젯의 빈 값 자리 (#3A3A3A / #D4D4D4)
+    static let placeholder = dynamic(dark: UIColor(white: 0.227, alpha: 1), light: UIColor(white: 0.83, alpha: 1))
     /// 문제 상황 (#FBBF24 / #92400E)
     static let warning = dynamic(dark: UIColor(red: 251/255, green: 191/255, blue: 36/255, alpha: 1), light: UIColor(red: 146/255, green: 64/255, blue: 14/255, alpha: 1))
 }
@@ -728,7 +753,7 @@ struct LockedWidgetView: View {
     var body: some View {
         switch family {
         case .accessoryInline:
-            Label("Pro 업그레이드 필요", systemImage: "lock.fill")
+            Label("위젯은 Pro에서 쓸 수 있어요", systemImage: "lock")
         case .accessoryCircular:
             ZStack {
                 AccessoryWidgetBackground()
@@ -765,8 +790,8 @@ struct LockedWidgetView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(WidgetTheme.secondaryText)
                 Spacer(minLength: 0)
-                Image(systemName: "lock.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                Image(systemName: "lock")
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(WidgetTheme.secondaryText)
             }
 
@@ -779,7 +804,7 @@ struct LockedWidgetView: View {
                 Text("분")
                     .font(.system(size: 18, weight: .bold))
             }
-            .foregroundStyle(WidgetTheme.tertiaryText.opacity(0.5))
+            .foregroundStyle(WidgetTheme.placeholder)
 
             Text("위젯은 Pro에서 쓸 수 있어요")
                 .font(.system(size: 13, weight: .semibold))
@@ -818,30 +843,24 @@ private struct RemainingHero: View {
             Text(unitText ?? "\(entry.remainingUnit) 후")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(WidgetTheme.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(entry.remainingDisplay)\(entry.remainingUnit) 후 출발")
     }
 }
 
-/// "18:30 출발" + 막차/심야 라벨
+/// "18:30 출발"
 private struct DepartureLine: View {
-    let entry: BusEntry
     let nextTime: String
 
     var body: some View {
-        HStack(spacing: 6) {
-            Text("\(nextTime) 출발")
-                .font(.system(size: 13, weight: .semibold))
-                .monospacedDigit()
-                .foregroundStyle(WidgetTheme.primaryText)
-            if entry.isLastBus || entry.isNightBus {
-                Text(entry.isLastBus ? "막차" : "심야")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(WidgetTheme.nightFare)
-            }
-        }
-        .lineLimit(1)
+        Text("\(nextTime) 출발")
+            .font(.system(size: 13, weight: .semibold))
+            .monospacedDigit()
+            .foregroundStyle(WidgetTheme.primaryText)
+            .lineLimit(1)
     }
 }
 
@@ -1004,7 +1023,7 @@ struct SmallWidgetView: View {
             Spacer(minLength: 4)
             if let nextTime = entry.nextBusTime {
                 RemainingHero(entry: entry, unitText: entry.remainingUnit)
-                DepartureLine(entry: entry, nextTime: nextTime)
+                DepartureLine(nextTime: nextTime)
                     .padding(.top, 6)
             }
             Spacer(minLength: 4)
@@ -1462,12 +1481,12 @@ struct MediumWidgetView: View {
                     .foregroundStyle(WidgetTheme.secondaryText)
             } else {
                 HStack(alignment: .lastTextBaseline, spacing: 4) {
-                    Text(remaining >= 60 ? String(remaining / 60) : String(remaining))
+                    Text(WidgetDataHelper.remainingNumber(remaining))
                         .font(.system(size: 48, weight: .heavy, design: .rounded))
                         .monospacedDigit()
                         .tracking(-1.5)
                         .foregroundStyle(highlighted ? WidgetTheme.accent : WidgetTheme.primaryText)
-                    Text(remaining >= 60 ? "시간" : "분")
+                    Text(WidgetDataHelper.remainingUnit(remaining))
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(WidgetTheme.primaryText)
                 }
@@ -1851,7 +1870,7 @@ struct LargeWidgetView: View {
             Spacer(minLength: 0)
 
             HStack {
-                Text("첫차 \(entry.isServiceEnded ? entry.firstBusTime : entry.firstBusTime) · 막차 \(entry.lastBusTime)")
+                Text("첫차 \(entry.firstBusTime) · 막차 \(entry.lastBusTime)")
                 Spacer()
                 if entry.usesTraffic, let at = entry.trafficUpdatedAt {
                     Text("교통정보 \(timeLabel(at)) 기준")
@@ -1945,16 +1964,10 @@ struct AccessoryRectangularView: View {
                 Text("\(nextTime) 출발 · \(formatUpcomingMinutes(entry.remainingMinutes)) 후")
                     .font(.system(size: 15, weight: .bold))
                     .monospacedDigit()
-                HStack(spacing: 4) {
-                    Text("약 \(entry.arrivalTime) \(entry.destinationName) 도착")
-                    if entry.isLastBus || entry.isNightBus {
-                        Text(entry.isLastBus ? "· 막차" : "· 심야")
-                            .fontWeight(.bold)
-                    }
-                }
-                .font(.system(size: 11, weight: .medium))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+                Text("약 \(entry.arrivalTime) \(entry.destinationName) 도착")
+                    .font(.system(size: 11, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
             }
         }
         .lineLimit(1)
