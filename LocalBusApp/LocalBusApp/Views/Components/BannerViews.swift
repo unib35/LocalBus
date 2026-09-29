@@ -11,21 +11,21 @@ struct ToastView: View {
     let toast: ToastMessage
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: toast.icon)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 14, weight: .semibold))
             Text(toast.message)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 14, weight: .semibold))
         }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
+        .foregroundStyle(AppTheme.Color.primaryText)
+        .padding(.leading, 14)
+        .padding(.trailing, 18)
+        .frame(height: 44)
         .tintedGlass(
-            Color(white: 0.15, opacity: 0.9),
+            AppTheme.Color.secondaryButton.opacity(0.9),
             in: Capsule(),
-            fallback: Color(white: 0.15, opacity: 0.95)
+            fallback: AppTheme.Color.secondaryButton
         )
-        .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 4)
     }
 }
 
@@ -42,12 +42,12 @@ private struct ToastModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: .top) {
+            .overlay(alignment: .bottom) {
                 if let toast = item {
                     ToastView(toast: toast)
-                        .padding(.top, 16)
+                        .padding(.bottom, 16)
                         .opacity(isVisible ? 1 : 0)
-                        .offset(y: isVisible ? 0 : -20)
+                        .offset(y: isVisible ? 0 : 20)
                         .animation(.spring(duration: 0.35), value: isVisible)
                         .transition(.opacity)
                         .zIndex(999)

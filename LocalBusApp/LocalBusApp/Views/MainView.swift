@@ -121,7 +121,6 @@ struct MainView: View {
         } message: {
             Text("버스 출발 알림을 받으려면\n설정 > 장유시외버스 > 알림을 허용해주세요.")
         }
-        .toast(item: $notificationToast)
     }
 
     // MARK: - 홈 탭
@@ -141,6 +140,8 @@ struct MainView: View {
             }
             .background(AmbientBackground())
             .toolbar(.hidden, for: .navigationBar)
+            // 탭 바 위에 뜨도록 탭 안쪽에 붙인다
+            .toast(item: $notificationToast)
             .navigationDestination(isPresented: $showAlertsHub) {
                 AlertsHubView(
                     viewModel: viewModel,
