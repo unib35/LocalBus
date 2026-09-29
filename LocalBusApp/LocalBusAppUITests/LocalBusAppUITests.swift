@@ -166,7 +166,7 @@ final class LocalBusAppUITests: XCTestCase {
         XCTAssertTrue(cell.waitForExistence(timeout: 5))
         cell.tap()
 
-        let alarmOff = app.buttons["알림 꺼짐"]
+        let alarmOff = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "알림 받기")).firstMatch
         let alarmOn = app.buttons["알림 끄기"]
         let fare = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", "요금")).firstMatch
 

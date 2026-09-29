@@ -26,6 +26,14 @@ extension View {
                 .fill(AppTheme.Color.surfaceSecondary)
         )
     }
+
+    /// 시트 바탕 위에 놓이는 타일·카드 (다크 #1C1C1C / 라이트 #FFFFFF).
+    func sheetTileSurface(cornerRadius: CGFloat = AppTheme.Radius.card) -> some View {
+        background(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(AppTheme.Color.sheetTile)
+        )
+    }
 }
 
 /// 서피스 안 행 사이 구분선.
