@@ -44,6 +44,7 @@ struct MainView: View {
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
     @State private var selectedTab: MainTab = .home
     @State private var showPaywall = false
+    @State private var settingsRefreshToken = 0
     @State private var showAlertsHub = false
     @State private var showNoticeList = false
     @State private var homeBusDetail: BusDetailInfo?
@@ -143,7 +144,11 @@ struct MainView: View {
             }
 
             NavigationStack {
-                InfoView(viewModel: viewModel, onShowTimetable: { selectedTab = .timetable })
+                InfoView(
+                    viewModel: viewModel,
+                    onShowTimetable: { selectedTab = .timetable },
+                    refreshRequestToken: settingsRefreshToken
+                )
             }
             .tabItem { Label("설정", systemImage: "gearshape") }
             .tag(MainTab.settings)
@@ -163,7 +168,7 @@ struct MainView: View {
             stopsSheetPresentationToken += 1
         }
         .onOpenURL(perform: handleDeepLink)
-        .sheet(isPresented: $showPaywall) {
+        .fullScreenCover(isPresented: $showPaywall) {
             PaywallView()
                 .environmentObject(storeService)
         }
@@ -377,7 +382,10 @@ struct MainView: View {
                         buses: followingBuses(in: snapshot),
                         isVia: { viewModel.isViaBus(for: $0) },
                         alertTime: { viewModel.alert(for: $0).flatMap { $0.isEnabled ? $0.alertTime : nil } },
-                        onSelect: { openBusDetail(for: $0) },
+                        onSelect: { time in
+                            let isNextDay = snapshot.upcomingBuses.first { $0.departureTime == time }?.statusKind == .nextDay
+                            openBusDetail(for: time, isTomorrow: isTomorrowList || isNextDay)
+                        },
                         onShowTimetable: { selectedTab = .timetable }
                     )
                 }
@@ -426,6 +434,8 @@ struct MainView: View {
         case .change:
             selectedTab = .timetable
         case .stale:
+            // 결과는 설정의 시간표 데이터 행에서 제자리로 보여준다
+            settingsRefreshToken += 1
             selectedTab = .settings
         case .offline:
             Task { await viewModel.refresh() }
@@ -484,7 +494,7 @@ struct MainView: View {
                 isNotificationEnabled: viewModel.isNotificationScheduled(for: busTime),
                 alertTime: viewModel.alert(for: busTime)?.alertTime,
                 alertTitle: "내일 첫차 5분 전 알림",
-                onDetail: { openBusDetail(for: busTime) },
+                onDetail: { openBusDetail(for: busTime, isTomorrow: true) },
                 onNotificationTap: { handleNotificationTap(for: busTime) }
             )
         } else {
@@ -556,9 +566,9 @@ struct MainView: View {
         return rest.isEmpty ? "\(snapshot.nextBusMinuteDisplay)시간 후 출발" : "\(snapshot.nextBusMinuteDisplay)시간 \(rest) 후 출발"
     }
 
-    private func openBusDetail(for time: String) {
+    private func openBusDetail(for time: String, isTomorrow: Bool = false) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        homeBusDetail = viewModel.makeBusDetailInfo(for: time)
+        homeBusDetail = viewModel.makeBusDetailInfo(for: time, isTomorrow: isTomorrow)
     }
 
     private func isNextBusNotificationEnabled(for snapshot: BusTimingSnapshot) -> Bool {

@@ -174,7 +174,7 @@ struct AlertsHubView: View {
                 viewModel.markNoticeRead(notice.id)
             }
         }
-        .sheet(isPresented: $showPaywall) {
+        .fullScreenCover(isPresented: $showPaywall) {
             PaywallView()
                 .environmentObject(storeService)
         }

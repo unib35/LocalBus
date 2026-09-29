@@ -49,7 +49,7 @@ struct TimetableScreenView: View {
                 adStrip
             }
         }
-        .sheet(isPresented: $showPaywall) {
+        .fullScreenCover(isPresented: $showPaywall) {
             PaywallView()
                 .environmentObject(storeService)
         }

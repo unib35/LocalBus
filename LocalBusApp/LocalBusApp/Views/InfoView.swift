@@ -42,6 +42,8 @@ enum AppColorScheme: Int, CaseIterable {
 struct InfoView: View {
     @ObservedObject var viewModel: MainViewModel
     var onShowTimetable: (() -> Void)? = nil
+    /// 값이 바뀌면 시간표 새로고침을 바로 시작한다 (홈의 '오래됨' 배너에서 넘어올 때)
+    var refreshRequestToken: Int = 0
     @EnvironmentObject private var storeService: StoreService
 
     @AppStorage("lastMileAlertEnabled") private var lastMileAlertEnabled = true
@@ -59,6 +61,7 @@ struct InfoView: View {
     }
 
     @State private var updatePhase: UpdatePhase = .idle
+    @State private var handledRefreshToken = 0
     @State private var revertTask: Task<Void, Never>?
     @State private var toast: ToastMessage?
     @State private var showPaywall = false
@@ -115,7 +118,12 @@ struct InfoView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .toast(item: $toast)
-        .sheet(isPresented: $showPaywall) {
+        .task(id: refreshRequestToken) {
+            guard refreshRequestToken != handledRefreshToken else { return }
+            handledRefreshToken = refreshRequestToken
+            runUpdateCheck()
+        }
+        .fullScreenCover(isPresented: $showPaywall) {
             PaywallView()
                 .environmentObject(storeService)
         }
