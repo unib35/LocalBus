@@ -620,33 +620,55 @@ final class MainViewModel: ObservableObject {
         upsert(alert)
         NotificationService.shared.schedule(alert, holidays: holidays)
 
-        // 20분 이내 버스면 Live Activity 시작 (설정에서 활성화된 경우)
-        let liveActivityEnabled = UserDefaults.standard.object(forKey: "liveActivityEnabled") as? Bool ?? true
-        if #available(iOS 16.2, *),
-           liveActivityEnabled,
-           let minutes = DateService.minutesUntil(timeString: busTime, from: Date()),
-           minutes >= 0 && minutes <= 20 {
-            let estimate = arrivalEstimate(for: busTime)
-            var nightFareText: String?
-            if isNightFare(for: busTime), let nightFare {
-                let formatter = NumberFormatter()
-                formatter.numberStyle = .decimal
-                nightFareText = "심야 \(formatter.string(from: NSNumber(value: nightFare)) ?? "\(nightFare)")원"
-            }
-            LiveActivityService.shared.startActivity(
-                departureTime: busTime,
-                direction: currentDirectionName,
-                durationMinutes: estimate.durationMinutes,
-                destinationName: currentArrivalHubName,
-                boardingStopName: currentStops.first?.name ?? currentTerminalName,
-                isLastBus: busTime == lastBusTime,
-                nextDayFirstBusTime: tomorrowTimes().first,
-                nightFareText: nightFareText,
-                usesTraffic: estimate.basis.usesTraffic,
-                trafficUpdatedAt: trafficUpdatedAt
-            )
-        }
+        startLiveActivityIfDue(for: busTime)
         return true
+    }
+
+    /// 출발 20분 이내 버스면 Live Activity 시작 (설정에서 활성화된 경우)
+    private func startLiveActivityIfDue(for busTime: String, now: Date = Date()) {
+        let liveActivityEnabled = UserDefaults.standard.object(forKey: "liveActivityEnabled") as? Bool ?? true
+        guard #available(iOS 16.2, *),
+              liveActivityEnabled,
+              let departure = LiveActivityTiming.departureDate(for: busTime, now: now),
+              LiveActivityTiming.shouldStart(now: now, departure: departure),
+              !LiveActivityService.shared.isShowing(departureTime: busTime, direction: currentDirectionName) else { return }
+
+        let estimate = arrivalEstimate(for: busTime)
+        var nightFareText: String?
+        if isNightFare(for: busTime), let nightFare {
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .decimal
+            nightFareText = "심야 \(formatter.string(from: NSNumber(value: nightFare)) ?? "\(nightFare)")원"
+        }
+        LiveActivityService.shared.startActivity(
+            departureTime: busTime,
+            direction: currentDirectionName,
+            durationMinutes: estimate.durationMinutes,
+            destinationName: currentArrivalHubName,
+            boardingStopName: currentStops.first?.name ?? currentTerminalName,
+            isLastBus: busTime == lastBusTime,
+            nextDayFirstBusTime: tomorrowTimes().first,
+            nightFareText: nightFareText,
+            usesTraffic: estimate.basis.usesTraffic,
+            trafficUpdatedAt: trafficUpdatedAt
+        )
+    }
+
+    /// 알림을 걸 때는 20분 밖이었던 버스가 그 안으로 들어왔으면 지금 표시를 시작한다.
+    /// 앱이 열리거나 다시 앞으로 올 때 부른다. 앱이 꺼져 있는 동안에는 시작할 수 없다.
+    func startLiveActivityForDueAlerts(now: Date = Date()) {
+        // 평일 반복 알림은 주말·공휴일에 울리지 않으므로 표시도 시작하지 않는다
+        let isWeekdaySchedule = DateService.shouldUseWeekdaySchedule(now, holidays: holidays)
+        let due = busAlerts
+            .filter { $0.isEnabled && $0.direction == selectedDirection }
+            .filter { !$0.repeatsWeekdays || isWeekdaySchedule }
+            .compactMap { alert in
+                LiveActivityTiming.departureDate(for: alert.busTime, now: now).map { (alert.busTime, $0) }
+            }
+            .filter { LiveActivityTiming.shouldStart(now: now, departure: $0.1) }
+            .min { $0.1 < $1.1 }
+        guard let due else { return }
+        startLiveActivityIfDue(for: due.0, now: now)
     }
 
     /// 알림을 켜거나 끈다 (목록은 유지).
@@ -686,6 +708,7 @@ final class MainViewModel: ObservableObject {
         for alert in busAlerts where alert.repeatsWeekdays && alert.isEnabled {
             NotificationService.shared.schedule(alert, holidays: holidays)
         }
+        startLiveActivityForDueAlerts()
     }
 
     private func upsert(_ alert: BusAlert) {
@@ -889,6 +912,14 @@ final class MainViewModel: ObservableObject {
 
     /// 앱 시작 시 데이터 로드
     func onAppear() async {
+        if #available(iOS 16.2, *) {
+            // 앱이 다시 앞으로 올 때마다 20분 안에 들어온 알림의 Live Activity를 시작
+            LiveActivityService.shared.reconcile()
+            LiveActivityService.shared.onBecameActive = { [weak self] in
+                self?.startLiveActivityForDueAlerts()
+            }
+        }
+
         let timetableService = TimetableService()
         let networkService = NetworkService()
 
