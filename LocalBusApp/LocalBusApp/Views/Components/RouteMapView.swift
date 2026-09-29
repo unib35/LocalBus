@@ -21,16 +21,87 @@ struct RouteMapPin: Equatable {
         lhs.coordinate.latitude == rhs.coordinate.latitude &&
         lhs.coordinate.longitude == rhs.coordinate.longitude
     }
+
+    /// 핀 라벨에서 이름 뒤에 붙는 역할. 출발은 탑승홈이 있으면 함께 적는다.
+    var roleText: String? {
+        if isDeparture { return subtitle.map { "출발 · \($0)" } ?? "출발" }
+        if isDestination { return "도착" }
+        return nil
+    }
 }
 
-/// 지도 위 요소 색. 앱 토큰(AppTheme)과 같은 값 — 경로만 강조색, 핀은 흰/검.
-private enum RouteMapTheme {
-    static let accent = UIColor(red: 74 / 255, green: 222 / 255, blue: 128 / 255, alpha: 1)
-    static let pinFill = UIColor.white
-    static let pinRing = UIColor(white: 0.04, alpha: 1)
-    static let labelBackground = UIColor(white: 0.08, alpha: 1)
+/// 핀 라벨을 놓는 쪽. 경로선이 지나가지 않는 쪽을 고른다.
+enum RouteMapLabelPlacement: Equatable {
+    case above, below
+
+    /// 출발·종점은 이웃 정류장이 북쪽(화면 위)에 있으면 아래, 아니면 위. 중간 정류장은 위.
+    static func placement(forPinAt index: Int, latitudes: [Double]) -> RouteMapLabelPlacement {
+        guard latitudes.indices.contains(index), latitudes.count > 1 else { return .above }
+
+        let neighborIndex: Int
+        if index == 0 {
+            neighborIndex = 1
+        } else if index == latitudes.count - 1 {
+            neighborIndex = index - 1
+        } else {
+            return .above
+        }
+        return latitudes[neighborIndex] > latitudes[index] ? .below : .above
+    }
+}
+
+/// 지도 위 요소 색 — 경로만 강조색, 핀은 흰/검. 라벨은 두 모드 모두 어두운 모양 그대로.
+///
+/// 어두운 지도에서는 밝은 초록 한 줄, 밝은 지도에서는 짙은 초록에 흰 테두리를 둘러 도로 위에서도 보이게 한다.
+private struct RouteMapTheme {
+    let route: UIColor
+    let routeWidth: CGFloat
+    /// 경로선 아래에 까는 테두리. nil이면 그리지 않는다.
+    let routeCasing: UIColor?
+    let routeCasingWidth: CGFloat
+    let departureFill: UIColor
+    let departureRing: UIColor
+    let destinationFill: UIColor
+    let destinationRing: UIColor
+    let stopFill: UIColor
+    let stopRing: UIColor
+
+    static let labelBackground = UIColor(white: 0.08, alpha: 1)          // #141414
     static let labelText = UIColor.white
-    static let labelSecondaryText = UIColor(white: 0.64, alpha: 1)
+    static let labelSecondaryText = UIColor(white: 0.64, alpha: 1)       // #A3A3A3
+
+    static let dark = RouteMapTheme(
+        route: UIColor(red: 74 / 255, green: 222 / 255, blue: 128 / 255, alpha: 1),   // #4ADE80
+        routeWidth: 4,
+        routeCasing: nil,
+        routeCasingWidth: 0,
+        departureFill: UIColor(red: 74 / 255, green: 222 / 255, blue: 128 / 255, alpha: 1),
+        departureRing: UIColor(white: 0.04, alpha: 1),                                 // #0A0A0A
+        destinationFill: UIColor(white: 0.04, alpha: 1),
+        destinationRing: .white,
+        stopFill: .white,
+        stopRing: UIColor(white: 0.04, alpha: 1)
+    )
+
+    static let light = RouteMapTheme(
+        route: UIColor(red: 21 / 255, green: 128 / 255, blue: 61 / 255, alpha: 1),    // #15803D
+        routeWidth: 5,
+        routeCasing: .white,
+        routeCasingWidth: 9,
+        departureFill: UIColor(red: 21 / 255, green: 128 / 255, blue: 61 / 255, alpha: 1),
+        departureRing: .white,
+        destinationFill: UIColor(white: 0.08, alpha: 1),                               // #141414
+        destinationRing: .white,
+        stopFill: .white,
+        stopRing: UIColor(white: 0.08, alpha: 1)
+    )
+
+    static func theme(isDark: Bool) -> RouteMapTheme { isDark ? .dark : .light }
+}
+
+/// 경로선과 그 아래 테두리를 구분하기 위한 폴리라인.
+private final class RoutePolyline: MKPolyline {
+    var isCasing = false
 }
 
 struct RouteMapView: UIViewRepresentable {
@@ -46,6 +117,8 @@ struct RouteMapView: UIViewRepresentable {
     let sheetTopY: CGFloat
     var onPinTap: (String) -> Void
     var onLocationUpdate: ((CLLocation) -> Void)?
+    /// 위치 권한이 꺼져 있어 현재 위치로 갈 수 없을 때
+    var onLocationDenied: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -57,11 +130,14 @@ struct RouteMapView: UIViewRepresentable {
         mapView.showsCompass = false
         mapView.showsScale = true
         mapView.pointOfInterestFilter = .excludingAll
+        mapView.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
 
         context.coordinator.configure(mapView: mapView)
         context.coordinator.onPinTap = onPinTap
         context.coordinator.onLocationUpdate = onLocationUpdate
+        context.coordinator.onLocationDenied = onLocationDenied
         context.coordinator.sheetTopY = sheetTopY
+        context.coordinator.isDarkMap = colorScheme == .dark
         context.coordinator.updateRouteIfNeeded(
             pins,
             routePath: routePath,
@@ -77,16 +153,23 @@ struct RouteMapView: UIViewRepresentable {
     func updateUIView(_ uiView: MKMapView, context: Context) {
         context.coordinator.onPinTap = onPinTap
         context.coordinator.onLocationUpdate = onLocationUpdate
+        context.coordinator.onLocationDenied = onLocationDenied
         context.coordinator.sheetTopY = sheetTopY
 
-        uiView.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+        let isDarkMap = colorScheme == .dark
+        let themeChanged = context.coordinator.isDarkMap != isDarkMap
+        context.coordinator.isDarkMap = isDarkMap
+        uiView.overrideUserInterfaceStyle = isDarkMap ? .dark : .light
 
+        // 색 모드가 바뀌면 경로선과 핀을 새 색으로 다시 그린다. 이때 지도 위치는 건드리지 않는다.
         context.coordinator.updateRouteIfNeeded(
             pins,
             routePath: routePath,
             selectedStopID: selectedStopID,
             selectedCoordinate: selectedCoordinate,
-            on: uiView
+            on: uiView,
+            force: themeChanged,
+            refitsRoute: !themeChanged
         )
         context.coordinator.updateSelectionIfNeeded(selectedStopID, on: uiView)
         context.coordinator.centerOnSelectedStopIfNeeded(
@@ -122,7 +205,11 @@ extension RouteMapView {
 
         var onPinTap: ((String) -> Void)?
         var onLocationUpdate: ((CLLocation) -> Void)?
+        var onLocationDenied: (() -> Void)?
         var sheetTopY: CGFloat = 0
+        var isDarkMap = true
+
+        private var theme: RouteMapTheme { .theme(isDark: isDarkMap) }
 
         override init() {
             super.init()
@@ -130,13 +217,14 @@ extension RouteMapView {
             locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
         }
 
+        /// 위치 권한 상태. 메인 스레드에서 직접 물으면 화면이 멈출 수 있어,
+        /// 시스템이 알려 줄 때(`locationManagerDidChangeAuthorization`) 받아 둔 값을 쓴다.
+        private var authorizationStatus: CLAuthorizationStatus = .notDetermined
+
         func configure(mapView: MKMapView) {
             self.mapView = mapView
+            // 권한 상태는 위치 관리자를 만든 직후 델리게이트로 전달된다. 그때 내 위치 표시와 위치 요청을 처리한다.
             updateUserLocationVisibility(on: mapView)
-
-            if isAuthorizedForLocation {
-                locationManager.requestLocation()
-            }
         }
 
         func updateRouteIfNeeded(
@@ -145,7 +233,8 @@ extension RouteMapView {
             selectedStopID: String?,
             selectedCoordinate: CLLocationCoordinate2D?,
             on mapView: MKMapView,
-            force: Bool = false
+            force: Bool = false,
+            refitsRoute: Bool = true
         ) {
             let pathSignature: [Double] = routePath?.flatMap { [$0.latitude, $0.longitude] } ?? []
             let pinsChanged = pins != lastRouteSignature
@@ -162,7 +251,7 @@ extension RouteMapView {
                 on: mapView
             )
 
-            if selectedCoordinate == nil {
+            if selectedCoordinate == nil, refitsRoute {
                 fitRouteIfNeeded(pins, on: mapView)
             }
         }
@@ -179,7 +268,7 @@ extension RouteMapView {
 
                 pin.isSelected = nextSelected
                 if let view = mapView.view(for: pin) as? StopPinAnnotationView {
-                    view.apply(pin: pin)
+                    view.apply(pin: pin, theme: theme)
                 }
             }
         }
@@ -233,18 +322,22 @@ extension RouteMapView {
 
             pendingCenterOnUser = true
 
-            switch locationManager.authorizationStatus {
+            switch authorizationStatus {
             case .notDetermined:
                 locationManager.requestWhenInUseAuthorization()
             case .authorizedWhenInUse, .authorizedAlways:
                 mapView.showsUserLocation = true
                 locationManager.requestLocation()
             default:
+                // 권한이 꺼져 있으면 조용히 넘기지 않고 알려 준다.
                 pendingCenterOnUser = false
+                onLocationDenied?()
             }
         }
 
         func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+            authorizationStatus = manager.authorizationStatus
+
             guard let mapView else { return }
 
             updateUserLocationVisibility(on: mapView)
@@ -284,9 +377,10 @@ extension RouteMapView {
                 return MKOverlayRenderer(overlay: overlay)
             }
 
+            let isCasing = (polyline as? RoutePolyline)?.isCasing ?? false
             let renderer = MKPolylineRenderer(polyline: polyline)
-            renderer.strokeColor = RouteMapTheme.accent
-            renderer.lineWidth = 4
+            renderer.strokeColor = isCasing ? (theme.routeCasing ?? theme.route) : theme.route
+            renderer.lineWidth = isCasing ? theme.routeCasingWidth : theme.routeWidth
             renderer.lineCap = .round
             renderer.lineJoin = .round
             return renderer
@@ -298,12 +392,12 @@ extension RouteMapView {
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: StopPinAnnotationView.reuseIdentifier) as? StopPinAnnotationView
                 ?? StopPinAnnotationView(annotation: annotation, reuseIdentifier: StopPinAnnotationView.reuseIdentifier)
             view.annotation = annotation
-            view.apply(pin: pin)
+            view.apply(pin: pin, theme: theme)
             return view
         }
 
         private var isAuthorizedForLocation: Bool {
-            switch locationManager.authorizationStatus {
+            switch authorizationStatus {
             case .authorizedWhenInUse, .authorizedAlways:
                 return true
             default:
@@ -325,16 +419,33 @@ extension RouteMapView {
             mapView.removeAnnotations(customAnnotations)
             mapView.removeOverlays(mapView.overlays)
 
-            let annotations = pins.map {
-                StopPin(pin: $0, isSelected: $0.stopID == selectedStopID)
+            let latitudes = pins.map(\.coordinate.latitude)
+            let annotations = pins.enumerated().map { index, pin in
+                StopPin(
+                    pin: pin,
+                    isSelected: pin.stopID == selectedStopID,
+                    labelPlacement: RouteMapLabelPlacement.placement(forPinAt: index, latitudes: latitudes)
+                )
             }
 
             // routePath가 있으면 도로 경로, 없으면 정류장 직선으로 폴백
+            let coordinates: [CLLocationCoordinate2D]
             if let path = routePath, path.count > 1 {
-                mapView.addOverlay(MKPolyline(coordinates: path, count: path.count))
+                coordinates = path
             } else if annotations.count > 1 {
-                let coordinates = annotations.map(\.coordinate)
-                mapView.addOverlay(MKPolyline(coordinates: coordinates, count: coordinates.count))
+                coordinates = annotations.map(\.coordinate)
+            } else {
+                coordinates = []
+            }
+
+            if coordinates.isEmpty == false {
+                // 테두리를 먼저 깔고 그 위에 경로선
+                if theme.routeCasing != nil {
+                    let casing = RoutePolyline(coordinates: coordinates, count: coordinates.count)
+                    casing.isCasing = true
+                    mapView.addOverlay(casing)
+                }
+                mapView.addOverlay(RoutePolyline(coordinates: coordinates, count: coordinates.count))
             }
 
             mapView.addAnnotations(annotations)
@@ -374,24 +485,27 @@ private final class StopPin: NSObject, MKAnnotation {
     let coordinate: CLLocationCoordinate2D
     let stopID: String
     let stopName: String
-    let subtitleText: String?
+    /// 이름 뒤에 붙는 역할 ("출발", "출발 · 20번 홈", "도착")
+    let roleText: String?
     let isDeparture: Bool
     let isDestination: Bool
+    let labelPlacement: RouteMapLabelPlacement
     var isSelected: Bool
     var title: String? { stopName }
 
-    init(pin: RouteMapPin, isSelected: Bool) {
+    init(pin: RouteMapPin, isSelected: Bool, labelPlacement: RouteMapLabelPlacement) {
         self.coordinate = pin.coordinate
         self.stopID = pin.stopID
         self.stopName = pin.stopName
-        self.subtitleText = pin.subtitle
+        self.roleText = pin.roleText
         self.isDeparture = pin.isDeparture
         self.isDestination = pin.isDestination
+        self.labelPlacement = labelPlacement
         self.isSelected = isSelected
     }
 }
 
-/// 핀: 출발 = 강조색 원, 종점 = 흰 링, 중간 = 작은 흰 점. 선택 시 조금 커지고 라벨이 붙는다.
+/// 핀: 출발 = 강조색 원, 종점 = 어두운 원 + 흰 링, 중간 = 작은 흰 점. 선택 시 조금 커지고 라벨이 붙는다.
 private final class StopPinAnnotationView: MKAnnotationView {
     static let reuseIdentifier = "StopPin"
 
@@ -406,8 +520,8 @@ private final class StopPinAnnotationView: MKAnnotationView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func apply(pin: StopPin) {
-        accessibilityLabel = pin.stopName
+    func apply(pin: StopPin, theme: RouteMapTheme) {
+        accessibilityLabel = pin.roleText.map { "\(pin.stopName) \($0)" } ?? pin.stopName
         accessibilityHint = pin.isDeparture
             ? "출발 정류장"
             : (pin.isDestination ? "종점 정류장" : "중간 정류장, 탭하면 상세 정보를 볼 수 있습니다")
@@ -420,45 +534,52 @@ private final class StopPinAnnotationView: MKAnnotationView {
         if pin.isDeparture {
             pinSize = pin.isSelected ? 22 : 18
             dot = UIView(frame: CGRect(x: 0, y: 0, width: pinSize, height: pinSize))
-            dot.backgroundColor = RouteMapTheme.accent
-            dot.layer.borderColor = RouteMapTheme.pinRing.cgColor
+            dot.backgroundColor = theme.departureFill
+            dot.layer.borderColor = theme.departureRing.cgColor
             dot.layer.borderWidth = 3
         } else if pin.isDestination {
             pinSize = pin.isSelected ? 22 : 18
             dot = UIView(frame: CGRect(x: 0, y: 0, width: pinSize, height: pinSize))
-            dot.backgroundColor = RouteMapTheme.pinRing
-            dot.layer.borderColor = RouteMapTheme.pinFill.cgColor
+            dot.backgroundColor = theme.destinationFill
+            dot.layer.borderColor = theme.destinationRing.cgColor
             dot.layer.borderWidth = 3
         } else {
             pinSize = pin.isSelected ? 14 : 10
             dot = UIView(frame: CGRect(x: 0, y: 0, width: pinSize, height: pinSize))
-            dot.backgroundColor = RouteMapTheme.pinFill
-            dot.layer.borderColor = RouteMapTheme.pinRing.cgColor
+            dot.backgroundColor = theme.stopFill
+            dot.layer.borderColor = theme.stopRing.cgColor
             dot.layer.borderWidth = 2
         }
         dot.layer.cornerRadius = pinSize / 2
         addSubview(dot)
         frame = CGRect(x: 0, y: 0, width: pinSize, height: pinSize)
+        centerOffset = .zero
 
         let shouldShowLabel = pin.isDeparture || pin.isDestination || pin.isSelected
         guard shouldShowLabel else { return }
 
         let label = makeLabel(for: pin)
         let labelWidth = label.intrinsicContentSize.width + 20
-        let labelHeight: CGFloat = 26
+        let labelHeight: CGFloat = 28
+        let gap: CGFloat = 7
         let totalWidth = max(pinSize, labelWidth)
+        let isAbove = pin.labelPlacement == .above
 
         label.frame = CGRect(
             x: (totalWidth - labelWidth) / 2,
-            y: pinSize + 6,
+            y: isAbove ? 0 : pinSize + gap,
             width: labelWidth,
             height: labelHeight
         )
-        dot.frame.origin.x = (totalWidth - pinSize) / 2
+        dot.frame.origin = CGPoint(
+            x: (totalWidth - pinSize) / 2,
+            y: isAbove ? labelHeight + gap : 0
+        )
         addSubview(label)
-        frame = CGRect(x: 0, y: 0, width: totalWidth, height: pinSize + 6 + labelHeight)
-        // 앵커는 핀 중심에 두고 라벨은 아래로 늘어난다.
-        centerOffset = CGPoint(x: 0, y: (6 + labelHeight) / 2)
+        frame = CGRect(x: 0, y: 0, width: totalWidth, height: pinSize + gap + labelHeight)
+        // 앵커는 핀 중심에 두고 라벨은 위나 아래로 늘어난다.
+        let shift = (gap + labelHeight) / 2
+        centerOffset = CGPoint(x: 0, y: isAbove ? -shift : shift)
     }
 
     private func makeLabel(for pin: StopPin) -> UILabel {
@@ -470,9 +591,9 @@ private final class StopPinAnnotationView: MKAnnotationView {
                 .foregroundColor: RouteMapTheme.labelText
             ]
         )
-        if let subtitle = pin.subtitleText {
+        if let role = pin.roleText {
             name.append(NSAttributedString(
-                string: "  \(subtitle)",
+                string: "  \(role)",
                 attributes: [
                     .font: UIFont.systemFont(ofSize: 12, weight: .semibold),
                     .foregroundColor: RouteMapTheme.labelSecondaryText
