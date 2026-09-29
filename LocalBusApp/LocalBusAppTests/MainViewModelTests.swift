@@ -164,6 +164,40 @@ struct MainViewModelTests {
         #expect(viewModel.tomorrowScheduleType(at: makeKSTDate(year: 2026, month: 9, day: 28)) == .weekday)
     }
 
+    // MARK: - 홈 히어로 상태
+
+    @Test func 운행_간격이_길어도_오늘_버스가_남아_있으면_운행_종료가_아니다() async {
+        UserDefaults.standard.removeObject(forKey: "selectedDirection")
+        let viewModel = await MainViewModel()
+        await viewModel.loadTimetable(with: createTestTimetableData())
+        viewModel.selectedScheduleType = .weekend // 07:00, 08:00, 09:00
+
+        let early = viewModel.makeTimingSnapshot(at: makeKSTDate(year: 2026, month: 9, day: 26, hour: 3))
+        #expect(early.nextBusTime == "07:00")
+        #expect(early.isServiceEnded == false)
+
+        let late = viewModel.makeTimingSnapshot(at: makeKSTDate(year: 2026, month: 9, day: 26, hour: 22))
+        #expect(late.nextBusTime == nil)
+        #expect(late.isServiceEnded)
+        #expect(late.firstBusTime == "07:00")
+    }
+
+    @Test func 자동으로_시간표를_받아도_마지막_확인_시각이_갱신된다() async {
+        let viewModel = await MainViewModel()
+        let checkedAt = Date()
+        viewModel.markUpdateChecked(at: checkedAt)
+        #expect(viewModel.lastUpdateCheckAt == checkedAt)
+        #expect(UserDefaults.standard.object(forKey: "lastUpdateCheckAt") as? Date == checkedAt)
+    }
+
+    @Test func 교통값이_만료되면_기본_소요시간을_쓴다() async {
+        let viewModel = await MainViewModel()
+        let now = Date()
+        #expect(viewModel.freshTrafficDuration(minutes: 34, updatedAt: now.addingTimeInterval(-5 * 60), now: now) == 34)
+        #expect(viewModel.freshTrafficDuration(minutes: 34, updatedAt: now.addingTimeInterval(-25 * 60), now: now) == nil)
+        #expect(viewModel.freshTrafficDuration(minutes: nil, updatedAt: nil, now: now) == nil)
+    }
+
     // MARK: - Helper
 
     private func makeKSTDate(year: Int, month: Int, day: Int, hour: Int = 9) -> Date {
