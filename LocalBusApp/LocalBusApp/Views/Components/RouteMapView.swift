@@ -217,15 +217,14 @@ extension RouteMapView {
             locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
         }
 
-        private var authorizationStatus: CLAuthorizationStatus { locationManager.authorizationStatus }
+        /// 위치 권한 상태. 메인 스레드에서 직접 물으면 화면이 멈출 수 있어,
+        /// 시스템이 알려 줄 때(`locationManagerDidChangeAuthorization`) 받아 둔 값을 쓴다.
+        private var authorizationStatus: CLAuthorizationStatus = .notDetermined
 
         func configure(mapView: MKMapView) {
             self.mapView = mapView
+            // 권한 상태는 위치 관리자를 만든 직후 델리게이트로 전달된다. 그때 내 위치 표시와 위치 요청을 처리한다.
             updateUserLocationVisibility(on: mapView)
-
-            if isAuthorizedForLocation {
-                locationManager.requestLocation()
-            }
         }
 
         func updateRouteIfNeeded(
@@ -337,6 +336,8 @@ extension RouteMapView {
         }
 
         func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+            authorizationStatus = manager.authorizationStatus
+
             guard let mapView else { return }
 
             updateUserLocationVisibility(on: mapView)
