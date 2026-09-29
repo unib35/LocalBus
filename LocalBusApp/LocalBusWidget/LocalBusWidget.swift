@@ -1927,21 +1927,31 @@ struct AccessoryCircularView: View {
                 }
             }
         } else {
-            Gauge(value: Double(min(max(entry.remainingMinutes, 0), 60)), in: 0...60) {
-                Image(systemName: "bus.fill")
-            } currentValueLabel: {
+            ZStack {
+                AccessoryWidgetBackground()
+                Circle()
+                    .stroke(.tertiary, lineWidth: 5)
+                    .padding(5)
+                Circle()
+                    .trim(from: 0, to: WidgetDataHelper.ringFraction(remainingMinutes: entry.remainingMinutes))
+                    .stroke(.primary, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .padding(5)
                 VStack(spacing: 0) {
-                    Text(entry.remainingDisplay)
-                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    Text(isOverAnHour ? WidgetDataHelper.clockText(entry.remainingMinutes) : entry.remainingDisplay)
+                        .font(.system(size: isOverAnHour ? 18 : 26, weight: .heavy, design: .rounded))
                         .monospacedDigit()
-                    Text("\(entry.remainingUnit) 후")
-                        .font(.system(size: 9, weight: .semibold))
+                    Text(isOverAnHour ? "후" : "분 후")
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
-            .gaugeStyle(.accessoryCircular)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(WidgetDataHelper.spanText(entry.remainingMinutes)) 후 출발")
         }
     }
+
+    private var isOverAnHour: Bool { entry.remainingMinutes >= 60 }
 }
 
 struct AccessoryRectangularView: View {
