@@ -243,6 +243,7 @@ struct TimetableScreenView: View {
         ScrollViewReader { proxy in
             TimelineView(.periodic(from: .now, by: 5)) { context in
                 let nextBusTime = todayNextBusTime(at: context.date)
+                let schedule = nextBusTime == nil ? nil : viewModel.serviceSchedule(at: context.date)
 
                 ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 8) {
@@ -251,6 +252,7 @@ struct TimetableScreenView: View {
                                 hour: group.hour,
                                 times: group.times,
                                 nextBusTime: nextBusTime,
+                                isPast: { schedule?.isPast($0) ?? false },
                                 isVia: { viewModel.isViaBus(for: $0) },
                                 isNightFare: { viewModel.isNightFare(for: $0) },
                                 isNotificationEnabled: { viewModel.isNotificationScheduled(for: $0) },
@@ -312,6 +314,8 @@ struct TimetableHourRow: View {
     let hour: String
     let times: [String]
     let nextBusTime: String?
+    /// 운행일 기준으로 이미 지난 버스인지 (자정 넘는 막차는 낮에 지난 버스가 아니다)
+    let isPast: (String) -> Bool
     let isVia: (String) -> Bool
     let isNightFare: (String) -> Bool
     let isNotificationEnabled: (String) -> Bool
@@ -319,10 +323,10 @@ struct TimetableHourRow: View {
 
     private let columns = [GridItem(.adaptive(minimum: 56, maximum: 56), spacing: 8, alignment: .leading)]
 
-    /// 이 시간대가 모두 지났는지 (다음 버스보다 앞선 시간대)
+    /// 이 시간대가 모두 지났는지
     private var isPastHour: Bool {
-        guard let nextBusTime, let last = times.last else { return false }
-        return last < nextBusTime
+        guard nextBusTime != nil, let last = times.last else { return false }
+        return isPast(last)
     }
 
     var body: some View {
@@ -338,7 +342,7 @@ struct TimetableHourRow: View {
                     TimetableCell(
                         time: time,
                         isNext: time == nextBusTime,
-                        isPast: nextBusTime.map { time < $0 } ?? false,
+                        isPast: nextBusTime != nil && isPast(time),
                         isVia: isVia(time),
                         isNightFare: isNightFare(time),
                         isNotificationEnabled: isNotificationEnabled(time),

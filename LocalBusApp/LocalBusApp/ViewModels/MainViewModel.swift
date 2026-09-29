@@ -321,10 +321,23 @@ final class MainViewModel: ObservableObject {
         return "내일은 \(dateText) · \(isWeekday ? "평일" : "주말") 시간표로 운행해요"
     }
 
-    private static func tomorrow(of date: Date) -> Date {
+    private static let kstCalendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
-        return calendar.date(byAdding: .day, value: 1, to: date) ?? date
+        return calendar
+    }()
+
+    private static func tomorrow(of date: Date) -> Date {
+        kstCalendar.date(byAdding: .day, value: 1, to: date) ?? date
+    }
+
+    private static func yesterday(of date: Date) -> Date {
+        kstCalendar.date(byAdding: .day, value: -1, to: date) ?? date
+    }
+
+    /// 한국 시각으로 자정부터 센 분
+    private static func clockMinutes(of date: Date) -> Int {
+        kstCalendar.component(.hour, from: date) * 60 + kstCalendar.component(.minute, from: date)
     }
 
     /// 큰 제목 아래 한 줄 노선 요약. 예: "장유 터미널 출발 · 26분 소요 · 2,500원"
@@ -427,14 +440,50 @@ final class MainViewModel: ObservableObject {
             nightFareStartTime: nightFareStartTime,
             isNotificationEnabled: isNotificationScheduled(for: time),
             estimate: estimate,
-            minutesUntilDeparture: runsToday ? DateService.minutesUntil(timeString: time, from: date) : nil,
+            minutesUntilDeparture: runsToday ? minutesUntilToday(time, at: date) : nil,
             lastTrafficAt: trafficUpdatedAt,
             isTomorrow: isTomorrow
         )
     }
 
     func nextBusTime(at referenceDate: Date) -> String? {
-        DateService.findNextBus(times: currentTimes, from: referenceDate)
+        let schedule = serviceSchedule(at: referenceDate)
+        return schedule.nextIndex.map { schedule.times[$0] }
+    }
+
+    /// 운행일 기준 시간표. 시간표 끝에 자정을 넘긴 버스(예: 00:10)가 있으면
+    /// 자정 전에는 오늘 남은 버스로, 자정 직후에는 전날 시간표의 남은 버스로 센다.
+    func serviceSchedule(at date: Date) -> ServiceDaySchedule {
+        let yesterdayType = todayScheduleType(at: Self.yesterday(of: date))
+        let yesterdayTimes = yesterdayType == .weekday ? weekdayTimes : weekendTimes
+        return ServiceDaySchedule.resolve(
+            todayTimes: currentTimes,
+            yesterdayTimes: yesterdayTimes.isEmpty ? currentTimes : yesterdayTimes,
+            clockMinutes: Self.clockMinutes(of: date)
+        )
+    }
+
+    /// 오늘 운행일 기준으로 출발까지 남은 분 (음수면 이미 지남)
+    func minutesUntilToday(_ time: String, at date: Date) -> Int? {
+        serviceSchedule(at: date).minutesUntil(time) ?? DateService.minutesUntil(timeString: time, from: date)
+    }
+
+    /// 출발까지 남은 분. 이미 지난 버스는 0.
+    /// - Parameter isNextDay: 지금 운행일이 끝난 뒤의 버스
+    func minutesUntilDeparture(of time: String, isNextDay: Bool, at date: Date) -> Int {
+        guard isNextDay else { return max(minutesUntilToday(time, at: date) ?? 0, 0) }
+        // 자정 직후 전날 막차를 기다리는 동안에는 다음 운행일이 달력으로는 오늘이다
+        if serviceSchedule(at: date).isOvernightTail {
+            return max(DateService.minutesUntil(timeString: time, from: date) ?? 0, 0)
+        }
+        return DateService.minutesUntilNextDay(timeString: time, from: date)
+    }
+
+    /// 지금 운행일 다음 날의 시간표
+    func nextServiceDayTimes(at date: Date) -> [String] {
+        guard serviceSchedule(at: date).isOvernightTail else { return tomorrowTimes(at: date) }
+        let times = todayScheduleType(at: date) == .weekday ? weekdayTimes : weekendTimes
+        return times.isEmpty ? currentTimes : times
     }
 
     func makeTimingSnapshot(at referenceDate: Date) -> BusTimingSnapshot {
@@ -559,14 +608,14 @@ final class MainViewModel: ObservableObject {
         guard !isLoading, !isRefreshingTraffic,
               !ArrivalEstimator.isTrafficFresh(updatedAt: trafficUpdatedAt, now: now),
               let nextBusTime = nextBusTime(at: now),
-              let minutes = DateService.minutesUntil(timeString: nextBusTime, from: now),
+              let minutes = minutesUntilToday(nextBusTime, at: now),
               minutes <= ArrivalEstimator.trafficWindowMinutes else { return }
         await refreshTrafficDuration()
     }
 
     /// 특정 버스의 도착 예상. 출발 1시간 이내면 교통을 반영하고 그 밖에는 기본 소요시간.
     func arrivalEstimate(for busTime: String, isNextDay: Bool = false, at date: Date = Date()) -> ArrivalEstimate {
-        let minutesUntil = isNextDay ? nil : DateService.minutesUntil(timeString: busTime, from: date)
+        let minutesUntil = isNextDay ? nil : minutesUntilToday(busTime, at: date)
         return ArrivalEstimator.estimate(
             departureTime: busTime,
             minutesUntilDeparture: minutesUntil,
@@ -819,12 +868,12 @@ final class MainViewModel: ObservableObject {
 
     private func minutesUntilNextBus(at referenceDate: Date, nextBusTime: String?) -> Int? {
         guard let nextBusTime else { return nil }
-        return DateService.minutesUntil(timeString: nextBusTime, from: referenceDate)
+        return minutesUntilToday(nextBusTime, at: referenceDate)
     }
 
     private func secondsUntilNextBus(at referenceDate: Date, nextBusTime: String?) -> Int? {
-        guard let nextBusTime else { return nil }
-        return DateService.secondsUntil(timeString: nextBusTime, from: referenceDate)
+        guard let nextBusTime, let minutes = minutesUntilToday(nextBusTime, at: referenceDate) else { return nil }
+        return minutes * 60 - Self.kstCalendar.component(.second, from: referenceDate)
     }
 
     private func nextBusMinuteDisplay(secondsUntilNextBus: Int?) -> String {
@@ -856,8 +905,8 @@ final class MainViewModel: ObservableObject {
     }
 
     private func firstBusLeadTime(at referenceDate: Date) -> (hours: Int, minutes: Int) {
-        guard let firstTime = tomorrowTimes(at: referenceDate).first else { return (0, 0) }
-        let totalMinutes = DateService.minutesUntilNextDay(timeString: firstTime, from: referenceDate)
+        guard let firstTime = nextServiceDayTimes(at: referenceDate).first else { return (0, 0) }
+        let totalMinutes = minutesUntilDeparture(of: firstTime, isNextDay: true, at: referenceDate)
         return (totalMinutes / 60, totalMinutes % 60)
     }
 
@@ -914,15 +963,14 @@ final class MainViewModel: ObservableObject {
     func buildUpcomingBuses(limit: Int, at referenceDate: Date = Date()) -> [UpcomingBusSnapshot] {
         guard !currentTimes.isEmpty else { return [] }
 
-        let futureTimes = currentTimes.filter {
-            (DateService.minutesUntil(timeString: $0, from: referenceDate) ?? -1) >= 0
-        }
+        let schedule = serviceSchedule(at: referenceDate)
+        let futureTimes = schedule.times.filter { (schedule.minutesUntil($0) ?? -1) >= 0 }
 
         var selectedTimes = futureTimes.prefix(limit).map { ($0, false) }
 
         if selectedTimes.count < limit {
             let remainingCount = limit - selectedTimes.count
-            let nextDayTimes = tomorrowTimes(at: referenceDate).prefix(remainingCount).map { ($0, true) }
+            let nextDayTimes = nextServiceDayTimes(at: referenceDate).prefix(remainingCount).map { ($0, true) }
             selectedTimes.append(contentsOf: nextDayTimes)
         }
 
@@ -931,9 +979,7 @@ final class MainViewModel: ObservableObject {
 
         return Array(selectedTimes.enumerated()).map { index, item in
             let (time, isNextDay) = item
-            let minutesUntilDeparture = isNextDay
-                ? DateService.minutesUntilNextDay(timeString: time, from: referenceDate)
-                : max(DateService.minutesUntil(timeString: time, from: referenceDate) ?? 0, 0)
+            let minutesUntilDeparture = minutesUntilDeparture(of: time, isNextDay: isNextDay, at: referenceDate)
             let status = statusDescriptor(
                 for: minutesUntilDeparture,
                 isNextDay: isNextDay,
