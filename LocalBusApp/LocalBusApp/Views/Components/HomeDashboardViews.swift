@@ -3,29 +3,45 @@ import SwiftUI
 // MARK: - 홈 대시보드 컴포넌트 (디자인 캔버스 개선안)
 //
 // 구성: RouteHeaderView(공통) → NextBusHeroCard → UpcomingBusListView → 서비스 요약 한 줄.
-// 강조색은 히어로의 남은 시간 숫자에만 쓴다.
+// 강조색은 히어로의 남은 시간("12분 후 출발")에만 쓴다. 운행 종료 뒤에는 같은 히어로가 내일 첫차를 보여주고
+// '지금 탈 버스'가 아니므로 강조색을 쓰지 않는다.
 
 // MARK: - 다음 버스 히어로
 
 struct NextBusHeroCard: View {
+    /// "다음 버스" / "오늘 운행 종료 · 내일 첫차"
+    var label: String = "다음 버스"
     let departureTime: String
     let arrivalTime: String
+    /// "12분 후 출발" / "내일 06:20 출발"
     let untilText: String
+    /// 지금 탈 버스일 때만 강조색
+    var isUntilAccent: Bool = true
     let durationText: String
     let basis: TrafficBasis
+    /// 아직 출발 1시간 전이 아니어서 교통을 반영하지 않은 상태
+    var awaitsTrafficWindow: Bool = false
     let destinationName: String
     let isNotificationEnabled: Bool
     /// 알림이 켜져 있으면 울릴 시각 ("18:25") — 버튼이 "18:25 알림 예약됨"으로 바뀐다
     var alertTime: String? = nil
+    /// 알림이 꺼져 있을 때 버튼 문구. nil이면 "18:30 버스 5분 전 알림"
+    var alertTitle: String? = nil
     let onDetail: () -> Void
     let onNotificationTap: () -> Void
+
+    private var alertButtonText: String {
+        isNotificationEnabled
+            ? "\(alertTime ?? departureTime) 알림 예약됨"
+            : (alertTitle ?? "\(departureTime) 버스 5분 전 알림")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Button(action: onDetail) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("다음 버스")
+                        Text(label)
                         Spacer()
                         HStack(spacing: 2) {
                             Text("상세")
@@ -42,7 +58,7 @@ struct NextBusHeroCard: View {
                                 .font(AppTheme.Typography.footnote.weight(.semibold))
                                 .foregroundStyle(AppTheme.Color.secondaryText)
                             Text(departureTime)
-                                .font(.system(size: 44, weight: .heavy, design: .rounded))
+                                .font(AppTheme.Typography.etaTime)
                                 .monospacedDigit()
                                 .tracking(-1)
                                 .foregroundStyle(AppTheme.Color.primaryText)
@@ -55,7 +71,7 @@ struct NextBusHeroCard: View {
                         Image(systemName: "arrow.right")
                             .font(.system(size: 20, weight: .bold))
                             .foregroundStyle(AppTheme.Color.tertiaryText)
-                            .padding(.bottom, 12)
+                            .padding(.bottom, 10)
 
                         Spacer(minLength: 4)
 
@@ -69,7 +85,7 @@ struct NextBusHeroCard: View {
                                     .font(.system(size: 18, weight: .bold))
                                     .foregroundStyle(AppTheme.Color.secondaryText)
                                 Text(arrivalTime)
-                                    .font(.system(size: 44, weight: .heavy, design: .rounded))
+                                    .font(AppTheme.Typography.etaTime)
                                     .monospacedDigit()
                                     .tracking(-1)
                                     .foregroundStyle(AppTheme.Color.primaryText)
@@ -83,7 +99,7 @@ struct NextBusHeroCard: View {
                     HStack(spacing: 6) {
                         Text(untilText)
                             .fontWeight(.bold)
-                            .foregroundStyle(AppTheme.Color.accent)
+                            .foregroundStyle(isUntilAccent ? AppTheme.Color.accent : AppTheme.Color.primaryText)
                         Text("·")
                             .foregroundStyle(AppTheme.Color.tertiaryText)
                         Text(durationText)
@@ -92,29 +108,28 @@ struct NextBusHeroCard: View {
                     .font(AppTheme.Typography.rowValue.weight(.semibold))
                     .monospacedDigit()
 
-                    TrafficBasisLine(basis: basis)
+                    TrafficBasisLine(basis: basis, awaitsTrafficWindow: awaitsTrafficWindow)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("다음 버스 \(departureTime) 출발, \(destinationName) 약 \(arrivalTime) 도착 예상, \(untilText)")
+            .accessibilityLabel("\(label) \(departureTime) 출발, \(destinationName) 약 \(arrivalTime) 도착 예상, \(untilText)")
             .accessibilityHint("탭하면 버스 상세를 봅니다")
 
             Button(action: onNotificationTap) {
                 HStack(spacing: 8) {
                     Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(isNotificationEnabled ? AppTheme.Color.accent : AppTheme.Color.primaryText)
-                    Text(isNotificationEnabled
-                         ? "\(alertTime ?? departureTime) 알림 예약됨"
-                         : "\(departureTime) 버스 5분 전 알림")
+                    Text(alertButtonText)
                         .monospacedDigit()
                 }
             }
             .buttonStyle(SecondaryButtonStyle(height: 46))
-            .accessibilityLabel(isNotificationEnabled ? "알림 켜짐" : "알림 꺼짐")
-            .accessibilityHint(isNotificationEnabled ? "탭하여 알림을 끕니다" : "탭하여 다음 버스 5분 전 알림을 설정합니다")
+            .accessibilityLabel(alertButtonText)
+            .accessibilityValue(isNotificationEnabled ? "켜짐" : "꺼짐")
+            .accessibilityHint(isNotificationEnabled ? "탭하여 알림을 끕니다" : "탭하여 5분 전 알림을 설정합니다")
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 20)
@@ -126,6 +141,8 @@ struct NextBusHeroCard: View {
 /// 도착 예상의 근거 한 줄: 채운 점(교통 반영) · 빈 고리(시간표 기준) · 스피너(갱신 중) · 오프라인
 struct TrafficBasisLine: View {
     let basis: TrafficBasis
+    /// 먼 시간대·내일 출발편이면 "출발 1시간 전부터 교통 반영"으로 알린다
+    var awaitsTrafficWindow: Bool = false
     var font: Font = AppTheme.Typography.footnote
     var color: Color = AppTheme.Color.secondaryText
 
@@ -133,7 +150,7 @@ struct TrafficBasisLine: View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             HStack(spacing: 7) {
                 TrafficBasisDot(basis: basis)
-                Text(ArrivalEstimator.statusText(for: basis, now: context.date))
+                Text(ArrivalEstimator.statusText(for: basis, awaitsTrafficWindow: awaitsTrafficWindow, now: context.date))
             }
             .font(font)
             .monospacedDigit()
@@ -163,7 +180,7 @@ struct TrafficBasisDot: View {
     }
 }
 
-// MARK: - 로딩 / 운행 종료
+// MARK: - 로딩
 
 struct DashboardLoadingCard: View {
     var body: some View {
@@ -178,71 +195,6 @@ struct DashboardLoadingCard: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 220)
-        .surfaceCard(cornerRadius: AppTheme.Radius.hero)
-    }
-}
-
-struct DashboardServiceEndedCard: View {
-    let eyebrow: String
-    let remainingText: String
-    let busTime: String
-    let busLabel: String
-    let arrivalTime: String
-    let destinationName: String
-    let durationMinutes: Int
-    let isNotificationEnabled: Bool
-    let notificationTitle: String
-    var alertTime: String? = nil
-    let onNotificationTap: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(eyebrow)
-                    .font(AppTheme.Typography.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.Color.secondaryText)
-                Spacer()
-                Text(remainingText)
-                    .font(AppTheme.Typography.caption.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(AppTheme.Color.primaryText)
-            }
-
-            HStack(alignment: .lastTextBaseline, spacing: 10) {
-                Text(busTime)
-                    .font(.system(size: 64, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .tracking(-2)
-                    .foregroundStyle(AppTheme.Color.primaryText)
-                Text(busLabel)
-                    .font(AppTheme.Typography.heroUnitLabel)
-                    .foregroundStyle(AppTheme.Color.primaryText)
-            }
-            .padding(.top, 10)
-
-            JourneyStripView(
-                departureTime: busTime,
-                arrivalTime: arrivalTime,
-                destinationName: destinationName,
-                durationMinutes: durationMinutes
-            )
-            .padding(.top, 18)
-
-            Button(action: onNotificationTap) {
-                HStack(spacing: 8) {
-                    Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text(isNotificationEnabled ? "\(alertTime ?? busTime) 알림 예약됨" : notificationTitle)
-                        .monospacedDigit()
-                }
-            }
-            .buttonStyle(SecondaryButtonStyle(height: 46))
-            .padding(.top, 20)
-            .accessibilityLabel(isNotificationEnabled ? "알림 켜짐" : "알림 꺼짐")
-        }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 20)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .surfaceCard(cornerRadius: AppTheme.Radius.hero)
     }
 }
@@ -277,10 +229,13 @@ struct UpcomingBusListView: View {
                     }
                     .font(AppTheme.Typography.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.Color.secondaryText)
-                    .frame(minHeight: 44)
+                    // 보이는 줄 높이는 22, 터치 영역은 44
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
+            .frame(height: 22)
 
             if buses.isEmpty {
                 Text("선택한 시간표에 남아 있는 운행 정보가 없어요.")
@@ -345,24 +300,18 @@ struct UpcomingBusRow: View {
                     .foregroundStyle(AppTheme.Color.primaryText)
                     .frame(width: 58, alignment: .leading)
 
-                HStack(spacing: 6) {
+                HStack(spacing: 7) {
                     if isVia {
-                        LabelChip(text: "경유")
+                        ViaChip()
                     } else {
                         Text("직행")
                             .font(AppTheme.Typography.caption)
                             .foregroundStyle(AppTheme.Color.secondaryText)
                     }
 
-                    if let statusLabel {
-                        Text(statusLabel)
-                            .font(AppTheme.Typography.footnote.weight(.semibold))
-                            .foregroundStyle(bus.statusKind == .nextDay ? AppTheme.Color.secondaryText : AppTheme.Color.nightFare)
-                    }
-
                     if alertTime != nil {
                         Image(systemName: "bell.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(AppTheme.Color.accent)
                             .accessibilityLabel("알림 예약됨")
                     }
@@ -400,23 +349,25 @@ struct UpcomingBusRow: View {
         .accessibilityLabel(accessibilityText)
     }
 
-    /// 막차·심야·내일 첫차만 라벨로 보여준다. "정시 운행"·"내일 운행"은 정보가 없어 생략.
-    private var statusLabel: String? {
-        switch bus.statusKind {
-        case .nextDay:
-            return bus.statusText == "내일 첫차" ? bus.statusText : nil
-        case .lastBus, .nightBus:
-            return bus.statusText
-        case .onTime, .delayed:
-            return nil
-        }
-    }
-
     private var accessibilityText: String {
         var parts = ["\(bus.departureTime) 출발", isVia ? "경유" : "직행", "약 \(bus.arrivalTime) 도착 예상", bus.usesTraffic ? "교통 반영" : "시간표 기준"]
-        if let statusLabel { parts.append(statusLabel) }
         if let alertTime { parts.append("\(alertTime) 알림 예약됨") }
         return parts.joined(separator: ", ")
+    }
+}
+
+/// 목록 행의 "경유" 칩 (12 semibold, 모서리 6)
+struct ViaChip: View {
+    var body: some View {
+        Text("경유")
+            .font(AppTheme.Typography.footnote.weight(.semibold))
+            .foregroundStyle(AppTheme.Color.primaryText.opacity(0.83))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(AppTheme.Color.secondaryButton)
+            )
     }
 }
 
@@ -478,10 +429,20 @@ struct DashboardNoticeCard: View {
             onShowTimetable: {}
         )
 
-        DashboardServiceEndedCard(
-            eyebrow: "오늘 운행 종료", remainingText: "6시간 32분 후", busTime: "06:20", busLabel: "내일 첫차",
-            arrivalTime: "06:46", destinationName: "사상", durationMinutes: 26,
-            isNotificationEnabled: false, notificationTitle: "내일 첫차 5분 전 알림", onNotificationTap: {}
+        NextBusHeroCard(
+            label: "오늘 운행 종료 · 내일 첫차",
+            departureTime: "06:20",
+            arrivalTime: "06:46",
+            untilText: "내일 06:20 출발",
+            isUntilAccent: false,
+            durationText: "기본 소요 26분",
+            basis: .timetable,
+            awaitsTrafficWindow: true,
+            destinationName: "사상",
+            isNotificationEnabled: false,
+            alertTitle: "내일 첫차 5분 전 알림",
+            onDetail: {},
+            onNotificationTap: {}
         )
     }
     .padding(20)

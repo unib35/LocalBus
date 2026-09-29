@@ -98,6 +98,54 @@ struct OperationsInfoTests {
         #expect(staleWins == .stale(baselineText: "3월 8일"))
     }
 
+    @Test func 오프라인_배너는_운휴_다음으로_급하다() {
+        let now = kst(2026, 9, 29, 9)
+        let change = OperationsInfo(change: .init(effectiveDate: "2026-10-01", title: "변경", noticeID: nil))
+        let offline = OperationsEvaluator.banner(ops: change, routeKey: route, now: now, lastUpdateCheckAt: now, updatedAt: "2026-03-08", isOffline: true)
+        #expect(offline == .offline(baselineText: "3월 8일"))
+        #expect(offline?.title == "연결 없음 · 3월 8일 기준 저장된 시간표를 보여드려요")
+        #expect(offline?.actionTitle == "다시 시도")
+        #expect(offline?.isCompact == true)
+
+        let closure = OperationsInfo(closure: .init(date: "2026-09-29", title: "운휴", reason: nil, lastBus: nil, routeKeys: nil))
+        let closureWins = OperationsEvaluator.banner(ops: closure, routeKey: route, now: now, lastUpdateCheckAt: now, updatedAt: "2026-03-08", isOffline: true)
+        #expect(closureWins?.title == "운휴")
+    }
+
+    @Test func 평일_공휴일에는_오늘_적용_시간표를_알린다() {
+        // 2026-09-28은 월요일
+        let monday = kst(2026, 9, 28, 9)
+        let holiday = OperationsEvaluator.banner(ops: nil, routeKey: route, now: monday, lastUpdateCheckAt: monday, updatedAt: "2026-03-08", holidays: ["2026-09-28"])
+        #expect(holiday == .holiday)
+        #expect(holiday?.title == "오늘은 공휴일 · 주말 시간표로 운행해요")
+        #expect(holiday?.isCompact == true)
+        #expect(holiday?.isWarning == false)
+        #expect(holiday?.actionTitle == nil)
+
+        // 주말과 겹친 공휴일, 평일에는 띄우지 않는다
+        #expect(OperationsEvaluator.banner(ops: nil, routeKey: route, now: kst(2026, 9, 27, 9), lastUpdateCheckAt: monday, updatedAt: "2026-03-08", holidays: ["2026-09-27"]) == nil)
+        #expect(OperationsEvaluator.banner(ops: nil, routeKey: route, now: kst(2026, 9, 29, 9), lastUpdateCheckAt: monday, updatedAt: "2026-03-08", holidays: ["2026-09-28"]) == nil)
+    }
+
+    @Test func 공휴일_배너는_변경_예고_다음_오래됨_앞이다() {
+        let monday = kst(2026, 9, 28, 9)
+        let change = OperationsInfo(change: .init(effectiveDate: "2026-10-01", title: "10월 1일부터 시간표가 바뀌어요", noticeID: nil))
+        let changeWins = OperationsEvaluator.banner(ops: change, routeKey: route, now: monday, lastUpdateCheckAt: monday, updatedAt: "2026-03-08", holidays: ["2026-09-28"])
+        #expect(changeWins == .change(title: "10월 1일부터 시간표가 바뀌어요", noticeID: nil))
+
+        let holidayWins = OperationsEvaluator.banner(ops: nil, routeKey: route, now: monday, lastUpdateCheckAt: monday.addingTimeInterval(-10 * 86400), updatedAt: "2026-03-08", holidays: ["2026-09-28"])
+        #expect(holidayWins == .holiday)
+    }
+
+    @Test func 점검_배너는_누를_수_없는_안내다() {
+        #expect(OperationsBanner.maintenance(message: "점검").isInteractive == false)
+        #expect(OperationsBanner.holiday.isInteractive == false)
+        #expect(OperationsBanner.stale(baselineText: "3월 8일").isInteractive)
+        #expect(OperationsBanner.stale(baselineText: "3월 8일").showsChevron == false)
+        #expect(OperationsBanner.closure(title: "운휴", subtitle: "임시 운휴").showsChevron)
+        #expect(OperationsBanner.change(title: "변경", noticeID: nil).showsChevron)
+    }
+
     @Test func 운휴날_운행_요약은_임시_막차를_보여준다() {
         let ops = OperationsInfo(closure: .init(date: "2026-10-02", title: "운휴", reason: nil, lastBus: "21:40", routeKeys: nil))
         let text = OperationsEvaluator.serviceSummaryOverride(ops: ops, routeKey: route, now: kst(2026, 10, 2, 9), firstBusTime: "06:20", lastBusTime: "23:30")

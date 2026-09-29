@@ -1076,7 +1076,7 @@ final class MainViewModel: ObservableObject {
 
     // MARK: - 운영 상황 (디자인 캔버스 Ops*)
 
-    /// 지금 홈에 띄울 운영 안내 배너 하나 (운휴 > 변경 예고 > 오래됨 > 점검). 없으면 nil.
+    /// 지금 홈에 띄울 안내 배너 하나 (운휴 > 연결 없음 > 변경 예고 > 공휴일 > 오래됨 > 점검). 없으면 nil.
     func operationsBanner(now: Date = Date()) -> OperationsBanner? {
         if let forced = Self.forcedBanner(updatedAt: updatedAtText) { return forced }
         return OperationsEvaluator.banner(
@@ -1084,7 +1084,9 @@ final class MainViewModel: ObservableObject {
             routeKey: selectedDirection.rawValue,
             now: now,
             lastUpdateCheckAt: lastUpdateCheckAt,
-            updatedAt: updatedAtText
+            updatedAt: updatedAtText,
+            isOffline: isOffline,
+            holidays: holidays
         )
     }
 
@@ -1121,6 +1123,8 @@ final class MainViewModel: ObservableObject {
         case "change": return .change(title: "10월 1일부터 시간표가 바뀌어요", noticeID: nil)
         case "stale": return .stale(baselineText: OperationsEvaluator.baselineText(updatedAt))
         case "maintenance": return .maintenance(message: "새 시간표 확인을 잠시 멈췄어요")
+        case "offline": return .offline(baselineText: OperationsEvaluator.baselineText(updatedAt))
+        case "holiday": return .holiday
         default: return nil
         }
     }

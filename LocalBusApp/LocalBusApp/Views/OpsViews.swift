@@ -13,18 +13,39 @@ enum AppStoreLink {
 
 // MARK: - 운행 안내 배너
 
+/// 노선 헤더 아래 배너 하나. 두 줄(운휴·변경 예고·오래됨·점검, 최소 높이 60) 또는 한 줄(연결 없음·공휴일, 높이 44).
+/// 공휴일·점검은 안내만 하고 눌리지 않는다.
 struct OperationsBannerView: View {
     let banner: OperationsBanner
     let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 10) {
-                Image(systemName: banner.systemImage)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(banner.isWarning ? AppTheme.Color.warning : AppTheme.Color.primaryText)
-                    .frame(width: 22)
+        Group {
+            if banner.isInteractive {
+                Button(action: onTap) { content }
+                    .buttonStyle(.plain)
+            } else {
+                content
+            }
+        }
+        .secondarySurface(cornerRadius: 12)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+        .accessibilityAddTraits(banner.isInteractive ? .isButton : [])
+    }
 
+    private var content: some View {
+        HStack(spacing: 10) {
+            icon
+
+            if banner.isCompact {
+                Text(banner.title)
+                    .font(AppTheme.Typography.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            } else {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(banner.title)
                         .font(.system(size: 14, weight: .semibold))
@@ -36,30 +57,58 @@ struct OperationsBannerView: View {
                         .foregroundStyle(AppTheme.Color.secondaryText)
                 }
                 .fixedSize(horizontal: false, vertical: true)
+            }
 
-                Spacer(minLength: 8)
+            Spacer(minLength: 4)
 
+            if banner.actionTitle != nil || banner.showsChevron {
                 HStack(spacing: 2) {
                     if let actionTitle = banner.actionTitle {
                         Text(actionTitle)
                             .font(AppTheme.Typography.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.Color.primaryText)
+                            .fixedSize()
                     }
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(banner.actionTitle == nil ? AppTheme.Color.tertiaryText : AppTheme.Color.primaryText)
+                    if banner.showsChevron {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(AppTheme.Color.secondaryText)
+                    }
                 }
             }
-            .padding(.leading, 14)
-            .padding(.trailing, 10)
-            .padding(.vertical, 10)
-            .frame(minHeight: 60)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .secondarySurface(cornerRadius: 12)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(banner.title), \(banner.subtitle)")
+        .padding(.leading, 14)
+        .padding(.trailing, banner.showsChevron ? 8 : (banner.actionTitle != nil ? 12 : 14))
+        .padding(.vertical, banner.isCompact ? 0 : 10)
+        .frame(minHeight: banner.isCompact ? 44 : 60)
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        switch banner {
+        case .holiday:
+            Circle()
+                .fill(AppTheme.Color.primaryText)
+                .frame(width: 8, height: 8)
+        case .offline:
+            Image(systemName: banner.systemImage)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(AppTheme.Color.secondaryText)
+                .frame(width: 16)
+        case .closure, .change, .stale, .maintenance:
+            Image(systemName: banner.systemImage)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(banner.isWarning ? AppTheme.Color.warning : AppTheme.Color.primaryText)
+                .frame(width: 18)
+        }
+    }
+
+    private var accessibilityText: String {
+        var parts = [banner.title]
+        if !banner.subtitle.isEmpty { parts.append(banner.subtitle) }
+        if let actionTitle = banner.actionTitle { parts.append(actionTitle) }
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -212,6 +261,7 @@ struct RecommendedUpdateSheet: View {
             Button("App Store에서 업데이트", action: onUpdate)
                 .buttonStyle(PrimaryButtonStyle(height: 52))
 
+            // 시트가 하나뿐이므로 공지 다이얼로그와 같은 자리에 겹쳐 뜨지 않는다 — MainView.presentLaunchPrompts 참고
             HStack {
                 Button("이 버전은 다시 묻지 않기", action: onSkipVersion)
                     .font(AppTheme.Typography.rowValue.weight(.semibold))
@@ -255,8 +305,10 @@ struct RecommendedUpdateSheet: View {
     VStack(spacing: 12) {
         OperationsBannerView(banner: .closure(title: "오늘 22:10 이후 버스는 운행하지 않아요", subtitle: "막차 21:40 · 도로 공사"), onTap: {})
         OperationsBannerView(banner: .change(title: "10월 1일부터 시간표가 바뀌어요", noticeID: nil), onTap: {})
+        OperationsBannerView(banner: .holiday, onTap: {})
         OperationsBannerView(banner: .stale(baselineText: "3월 8일"), onTap: {})
         OperationsBannerView(banner: .maintenance(message: "새 시간표 확인을 잠시 멈췄어요"), onTap: {})
+        OperationsBannerView(banner: .offline(baselineText: "3월 8일"), onTap: {})
     }
     .padding(20)
     .background(AppTheme.Color.screenBackground)

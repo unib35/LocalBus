@@ -82,41 +82,54 @@ struct OperationsInfo: Codable, Equatable {
 
 // MARK: - 홈 운영 안내 배너
 
-/// 노선 헤더 아래 한 줄. 한 번에 하나만(운휴 > 변경 예고 > 오래됨 > 점검).
+/// 노선 헤더 아래 한 줄. 한 번에 하나만(운휴 > 연결 없음 > 변경 예고 > 공휴일 > 오래됨 > 점검).
 enum OperationsBanner: Equatable {
     case closure(title: String, subtitle: String)
+    /// 연결이 끊겨 저장된 시간표를 보여주는 중
+    case offline(baselineText: String)
     case change(title: String, noticeID: String?)
+    /// 평일인데 공휴일이라 주말 시간표로 운행
+    case holiday
     case stale(baselineText: String)
     case maintenance(message: String)
 
     var title: String {
         switch self {
         case .closure(let title, _): return title
+        case .offline(let baselineText): return "연결 없음 · \(baselineText) 기준 저장된 시간표를 보여드려요"
         case .change(let title, _): return title
+        case .holiday: return "오늘은 공휴일 · 주말 시간표로 운행해요"
         case .stale: return "\(OperationsEvaluator.staleDays)일 동안 시간표를 확인하지 못했어요"
         case .maintenance(let message): return message
         }
     }
 
+    /// 둘째 줄. 한 줄 배너(연결 없음, 공휴일)는 비어 있다.
     var subtitle: String {
         switch self {
         case .closure(_, let subtitle): return subtitle
         case .change: return "바뀌는 시각 미리 보기"
         case .stale(let baselineText): return "\(baselineText) 기준 · 바뀌었을 수 있어요"
         case .maintenance: return "저장된 시간표는 그대로 볼 수 있어요"
+        case .offline, .holiday: return ""
         }
     }
 
-    /// 오른쪽 글자 버튼. nil이면 chevron만.
+    /// 오른쪽 글자 버튼
     var actionTitle: String? {
-        if case .stale = self { return "새로고침" }
-        return nil
+        switch self {
+        case .stale: return "새로고침"
+        case .offline: return "다시 시도"
+        case .closure, .change, .holiday, .maintenance: return nil
+        }
     }
 
     var systemImage: String {
         switch self {
-        case .closure: return "exclamationmark.triangle.fill"
+        case .closure: return "exclamationmark.triangle"
+        case .offline: return "wifi.slash"
         case .change: return "calendar"
+        case .holiday: return "circle.fill"
         case .stale: return "clock"
         case .maintenance: return "wrench.and.screwdriver"
         }
@@ -126,7 +139,31 @@ enum OperationsBanner: Equatable {
     var isWarning: Bool {
         switch self {
         case .closure, .stale: return true
-        case .change, .maintenance: return false
+        case .offline, .change, .holiday, .maintenance: return false
+        }
+    }
+
+    /// 높이 44 한 줄 배너 (연결 없음, 공휴일). 나머지는 제목 + 설명 두 줄.
+    var isCompact: Bool {
+        switch self {
+        case .offline, .holiday: return true
+        case .closure, .change, .stale, .maintenance: return false
+        }
+    }
+
+    /// 눌러서 이동하거나 동작하는 배너. 공휴일·점검은 안내만 한다.
+    var isInteractive: Bool {
+        switch self {
+        case .closure, .offline, .change, .stale: return true
+        case .holiday, .maintenance: return false
+        }
+    }
+
+    /// 다른 화면으로 이동하는 배너에만 chevron
+    var showsChevron: Bool {
+        switch self {
+        case .closure, .change: return true
+        case .offline, .holiday, .stale, .maintenance: return false
         }
     }
 }
@@ -158,7 +195,9 @@ enum OperationsEvaluator {
         routeKey: String,
         now: Date,
         lastUpdateCheckAt: Date?,
-        updatedAt: String
+        updatedAt: String,
+        isOffline: Bool = false,
+        holidays: [String] = []
     ) -> OperationsBanner? {
         let today = dayKey(now)
 
@@ -169,8 +208,16 @@ enum OperationsEvaluator {
             return .closure(title: closure.title, subtitle: parts.isEmpty ? "임시 운휴" : parts.joined(separator: " · "))
         }
 
+        if isOffline {
+            return .offline(baselineText: baselineText(updatedAt))
+        }
+
         if let change = ops?.change, today <= change.effectiveDate {
             return .change(title: change.title, noticeID: change.noticeID)
+        }
+
+        if DateService.isWeekday(now), holidays.contains(today) {
+            return .holiday
         }
 
         if isStale(lastUpdateCheckAt: lastUpdateCheckAt, now: now) {
