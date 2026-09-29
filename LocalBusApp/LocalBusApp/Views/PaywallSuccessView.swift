@@ -59,17 +59,18 @@ struct PaywallSuccessView: View {
                     .accessibilityLabel("닫기")
                 }
                 .frame(height: 44)
-                .padding(.trailing, -8)
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 40, weight: .semibold))
-                        .foregroundStyle(AppTheme.Color.accent)
+                    DoneMark()
+                        .stroke(AppTheme.Color.accent, style: StrokeStyle(lineWidth: 3.6, lineCap: .round, lineJoin: .round))
+                        .frame(width: 48, height: 48)
+                        .accessibilityHidden(true)
                     Text("Pro를 시작했어요")
                         .font(.system(size: 28, weight: .heavy))
+                        .tracking(-0.5)
                         .foregroundStyle(AppTheme.Color.primaryText)
                     Text("이제 위젯만 추가하면 돼요. 1분이면 끝나요.")
-                        .font(AppTheme.Typography.rowValue)
+                        .font(.system(size: 15))
                         .foregroundStyle(AppTheme.Color.secondaryText)
                 }
                 .padding(.top, 12)
@@ -108,6 +109,22 @@ struct PaywallSuccessView: View {
         }
         .presentationDragIndicator(.hidden)
         .interactiveDismissDisabled(false)
+    }
+}
+
+/// 완료 표시 — 외곽선 원 안의 체크. 48pt 칸 안에 지름 36 원.
+private struct DoneMark: Shape {
+    func path(in rect: CGRect) -> Path {
+        let unit = min(rect.width, rect.height) / 24
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * unit, y: rect.minY + y * unit)
+        }
+        var path = Path()
+        path.addEllipse(in: CGRect(x: rect.minX + 3 * unit, y: rect.minY + 3 * unit, width: 18 * unit, height: 18 * unit))
+        path.move(to: point(8, 12.5))
+        path.addLine(to: point(10.7, 15.2))
+        path.addLine(to: point(16, 9.5))
+        return path
     }
 }
 

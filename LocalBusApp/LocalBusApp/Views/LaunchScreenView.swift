@@ -36,6 +36,9 @@ struct LaunchScreenView: View {
                     .padding(.top, 8)
             }
             .padding(.bottom, 60)
+            // 캔버스는 안전 영역이 아니라 화면 전체를 기준으로 가운데와 바닥을 잡는다
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea()
             .accessibilityElement(children: .combine)
             .accessibilityLabel("장유사상버스, 장유 율하 사상 시외버스 시간표")
 
@@ -60,6 +63,7 @@ struct LaunchScreenView: View {
                     .foregroundStyle(Color(white: 0.478))
             }
             .padding(.bottom, 64)
+            .ignoresSafeArea()
         }
         .onAppear {
             withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: false)) {
