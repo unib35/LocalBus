@@ -34,16 +34,15 @@ final class LocalBusAppUITests: XCTestCase {
 
     // MARK: - 헬퍼
 
-    /// 홈 히어로가 그려질 때까지 기다린다 (운행 중이면 "다음 버스", 아니면 "오늘 운행 종료").
+    /// 홈 히어로가 그려질 때까지 기다린다.
+    /// 히어로는 하나의 버튼이고 라벨이 "다음 버스 …" 또는 "오늘 운행 종료 · 내일 첫차 …"로 시작한다.
     @discardableResult
     private func waitForHome(timeout: TimeInterval = 10) -> Bool {
-        let nextBus = app.staticTexts["다음 버스"]
-        let ended = app.staticTexts["오늘 운행 종료"]
-        let beforeFirst = app.staticTexts["오늘 운행 시작 전"]
-        let longGap = app.staticTexts["지금은 운행 간격이 길어요"]
+        let nextBus = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "다음 버스")).firstMatch
+        let ended = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "오늘 운행 종료")).firstMatch
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if nextBus.exists || ended.exists || beforeFirst.exists || longGap.exists { return true }
+            if nextBus.exists || ended.exists { return true }
             app.tap() // 인터럽션 모니터 트리거
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }

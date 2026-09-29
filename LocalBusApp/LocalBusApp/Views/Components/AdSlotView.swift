@@ -27,7 +27,12 @@ struct AdSlotView: View {
     var isSuppressed: Bool = false
     var onProTap: (() -> Void)? = nil
 
-    private var isVisible: Bool { AdsConfig.isEnabled && !isPro && !isSuppressed }
+    private var isVisible: Bool { Self.isVisible(isPro: isPro, isSuppressed: isSuppressed) }
+
+    /// 광고 자리가 실제로 그려지는지. 홈은 광고가 보이면 이어지는 버스를 3대로 줄인다.
+    static func isVisible(isPro: Bool, isSuppressed: Bool) -> Bool {
+        AdsConfig.isEnabled && !isPro && !isSuppressed
+    }
 
     var body: some View {
         if isVisible {

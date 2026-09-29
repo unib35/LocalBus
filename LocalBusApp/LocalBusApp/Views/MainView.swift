@@ -45,15 +45,19 @@ struct MainView: View {
     @State private var selectedTab: MainTab = .home
     @State private var showPaywall = false
     @State private var showAlertsHub = false
+    @State private var showNoticeList = false
     @State private var homeBusDetail: BusDetailInfo?
     // 운영 상황 (디자인 캔버스 Ops*)
     @State private var showRecommendedUpdate = false
     @State private var showRequiredUpdate = false
     @State private var showContactFromError = false
-    @State private var hasCheckedUpdate = false
+    @State private var hasPresentedLaunchPrompts = false
+    @State private var hasShownRecommendedUpdate = false
     @State private var importantNotice: NoticeItem?
     @State private var noticeToOpen: NoticeItem?
-    @State private var hasCheckedImportantNotice = false
+    @Environment(\.scenePhase) private var scenePhase
+    /// 홈을 오래 켜 둔 동안 만료된 교통값을 다시 받는 주기
+    private let trafficTick = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     @ObservedObject private var notificationHistory = NotificationHistoryStore.shared
     @EnvironmentObject private var storeService: StoreService
     @State private var stopsSheetPresentationToken = 0
@@ -67,7 +71,62 @@ struct MainView: View {
         AppColorScheme(rawValue: colorSchemeRaw)?.colorScheme
     }
 
+    /// 보여줄 시간표가 하나도 없을 때만. 다시 불러오는 동안에도 화면을 유지한다.
+    private var loadFailureMessage: String? {
+        if let message = viewModel.errorMessage { return message }
+        if !viewModel.isLoading, UserDefaults.standard.bool(forKey: "forceLoadFailed") {
+            return "시간표를 불러올 수 없습니다."
+        }
+        return nil
+    }
+
     var body: some View {
+        Group {
+            if let loadFailureMessage {
+                // 불러오기 실패는 탭 바 없는 전체 화면 (디자인 캔버스 OpsLoadFailed)
+                ErrorView(
+                    message: loadFailureMessage,
+                    hasSavedTimetable: !viewModel.weekdayTimes.isEmpty || !viewModel.weekendTimes.isEmpty,
+                    onRetry: { Task { await viewModel.refresh() } },
+                    onContact: { showContactFromError = true }
+                )
+                .sheet(isPresented: $showContactFromError) {
+                    NavigationStack { ContactView() }
+                }
+            } else {
+                tabs
+            }
+        }
+        .preferredColorScheme(preferredColorScheme)
+        .task {
+            await viewModel.onAppear()
+        }
+        .onChange(of: scenePhase) { phase in
+            guard phase == .active else { return }
+            Task { await viewModel.refreshTrafficIfExpired() }
+        }
+        .onReceive(trafficTick) { _ in
+            guard scenePhase == .active else { return }
+            Task { await viewModel.refreshTrafficIfExpired() }
+        }
+        .onChange(of: viewModel.isLoading) { isLoading in
+            guard !isLoading else { return }
+            evaluateRequiredUpdate()
+            guard !hasPresentedLaunchPrompts else { return }
+            hasPresentedLaunchPrompts = true
+            // 스플래시가 닫힌 뒤에 띄운다.
+            DispatchQueue.main.asyncAfter(deadline: .now() + LaunchTiming.maximumDuration) {
+                presentLaunchPrompts()
+            }
+        }
+        .onChange(of: viewModel.ops) { _ in
+            // 시간표를 새로 받을 때마다 최소·권장 버전을 다시 본다.
+            evaluateRequiredUpdate()
+            if hasPresentedLaunchPrompts { presentRecommendedUpdateIfNeeded() }
+        }
+    }
+
+    private var tabs: some View {
         TabView(selection: $selectedTab) {
             homeTab
                 .tabItem { Label("홈", systemImage: "house") }
@@ -99,10 +158,6 @@ struct MainView: View {
                 stopsSheetPresentationToken += 1
             }
         )
-        .preferredColorScheme(preferredColorScheme)
-        .task {
-            await viewModel.onAppear()
-        }
         .onChange(of: selectedTab) { newValue in
             guard isStopsTabEnabled, newValue == .stops else { return }
             stopsSheetPresentationToken += 1
@@ -111,6 +166,27 @@ struct MainView: View {
         .sheet(isPresented: $showPaywall) {
             PaywallView()
                 .environmentObject(storeService)
+        }
+        .fullScreenCover(isPresented: $showRequiredUpdate) {
+            if case .required(let version) = viewModel.updateRequirement {
+                RequiredUpdateView(
+                    currentVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
+                    requiredVersion: version
+                )
+                .preferredColorScheme(preferredColorScheme)
+            }
+        }
+        .sheet(isPresented: $showRecommendedUpdate) {
+            if case .recommended(let version) = viewModel.updateRequirement {
+                RecommendedUpdateSheet(
+                    version: version,
+                    message: viewModel.updateMessage,
+                    onUpdate: { UIApplication.shared.open(AppStoreLink.url) },
+                    onSkipVersion: { RecommendedUpdateSheet.skip(version: version); showRecommendedUpdate = false },
+                    onLater: { showRecommendedUpdate = false }
+                )
+                .preferredColorScheme(preferredColorScheme)
+            }
         }
         .alert("알림 권한이 필요합니다", isPresented: $showNotificationDeniedAlert) {
             Button("설정으로 이동") {
@@ -127,27 +203,22 @@ struct MainView: View {
 
     private var homeTab: some View {
         NavigationStack {
-            Group {
-                if let errorMessage = viewModel.errorMessage ?? (UserDefaults.standard.bool(forKey: "forceLoadFailed") ? "시간표를 불러올 수 없습니다." : nil), !viewModel.isLoading {
-                    ErrorView(
-                        message: errorMessage,
-                        onRetry: { Task { await viewModel.refresh() } },
-                        onContact: { showContactFromError = true }
+            mainContent
+                .background(AmbientBackground())
+                .toolbar(.hidden, for: .navigationBar)
+                // 탭 바 위에 뜨도록 탭 안쪽에 붙인다
+                .toast(item: $notificationToast)
+                .navigationDestination(isPresented: $showAlertsHub) {
+                    AlertsHubView(
+                        viewModel: viewModel,
+                        onShowTimetable: { showAlertsHub = false; selectedTab = .timetable }
                     )
-                } else {
-                    mainContent
                 }
-            }
-            .background(AmbientBackground())
-            .toolbar(.hidden, for: .navigationBar)
-            // 탭 바 위에 뜨도록 탭 안쪽에 붙인다
-            .toast(item: $notificationToast)
-            .navigationDestination(isPresented: $showAlertsHub) {
-                AlertsHubView(
-                    viewModel: viewModel,
-                    onShowTimetable: { showAlertsHub = false; selectedTab = .timetable }
-                )
-            }
+                .navigationDestination(isPresented: $showNoticeList) {
+                    NoticeListView(notices: viewModel.notices) { notice in
+                        viewModel.markNoticeRead(notice.id)
+                    }
+                }
         }
         .sheet(item: $homeBusDetail) { info in
             BusDetailView(
@@ -197,54 +268,42 @@ struct MainView: View {
                     }
             }
         }
-        .fullScreenCover(isPresented: $showRequiredUpdate) {
-            if case .required(let version) = viewModel.updateRequirement {
-                RequiredUpdateView(
-                    currentVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
-                    requiredVersion: version
-                )
-            }
+    }
+
+    // MARK: - 앱을 열자마자 뜨는 안내 (한 번에 하나)
+
+    /// 필수 업데이트는 다른 안내보다 먼저, 닫을 수 없는 전체 화면으로.
+    private func evaluateRequiredUpdate() {
+        if case .required = viewModel.updateRequirement {
+            importantNotice = nil
+            showRecommendedUpdate = false
+            showRequiredUpdate = true
+        } else {
+            showRequiredUpdate = false
         }
-        .sheet(isPresented: $showRecommendedUpdate) {
-            if case .recommended(let version) = viewModel.updateRequirement {
-                RecommendedUpdateSheet(
-                    version: version,
-                    message: viewModel.updateMessage,
-                    onUpdate: { UIApplication.shared.open(AppStoreLink.url) },
-                    onSkipVersion: { RecommendedUpdateSheet.skip(version: version); showRecommendedUpdate = false },
-                    onLater: { showRecommendedUpdate = false }
-                )
-            }
+    }
+
+    /// 중요 공지(임시 운휴·시간표 변경)가 업데이트 권장보다 급하다. 둘 다 아래쪽 시트라 함께 띄우지 않는다.
+    private func presentLaunchPrompts() {
+        guard !showRequiredUpdate else { return }
+        if UserDefaults.standard.bool(forKey: "forceNoticeDialog"), let first = viewModel.notices.first {
+            importantNotice = first
+            return
         }
-        .sheet(isPresented: $showContactFromError) {
-            NavigationStack { ContactView() }
+        if let notice = viewModel.importantNoticeToShow() {
+            importantNotice = notice
+            return
         }
-        .onChange(of: viewModel.isLoading) { isLoading in
-            guard !isLoading, !hasCheckedUpdate else { return }
-            hasCheckedUpdate = true
-            switch viewModel.updateRequirement {
-            case .required:
-                showRequiredUpdate = true
-            case .recommended(let version) where !RecommendedUpdateSheet.isSkipped(version: version):
-                DispatchQueue.main.asyncAfter(deadline: .now() + LaunchTiming.maximumDuration) {
-                    if importantNotice == nil { showRecommendedUpdate = true }
-                }
-            default:
-                break
-            }
-        }
-        .onChange(of: viewModel.isLoading) { isLoading in
-            guard !isLoading, !hasCheckedImportantNotice else { return }
-            hasCheckedImportantNotice = true
-            // 스플래시가 닫힌 뒤에 띄운다.
-            DispatchQueue.main.asyncAfter(deadline: .now() + LaunchTiming.maximumDuration) {
-                if UserDefaults.standard.bool(forKey: "forceNoticeDialog"), let first = viewModel.notices.first {
-                    importantNotice = first
-                } else {
-                    importantNotice = viewModel.importantNoticeToShow()
-                }
-            }
-        }
+        presentRecommendedUpdateIfNeeded()
+    }
+
+    private func presentRecommendedUpdateIfNeeded() {
+        guard !hasShownRecommendedUpdate, !showRequiredUpdate,
+              importantNotice == nil, noticeToOpen == nil, homeBusDetail == nil, !showPaywall,
+              case .recommended(let version) = viewModel.updateRequirement,
+              !RecommendedUpdateSheet.isSkipped(version: version) else { return }
+        hasShownRecommendedUpdate = true
+        showRecommendedUpdate = true
     }
 
     /// 홈 상단 오른쪽 종. 읽지 않은 알림이 있을 때만 강조색 점.
@@ -254,7 +313,7 @@ struct MainView: View {
         } label: {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "bell")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(AppTheme.Color.primaryText)
                     .frame(width: 44, height: 44)
                 if notificationHistory.unreadCount > 0 {
@@ -285,7 +344,8 @@ struct MainView: View {
     }
 
     private var mainContentStack: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        // 간격은 디자인 캔버스 HomeUnified: 헤더 → 배너 12 → 히어로 16 → 목록 20 → 한 줄 안내 12 → 광고 12
+        VStack(alignment: .leading, spacing: 0) {
             RouteHeaderView(
                 direction: viewModel.selectedDirection,
                 contextText: viewModel.scheduleContextText(),
@@ -298,84 +358,79 @@ struct MainView: View {
                 }
             )
 
-            if let banner = viewModel.operationsBanner() {
+            // 배너는 한 번에 하나만 (운휴 > 연결 없음 > 변경 예고 > 공휴일 > 오래됨 > 점검)
+            if let banner = homeBanner {
                 OperationsBannerView(banner: banner) { handleBannerTap(banner) }
-            }
-
-            if viewModel.isOffline {
-                InlineBanner(
-                    systemImage: "wifi.slash",
-                    message: "연결 없음 · \(viewModel.updatedAtText) 기준 저장된 시간표를 보여드려요",
-                    actionTitle: "다시 시도",
-                    action: { Task { await viewModel.refresh() } }
-                )
+                    .padding(.top, 12)
             }
 
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let snapshot = viewModel.makeTimingSnapshot(at: context.date)
 
                 let isTomorrowList = isShowingTomorrow(snapshot)
-                VStack(alignment: .leading, spacing: 22) {
-                    heroSection(using: snapshot)
+                VStack(alignment: .leading, spacing: 20) {
+                    heroSection(using: snapshot, at: context.date)
 
                     UpcomingBusListView(
                         title: isTomorrowList ? "내일 아침 버스" : "이어지는 버스",
-                        footer: isTomorrowList ? viewModel.tomorrowContextText(at: context.date) : nil,
+                        footer: footerText(isTomorrow: isTomorrowList, at: context.date),
                         buses: followingBuses(in: snapshot),
                         isVia: { viewModel.isViaBus(for: $0) },
                         alertTime: { viewModel.alert(for: $0).flatMap { $0.isEnabled ? $0.alertTime : nil } },
-                        onSelect: isTomorrowList ? nil : { openBusDetail(for: $0) },
+                        onSelect: { openBusDetail(for: $0) },
                         onShowTimetable: { selectedTab = .timetable }
                     )
                 }
             }
+            .padding(.top, 16)
 
-            if viewModel.hasRoutes {
-                Text(viewModel.serviceSummaryText)
-                    .font(AppTheme.Typography.footnote)
-                    .monospacedDigit()
-                    .foregroundStyle(AppTheme.Color.secondaryText)
-                    .padding(.horizontal, 2)
-            }
-
-            AdSlotView(placement: .homeBottom, isPro: storeService.isPro, onProTap: { showPaywall = true })
-
-            if viewModel.hasNotice, let noticeMessage = viewModel.noticeMessage {
-                DashboardNoticeCard(
-                    title: "운행 일정 조정 안내",
-                    message: noticeMessage,
-                    systemImage: "info.circle.fill"
-                )
-            }
+            AdSlotView(
+                placement: .homeBottom,
+                isPro: storeService.isPro,
+                isSuppressed: homeBanner != nil,
+                onProTap: { showPaywall = true }
+            )
+            .padding(.top, 12)
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .padding(.bottom, 28)
     }
 
-    /// 오늘 운행이 끝나 히어로가 내일 첫차를 보여주는 상태
-    private func isShowingTomorrow(_ snapshot: BusTimingSnapshot) -> Bool {
-        !viewModel.isLoading && snapshot.isServiceEnded && snapshot.nextBusTime == nil
+    private var homeBanner: OperationsBanner? {
+        viewModel.isLoading ? nil : viewModel.operationsBanner()
     }
 
-    /// 운영 안내 배너가 뜨면 이어지는 버스는 4대 → 3대 (히어로는 가리지 않음)
+    /// 오늘 운행이 끝나 히어로가 내일 첫차를 보여주는 상태
+    private func isShowingTomorrow(_ snapshot: BusTimingSnapshot) -> Bool {
+        !viewModel.isLoading && snapshot.isServiceEnded
+    }
+
+    /// 목록 아래 한 줄. 운행 종료 뒤에는 첫차·막차 대신 내일 적용될 시간표를 알린다.
+    private func footerText(isTomorrow: Bool, at date: Date) -> String? {
+        if isTomorrow { return viewModel.tomorrowContextText(at: date) }
+        return viewModel.hasRoutes ? viewModel.serviceSummaryText : nil
+    }
+
+    /// 배너나 광고가 뜨면 이어지는 버스는 4대 → 3대 (히어로는 가리지 않음)
     private var upcomingRowLimit: Int {
-        viewModel.operationsBanner() == nil ? 4 : 3
+        let hasBanner = homeBanner != nil
+        let showsAd = AdSlotView.isVisible(isPro: storeService.isPro, isSuppressed: hasBanner)
+        return (hasBanner || showsAd) ? 3 : 4
     }
 
     private func handleBannerTap(_ banner: OperationsBanner) {
         switch banner {
-        case .closure, .maintenance:
-            selectedTab = .settings
-        case .change(_, let noticeID):
-            if let noticeID, let notice = viewModel.notices.first(where: { $0.id == noticeID }) {
-                viewModel.markNoticeRead(noticeID)
-                noticeToOpen = notice
-            } else {
-                selectedTab = .timetable
-            }
+        case .closure:
+            showNoticeList = true
+        case .change:
+            selectedTab = .timetable
         case .stale:
-            Task { _ = await viewModel.checkForTimetableUpdate() }
+            selectedTab = .settings
+        case .offline:
+            Task { await viewModel.refresh() }
+        case .holiday, .maintenance:
+            break
         }
     }
 
@@ -394,41 +449,43 @@ struct MainView: View {
     }
 
     @ViewBuilder
-    private func heroSection(using snapshot: BusTimingSnapshot) -> some View {
+    private func heroSection(using snapshot: BusTimingSnapshot, at date: Date) -> some View {
         if viewModel.isLoading {
             DashboardLoadingCard()
-        } else if snapshot.isServiceEnded {
-            // 오늘 막차가 지났으면 내일 첫차, 아직 오늘 버스가 남았지만 한참 뒤면 그 버스를 주인공으로
-            let busTime = snapshot.nextBusTime ?? snapshot.firstBusTime
-            let isTomorrow = snapshot.nextBusTime == nil
-            let isTodayFirst = !isTomorrow && snapshot.nextBusTime == viewModel.firstBusTime
-            DashboardServiceEndedCard(
-                eyebrow: isTomorrow ? "오늘 운행 종료" : (isTodayFirst ? "오늘 운행 시작 전" : "지금은 운행 간격이 길어요"),
-                remainingText: isTomorrow
-                    ? remainingText(hours: snapshot.hoursUntilFirstBus, minutes: snapshot.minutesUntilFirstBus)
-                    : remainingText(hours: (snapshot.minutesUntilNextBus ?? 0) / 60, minutes: (snapshot.minutesUntilNextBus ?? 0) % 60),
-                busTime: busTime,
-                busLabel: isTomorrow ? "내일 첫차" : (isTodayFirst ? "오늘 첫차" : "다음 버스"),
-                arrivalTime: DateService.timeByAdding(minutes: viewModel.currentDurationMinutes, to: busTime) ?? "--:--",
-                destinationName: viewModel.currentArrivalHubName,
-                durationMinutes: viewModel.currentDurationMinutes,
-                isNotificationEnabled: viewModel.isNotificationScheduled(for: busTime),
-                notificationTitle: isTomorrow ? "내일 첫차 5분 전 알림" : (isTodayFirst ? "첫차 5분 전 알림" : "\(busTime) 버스 5분 전 알림"),
-                alertTime: viewModel.alert(for: busTime)?.alertTime,
-                onNotificationTap: { handleNotificationTap(for: busTime) }
-            )
         } else if let nextBusTime = snapshot.nextBusTime {
+            // 오늘 남은 버스가 있으면 간격이 길어도 항상 같은 히어로
             NextBusHeroCard(
                 departureTime: nextBusTime,
                 arrivalTime: snapshot.nextBusArrivalTime,
                 untilText: untilText(for: snapshot),
                 durationText: snapshot.nextBusDurationText,
                 basis: snapshot.nextBusBasis,
+                awaitsTrafficWindow: snapshot.nextBusAwaitsTrafficWindow,
                 destinationName: viewModel.currentArrivalHubName,
                 isNotificationEnabled: isNextBusNotificationEnabled(for: snapshot),
                 alertTime: viewModel.alert(for: nextBusTime)?.alertTime,
                 onDetail: { openBusDetail(for: nextBusTime) },
                 onNotificationTap: { handleNotificationTap(for: nextBusTime) }
+            )
+        } else if snapshot.isServiceEnded {
+            // 막차가 지나면 구조는 그대로 두고 주인공만 내일 첫차로 (지금 탈 버스가 아니므로 강조색 없음)
+            let busTime = snapshot.firstBusTime
+            let estimate = viewModel.arrivalEstimate(for: busTime, isNextDay: true, at: date)
+            NextBusHeroCard(
+                label: "오늘 운행 종료 · 내일 첫차",
+                departureTime: busTime,
+                arrivalTime: estimate.arrivalTime,
+                untilText: "내일 \(busTime) 출발",
+                isUntilAccent: false,
+                durationText: estimate.durationText,
+                basis: estimate.basis,
+                awaitsTrafficWindow: estimate.awaitsTrafficWindow,
+                destinationName: viewModel.currentArrivalHubName,
+                isNotificationEnabled: viewModel.isNotificationScheduled(for: busTime),
+                alertTime: viewModel.alert(for: busTime)?.alertTime,
+                alertTitle: "내일 첫차 5분 전 알림",
+                onDetail: { openBusDetail(for: busTime) },
+                onNotificationTap: { handleNotificationTap(for: busTime) }
             )
         } else {
             DashboardNoticeCard(
@@ -502,10 +559,6 @@ struct MainView: View {
     private func openBusDetail(for time: String) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         homeBusDetail = viewModel.makeBusDetailInfo(for: time)
-    }
-
-    private func remainingText(hours: Int, minutes: Int) -> String {
-        hours > 0 ? "\(hours)시간 \(minutes)분 후" : "\(minutes)분 후"
     }
 
     private func isNextBusNotificationEnabled(for snapshot: BusTimingSnapshot) -> Bool {

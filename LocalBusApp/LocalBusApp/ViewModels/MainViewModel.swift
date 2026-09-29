@@ -37,6 +37,8 @@ struct BusTimingSnapshot {
     let nextBusArrivalTime: String
     /// 다음 버스 도착 예상의 근거 (교통 반영 / 시간표 기준 …)
     let nextBusBasis: TrafficBasis
+    /// 다음 버스가 아직 출발 1시간 전이 아니라 교통을 반영하지 않은 상태
+    var nextBusAwaitsTrafficWindow: Bool = false
     /// "예상 소요 34분" / "기본 소요 26분"
     let nextBusDurationText: String
     let followingBusTime: String
@@ -370,9 +372,21 @@ final class MainViewModel: ObservableObject {
     /// 교통정보를 새로 받는 중 (기존 예상값은 그대로 보여준다)
     @Published private(set) var isRefreshingTraffic = false
 
-    /// 실제 사용할 소요시간 (실시간 > 고정)
+    /// 마지막으로 교통정보를 요청한 시각 (실패가 이어질 때 매번 다시 요청하지 않도록)
+    private var lastTrafficRequestAt: Date?
+
+    /// 자동 갱신이 실패한 뒤 다시 시도하기까지 기다리는 시간
+    private static let trafficRetryInterval: TimeInterval = 5 * 60
+
+    /// 실제 사용할 소요시간 (실시간 > 고정). 받은 지 오래된 교통값은 쓰지 않는다.
     private var effectiveDurationMinutes: Int {
-        trafficDurationMinutes ?? durationMinutes
+        freshTrafficDuration(minutes: trafficDurationMinutes, updatedAt: trafficUpdatedAt) ?? durationMinutes
+    }
+
+    /// 아직 유효한(캐시 주기 이내) 교통 소요시간. 만료됐거나 없으면 nil.
+    func freshTrafficDuration(minutes: Int?, updatedAt: Date?, now: Date = Date()) -> Int? {
+        guard let minutes, ArrivalEstimator.isTrafficFresh(updatedAt: updatedAt, now: now) else { return nil }
+        return minutes
     }
 
     /// 화면에 보여줄 소요시간 (실시간 교통 반영값)
@@ -430,11 +444,8 @@ final class MainViewModel: ObservableObject {
         let firstBusLeadTime = firstBusLeadTime(at: referenceDate)
         let nextBusEstimate = nextBusTime.map { arrivalEstimate(for: $0, at: referenceDate) }
 
-        let isServiceEnded: Bool = {
-            guard !currentTimes.isEmpty else { return false }
-            guard let minutes = minutesUntilNextBus else { return true }
-            return minutes > 120
-        }()
+        // 오늘 남은 버스가 하나라도 있으면 운행 종료가 아니다 (간격이 길어도 다음 버스를 그대로 보여준다).
+        let isServiceEnded = !currentTimes.isEmpty && nextBusTime == nil
 
         return BusTimingSnapshot(
             nextBusTime: nextBusTime,
@@ -448,6 +459,7 @@ final class MainViewModel: ObservableObject {
             minutesUntilNextBus: minutesUntilNextBus,
             nextBusArrivalTime: nextBusEstimate?.arrivalTime ?? "--:--",
             nextBusBasis: nextBusEstimate?.basis ?? .timetable,
+            nextBusAwaitsTrafficWindow: nextBusEstimate?.awaitsTrafficWindow ?? false,
             nextBusDurationText: nextBusEstimate?.durationText ?? "기본 소요 \(durationMinutes)분",
             followingBusTime: followingBusTime(after: nextBusTime),
             nextBusProgress: nextBusProgress(nextBusTime: nextBusTime, minutesUntilNextBus: minutesUntilNextBus),
@@ -526,6 +538,7 @@ final class MainViewModel: ObservableObject {
         guard let origin = currentRouteOrigin,
               let destination = currentRouteDestination else { return }
         if force { TrafficService.shared.invalidateCache() }
+        lastTrafficRequestAt = Date()
         isRefreshingTraffic = true
         defer { isRefreshingTraffic = false }
         let detail = await TrafficService.shared.fetchDurationDetail(
@@ -540,6 +553,17 @@ final class MainViewModel: ObservableObject {
         }
     }
 
+    /// 교통값이 만료됐고 곧 출발할 버스가 있으면 새로 받는다 (앱을 다시 열었을 때, 홈을 오래 켜 둔 동안).
+    func refreshTrafficIfExpired(now: Date = Date()) async {
+        if let lastTrafficRequestAt, now.timeIntervalSince(lastTrafficRequestAt) < Self.trafficRetryInterval { return }
+        guard !isLoading, !isRefreshingTraffic,
+              !ArrivalEstimator.isTrafficFresh(updatedAt: trafficUpdatedAt, now: now),
+              let nextBusTime = nextBusTime(at: now),
+              let minutes = DateService.minutesUntil(timeString: nextBusTime, from: now),
+              minutes <= ArrivalEstimator.trafficWindowMinutes else { return }
+        await refreshTrafficDuration()
+    }
+
     /// 특정 버스의 도착 예상. 출발 1시간 이내면 교통을 반영하고 그 밖에는 기본 소요시간.
     func arrivalEstimate(for busTime: String, isNextDay: Bool = false, at date: Date = Date()) -> ArrivalEstimate {
         let minutesUntil = isNextDay ? nil : DateService.minutesUntil(timeString: busTime, from: date)
@@ -550,7 +574,8 @@ final class MainViewModel: ObservableObject {
             trafficDurationMinutes: trafficDurationMinutes,
             trafficUpdatedAt: trafficUpdatedAt,
             isRefreshing: isRefreshingTraffic,
-            isOffline: isOffline
+            isOffline: isOffline,
+            now: date
         )
     }
 
@@ -931,6 +956,8 @@ final class MainViewModel: ObservableObject {
         if let url = remoteURL {
             do {
                 let remoteData: TimetableData = try await networkService.fetch(from: url)
+                // 앱을 열 때 자동으로 받아 온 것도 "확인"이다. 수동 새로고침 때만 기록하면 오래됨 배너가 잘못 뜬다.
+                markUpdateChecked()
                 if let cached = timetableService.loadCachedData(), cached.meta.updatedAt != remoteData.meta.updatedAt {
                     recordTimetableUpdate(to: remoteData.meta.updatedAt, changes: TimetableDiff.changes(old: cached, new: remoteData))
                 }
@@ -1002,8 +1029,7 @@ final class MainViewModel: ObservableObject {
         }
     }
 
-    private func markUpdateChecked() {
-        let now = Date()
+    func markUpdateChecked(at now: Date = Date()) {
         lastUpdateCheckAt = now
         UserDefaults.standard.set(now, forKey: "lastUpdateCheckAt")
     }
@@ -1085,7 +1111,7 @@ final class MainViewModel: ObservableObject {
 
     // MARK: - 운영 상황 (디자인 캔버스 Ops*)
 
-    /// 지금 홈에 띄울 운영 안내 배너 하나 (운휴 > 변경 예고 > 오래됨 > 점검). 없으면 nil.
+    /// 지금 홈에 띄울 안내 배너 하나 (운휴 > 연결 없음 > 변경 예고 > 공휴일 > 오래됨 > 점검). 없으면 nil.
     func operationsBanner(now: Date = Date()) -> OperationsBanner? {
         if let forced = Self.forcedBanner(updatedAt: updatedAtText) { return forced }
         return OperationsEvaluator.banner(
@@ -1093,7 +1119,9 @@ final class MainViewModel: ObservableObject {
             routeKey: selectedDirection.rawValue,
             now: now,
             lastUpdateCheckAt: lastUpdateCheckAt,
-            updatedAt: updatedAtText
+            updatedAt: updatedAtText,
+            isOffline: isOffline,
+            holidays: holidays
         )
     }
 
@@ -1130,6 +1158,8 @@ final class MainViewModel: ObservableObject {
         case "change": return .change(title: "10월 1일부터 시간표가 바뀌어요", noticeID: nil)
         case "stale": return .stale(baselineText: OperationsEvaluator.baselineText(updatedAt))
         case "maintenance": return .maintenance(message: "새 시간표 확인을 잠시 멈췄어요")
+        case "offline": return .offline(baselineText: OperationsEvaluator.baselineText(updatedAt))
+        case "holiday": return .holiday
         default: return nil
         }
     }
