@@ -162,14 +162,13 @@ struct NoticeDetailView: View {
     private func scheduleRow(_ row: NoticeTimetableRow) -> some View {
         HStack(spacing: 0) {
             HStack(spacing: 8) {
+                // 강조색은 "지금 탈 버스"에만 쓴다. 바뀐 시각은 라벨로 알린다.
                 Text(row.departure)
                     .font(AppTheme.Typography.rowTime)
                     .monospacedDigit()
-                    .foregroundStyle(row.isNew ? AppTheme.Color.accent : AppTheme.Color.primaryText)
+                    .foregroundStyle(AppTheme.Color.primaryText)
                 if row.isNew {
-                    Text("변경")
-                        .font(AppTheme.Typography.footnote.weight(.bold))
-                        .foregroundStyle(AppTheme.Color.accent)
+                    LabelChip(text: "변경")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
