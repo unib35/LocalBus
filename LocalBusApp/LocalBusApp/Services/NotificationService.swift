@@ -45,8 +45,8 @@ final class NotificationService {
         }
 
         let content = UNMutableNotificationContent()
-        content.title = "버스 출발 알림"
-        content.body = "\(direction) \(busTime) 버스가 \(minutesBefore)분 후 출발합니다"
+        content.title = NotificationCopy.busTitle(busTime: busTime, leadMinutes: minutesBefore)
+        content.body = direction
         content.sound = .default
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
@@ -64,13 +64,26 @@ final class NotificationService {
     private let alertPrefix = "alert_"
 
     /// 알림 하나를 (다시) 예약한다. 반복 알림은 공휴일을 뺀 다음 평일들에 하나씩 건다.
-    func schedule(_ alert: BusAlert, holidays: [String], now: Date = Date()) {
+    /// - Parameters:
+    ///   - platformNumber: 탑승홈 ("20번 홈"). 있으면 본문에 정류장 이름 대신 쓴다.
+    ///   - boardingStopName: 타는 정류장 이름
+    func schedule(
+        _ alert: BusAlert,
+        holidays: [String],
+        platformNumber: String? = nil,
+        boardingStopName: String? = nil,
+        now: Date = Date()
+    ) {
         cancel(alertID: alert.id)
         guard alert.isEnabled else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "버스 출발 알림"
-        content.body = "\(alert.direction.displayName) \(alert.busTime) 버스가 \(alert.leadMinutes)분 후 출발합니다"
+        content.title = NotificationCopy.busTitle(busTime: alert.busTime, leadMinutes: alert.leadMinutes)
+        content.body = NotificationCopy.busBody(
+            direction: alert.direction,
+            platformNumber: platformNumber,
+            boardingStopName: boardingStopName
+        )
         content.sound = .default
 
         var calendar = Calendar(identifier: .gregorian)
@@ -80,7 +93,7 @@ final class NotificationService {
             let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
             let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
             let request = UNNotificationRequest(
-                identifier: "\(alertPrefix)\(alert.id)_\(index)",
+                identifier: Self.requestIdentifier(alertID: alert.id, index: index),
                 content: content,
                 trigger: trigger
             )
@@ -89,13 +102,20 @@ final class NotificationService {
     }
 
     /// 알림 하나의 예약을 모두 지운다.
+    /// 예약 목록을 조회한 뒤 지우면 그 사이에 새로 건 예약까지 지워지므로, 가능한 식별자를 바로 지운다.
     func cancel(alertID: String) {
-        let center = UNUserNotificationCenter.current()
-        let prefix = "\(alertPrefix)\(alertID)_"
-        center.getPendingNotificationRequests { requests in
-            let ids = requests.map(\.identifier).filter { $0.hasPrefix(prefix) }
-            if !ids.isEmpty { center.removePendingNotificationRequests(withIdentifiers: ids) }
-        }
+        UNUserNotificationCenter.current().removePendingNotificationRequests(
+            withIdentifiers: Self.requestIdentifiers(alertID: alertID)
+        )
+    }
+
+    /// 알림 하나가 가질 수 있는 예약 식별자 전부 (반복 알림은 다음 평일 10일치)
+    static func requestIdentifiers(alertID: String) -> [String] {
+        (0..<BusAlertScheduler.maxFireDates).map { requestIdentifier(alertID: alertID, index: $0) }
+    }
+
+    static func requestIdentifier(alertID: String, index: Int) -> String {
+        "alert_\(alertID)_\(index)"
     }
 
     /// 아직 예약이 남아 있는 알림 id 집합. 예전 방식(bus_ 접두사) 예약은 정리한다.
@@ -124,27 +144,23 @@ final class NotificationService {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
 
-    /// 막차 30분 전 매일 반복 알림 예약
-    func scheduleLastBusNotification(lastBusTime: String, direction: String) {
-        let components = lastBusTime.split(separator: ":")
-        guard components.count == 2,
-              let hour = Int(components[0]),
-              let minute = Int(components[1]) else { return }
-
-        var notifyMinute = minute - 30
-        var notifyHour = hour
-        if notifyMinute < 0 {
-            notifyHour -= 1
-            notifyMinute += 60
-        }
+    /// 막차 30분 전 매일 반복 알림 예약. 알림 모아보기가 같은 내용을 기록할 수 있게 정보를 저장해 둔다.
+    func scheduleLastBusNotification(_ info: LastBusAlertInfo) {
+        // 자정을 넘는 막차(00:10)는 전날 23:40에 울린다
+        let parts = info.alertTime.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return }
 
         var dateComponents = DateComponents()
-        dateComponents.hour = notifyHour
-        dateComponents.minute = notifyMinute
+        dateComponents.hour = parts[0]
+        dateComponents.minute = parts[1]
 
         let content = UNMutableNotificationContent()
-        content.title = "막차 알림"
-        content.body = "\(direction) 막차(\(lastBusTime))가 30분 후 출발합니다"
+        content.title = NotificationCopy.lastBusTitle
+        content.body = NotificationCopy.lastBusBody(direction: info.direction, busTime: info.busTime, nightFare: info.nightFare)
+        content.userInfo = [
+            LastBusAlertInfo.userInfoDirectionKey: info.direction.rawValue,
+            LastBusAlertInfo.userInfoBusTimeKey: info.busTime
+        ]
         content.sound = .default
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
@@ -155,6 +171,13 @@ final class NotificationService {
         )
 
         UNUserNotificationCenter.current().add(request)
+        info.save()
+    }
+
+    /// 막차 알림이 예약돼 있는지
+    func hasPendingLastBusNotification() async -> Bool {
+        let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
+        return requests.contains { $0.identifier == lastBusNotificationIdentifier }
     }
 
     /// 막차 알림 취소
@@ -162,6 +185,7 @@ final class NotificationService {
         UNUserNotificationCenter.current().removePendingNotificationRequests(
             withIdentifiers: [lastBusNotificationIdentifier]
         )
+        LastBusAlertInfo.clear()
     }
 
     /// 예약된 알림이 있는지 확인

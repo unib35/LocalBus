@@ -43,7 +43,10 @@ struct BusAlert: Codable, Equatable, Identifiable {
 /// 알림이 실제로 울릴 날짜·시각을 계산한다.
 /// 반복 알림은 다음 평일들(공휴일 제외)에 하나씩 예약해서 공휴일에는 울리지 않게 한다.
 enum BusAlertScheduler {
-    static func fireDates(for alert: BusAlert, from now: Date, holidays: [String], count: Int = 10) -> [Date] {
+    /// 알림 하나에 거는 예약의 최대 개수
+    static let maxFireDates = 10
+
+    static func fireDates(for alert: BusAlert, from now: Date, holidays: [String], count: Int = maxFireDates) -> [Date] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
 

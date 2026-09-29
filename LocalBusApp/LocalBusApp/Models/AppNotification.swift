@@ -20,13 +20,118 @@ enum AppNotificationKind: String, Codable, CaseIterable {
         }
     }
 
+    /// 외곽선 아이콘. 막차도 버스 알림의 한 종류라 같은 버스 아이콘을 쓴다.
     var systemImage: String {
         switch self {
-        case .bus: return "bus.fill"
-        case .lastBus: return "moon.fill"
-        case .notice: return "megaphone.fill"
+        case .bus, .lastBus: return "bus"
+        case .notice: return "megaphone"
         case .timetable: return "calendar"
         }
+    }
+}
+
+// MARK: - 알림 문구
+//
+// 시스템 알림과 앱 안 기록(알림 모아보기)이 같은 문구를 쓰도록 한곳에서 만든다.
+
+enum NotificationCopy {
+    /// "07:50 버스가 5분 후 출발해요"
+    static func busTitle(busTime: String, leadMinutes: Int) -> String {
+        "\(busTime) 버스가 \(leadMinutes)분 후 출발해요"
+    }
+
+    /// "장유 → 사상 · 갑을장유병원정류소 승차" / "사상 → 장유 · 20번 홈 승차"
+    static func busBody(direction: RouteDirection, platformNumber: String?, boardingStopName: String?) -> String {
+        let boarding = [platformNumber, boardingStopName]
+            .compactMap { $0?.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty }
+        guard let boarding else { return direction.displayName }
+        return "\(direction.displayName) · \(boarding) 승차"
+    }
+
+    static let lastBusTitle = "막차가 \(LastBusAlertInfo.leadMinutes)분 후 출발해요"
+
+    /// "장유 → 사상 23:30 · 심야 요금 3,000원"
+    static func lastBusBody(direction: RouteDirection, busTime: String, nightFare: Int?) -> String {
+        let head = "\(direction.displayName) \(busTime)"
+        guard let nightFare else { return head }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = Locale(identifier: "ko_KR")
+        let fare = formatter.string(from: NSNumber(value: nightFare)) ?? "\(nightFare)"
+        return "\(head) · 심야 요금 \(fare)원"
+    }
+}
+
+// MARK: - 막차 알림 정보
+//
+// 막차 알림은 매일 반복되는 시스템 알림 하나라, 앱을 열지 않은 날의 기록을 만들려면
+// 어느 방향·몇 시 막차로 예약했는지 따로 기억해야 한다.
+
+struct LastBusAlertInfo: Codable, Equatable {
+    static let key = "lastBusAlertInfo"
+    static let leadMinutes = 30
+    static let userInfoDirectionKey = "direction"
+    static let userInfoBusTimeKey = "bus_time"
+
+    let direction: RouteDirection
+    let busTime: String
+    /// 막차가 심야 요금일 때만 값이 있다
+    let nightFare: Int?
+    let scheduledAt: Date
+
+    /// 실제로 울리는 시각 (막차 - 30분). 자정을 넘는 막차는 전날 밤 시각이 된다.
+    var alertTime: String {
+        DateService.timeByAdding(minutes: -Self.leadMinutes, to: busTime) ?? busTime
+    }
+
+    /// 예약한 뒤 이미 울린 시각들. 오늘과 어제만 본다 (최신순).
+    func firedDates(now: Date) -> [Date] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        let parts = alertTime.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return [] }
+
+        let today = calendar.startOfDay(for: now)
+        return [0, -1].compactMap { offset -> Date? in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: today),
+                  let fire = calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: day),
+                  fire <= now, fire > scheduledAt else { return nil }
+            return fire
+        }
+    }
+
+    func historyItem(firedAt: Date) -> AppNotification {
+        AppNotification(
+            id: Self.historyID(for: firedAt),
+            kind: .lastBus,
+            title: NotificationCopy.lastBusTitle,
+            body: NotificationCopy.lastBusBody(direction: direction, busTime: busTime, nightFare: nightFare),
+            receivedAt: firedAt,
+            target: .bus(direction: direction, time: busTime)
+        )
+    }
+
+    /// 하루에 한 번 울리므로 날짜가 id가 된다. 시스템 알림 경로와 같은 id라 두 번 기록되지 않는다.
+    static func historyID(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "yyyyMMdd"
+        return "lastbus_\(formatter.string(from: date))"
+    }
+
+    static func load(from defaults: UserDefaults = .standard) -> LastBusAlertInfo? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(LastBusAlertInfo.self, from: data)
+    }
+
+    func save(to defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        defaults.set(data, forKey: Self.key)
+    }
+
+    static func clear(from defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: key)
     }
 }
 
@@ -163,7 +268,13 @@ extension AppNotification {
             return AppNotification(id: "bus_\(rest)_\(dayFormatter.string(from: receivedAt))", kind: .bus, title: title, body: body, receivedAt: receivedAt, target: target)
         }
         if identifier == "last_bus_daily_notification" {
-            return AppNotification(id: "sys_lastbus_\(Int(receivedAt.timeIntervalSince1970 / 60))", kind: .lastBus, title: title, body: body, receivedAt: receivedAt)
+            var target: AppNotificationTarget?
+            if let directionRaw = userInfo[LastBusAlertInfo.userInfoDirectionKey] as? String,
+               let direction = RouteDirection(rawValue: directionRaw),
+               let time = userInfo[LastBusAlertInfo.userInfoBusTimeKey] as? String {
+                target = .bus(direction: direction, time: time)
+            }
+            return AppNotification(id: LastBusAlertInfo.historyID(for: receivedAt), kind: .lastBus, title: title, body: body, receivedAt: receivedAt, target: target)
         }
         if userInfo["gcm.message_id"] != nil || userInfo["notice_id"] != nil {
             let noticeID = userInfo["notice_id"] as? String

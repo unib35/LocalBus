@@ -571,11 +571,25 @@ final class MainViewModel: ObservableObject {
     /// 막차 30분 전 알림 예약
     func scheduleLastBusNotification() async {
         let granted = await NotificationService.shared.requestAuthorization()
-        guard granted else { return }
-        NotificationService.shared.scheduleLastBusNotification(
-            lastBusTime: lastBusTime,
-            direction: currentDirectionName
-        )
+        guard granted, let info = makeLastBusAlertInfo(direction: selectedDirection, scheduledAt: Date()) else { return }
+        NotificationService.shared.scheduleLastBusNotification(info)
+    }
+
+    /// 그 방향의 오늘 막차로 막차 알림 정보를 만든다. 심야 요금은 막차가 심야 시간대일 때만 넣는다.
+    private func makeLastBusAlertInfo(direction: RouteDirection, scheduledAt: Date) -> LastBusAlertInfo? {
+        let times: [String]
+        if let timetable = timetableData?.routes?[direction.rawValue]?.timetable ?? timetableData?.timetable {
+            times = DateService.shouldUseWeekdaySchedule(Date(), holidays: holidays) ? timetable.weekday : timetable.weekend
+        } else {
+            times = direction == selectedDirection ? currentTimes : []
+        }
+        guard let lastBus = times.last else { return nil }
+
+        var nightFare: Int?
+        if let start = getNightFareStartTime(for: direction), lastBus >= start || lastBus < "04:00" {
+            nightFare = getNightFare(for: direction)
+        }
+        return LastBusAlertInfo(direction: direction, busTime: lastBus, nightFare: nightFare, scheduledAt: scheduledAt)
     }
 
     /// 막차 알림 취소
@@ -600,8 +614,22 @@ final class MainViewModel: ObservableObject {
 
     /// 선택된 방향의 특정 버스 알림
     func alert(for busTime: String) -> BusAlert? {
-        let id = BusAlert.makeID(busTime: busTime, direction: selectedDirection)
+        alert(for: busTime, direction: selectedDirection)
+    }
+
+    /// 방향을 지정해 찾는다 (알림 관리·받은 알림처럼 선택된 방향과 다를 수 있는 곳에서 사용).
+    func alert(for busTime: String, direction: RouteDirection) -> BusAlert? {
+        let id = BusAlert.makeID(busTime: busTime, direction: direction)
         return busAlerts.first { $0.id == id }
+    }
+
+    /// 알림·받은 알림에서 버스 상세를 열 때 쓴다.
+    /// 상세 시트의 알림 설정은 선택된 방향으로 저장되므로, 그 버스의 방향으로 먼저 바꾼다.
+    func makeBusDetailInfo(for busTime: String, direction: RouteDirection) -> BusDetailInfo {
+        if selectedDirection != direction {
+            changeDirection(to: direction)
+        }
+        return makeBusDetailInfo(for: busTime)
     }
 
     /// 알림을 만들거나 lead·반복을 바꾼다. 권한이 없으면 false.
@@ -618,7 +646,7 @@ final class MainViewModel: ObservableObject {
             isEnabled: true
         )
         upsert(alert)
-        NotificationService.shared.schedule(alert, holidays: holidays)
+        scheduleSystemNotification(for: alert)
 
         // 20분 이내 버스면 Live Activity 시작 (설정에서 활성화된 경우)
         let liveActivityEnabled = UserDefaults.standard.object(forKey: "liveActivityEnabled") as? Bool ?? true
@@ -654,7 +682,7 @@ final class MainViewModel: ObservableObject {
         guard var alert = busAlerts.first(where: { $0.id == id }) else { return }
         alert.isEnabled = isEnabled
         upsert(alert)
-        NotificationService.shared.schedule(alert, holidays: holidays)
+        scheduleSystemNotification(for: alert)
     }
 
     /// 알림을 목록에서 지운다.
@@ -667,9 +695,14 @@ final class MainViewModel: ObservableObject {
         }
     }
 
-    /// 켜져 있는 알림 수 (설정 화면 표시용)
+    /// 켜져 있는 알림 수
     var enabledAlertCount: Int {
         busAlerts.filter(\.isEnabled).count
+    }
+
+    /// 꺼 둔 것을 포함한 알림 수 (설정·알림 모아보기의 "3개")
+    var alertCount: Int {
+        busAlerts.count
     }
 
     /// 알림이 예약되어 있는지 확인
@@ -680,11 +713,43 @@ final class MainViewModel: ObservableObject {
     /// 이미 울린 한 번 알림은 목록에서 빼고, 반복 알림은 공휴일 반영을 위해 다시 예약한다.
     func refreshScheduledNotifications() async {
         recordFiredBusAlerts()
+        await refreshLastBusNotification()
         let pending = await NotificationService.shared.pendingAlertIDs()
         busAlerts.removeAll { !$0.repeatsWeekdays && $0.isEnabled && !pending.contains($0.id) }
         alertStore.save(busAlerts)
         for alert in busAlerts where alert.repeatsWeekdays && alert.isEnabled {
-            NotificationService.shared.schedule(alert, holidays: holidays)
+            scheduleSystemNotification(for: alert)
+        }
+    }
+
+    /// 시스템 알림 본문에 타는 곳(탑승홈 또는 출발 정류장)을 넣어 예약한다.
+    private func scheduleSystemNotification(for alert: BusAlert) {
+        NotificationService.shared.schedule(
+            alert,
+            holidays: holidays,
+            platformNumber: getPlatformNumber(for: alert.direction),
+            boardingStopName: boardingStopName(for: alert.direction)
+        )
+    }
+
+    private func boardingStopName(for direction: RouteDirection) -> String? {
+        let stops = getStops(for: direction)
+        return (stops.first(where: \.isDeparture) ?? stops.first)?.name
+    }
+
+    /// 막차 알림: 울린 것은 기록으로 옮기고, 막차 시각이 바뀌었으면 새 시각으로 다시 건다.
+    private func refreshLastBusNotification(now: Date = Date()) async {
+        if let info = LastBusAlertInfo.load() {
+            for firedAt in info.firedDates(now: now) {
+                notificationHistory.record(info.historyItem(firedAt: firedAt))
+            }
+            if let current = makeLastBusAlertInfo(direction: info.direction, scheduledAt: info.scheduledAt), current != info {
+                NotificationService.shared.scheduleLastBusNotification(current)
+            }
+        } else if await NotificationService.shared.hasPendingLastBusNotification(),
+                  let info = makeLastBusAlertInfo(direction: selectedDirection, scheduledAt: now) {
+            // 이전 버전이 걸어 둔 알림: 문구와 기록 정보를 지금 형식으로 맞춘다
+            NotificationService.shared.scheduleLastBusNotification(info)
         }
     }
 
@@ -1012,12 +1077,12 @@ final class MainViewModel: ObservableObject {
     }
 
     private func recordTimetableUpdate(to updatedAt: String, changes: [TimetableChange]) {
-        let summary = changes.prefix(2).map { "\($0.label) \($0.oldValue) → \($0.newValue)" }.joined(separator: " · ")
+        let summary = TimetableDiff.summaryText(for: changes)
         notificationHistory.record(AppNotification(
             id: "timetable_\(updatedAt)",
             kind: .timetable,
             title: "새 시간표를 적용했어요",
-            body: summary.isEmpty ? "\(updatedAt.replacingOccurrences(of: "-", with: ".")) 기준 시간표" : summary,
+            body: summary ?? "\(updatedAt.replacingOccurrences(of: "-", with: ".")) 기준 시간표",
             receivedAt: Date(),
             target: .timetable
         ))
@@ -1040,8 +1105,12 @@ final class MainViewModel: ObservableObject {
             notificationHistory.record(AppNotification(
                 id: "bus_\(alert.id)_\(dayFormatter.string(from: now))",
                 kind: .bus,
-                title: "\(alert.busTime) 버스가 \(alert.leadMinutes)분 후 출발해요",
-                body: "\(alert.direction.displayName) · \(alert.direction.departureName) 출발",
+                title: NotificationCopy.busTitle(busTime: alert.busTime, leadMinutes: alert.leadMinutes),
+                body: NotificationCopy.busBody(
+                    direction: alert.direction,
+                    platformNumber: getPlatformNumber(for: alert.direction),
+                    boardingStopName: boardingStopName(for: alert.direction)
+                ),
                 receivedAt: fireAt,
                 target: .bus(direction: alert.direction, time: alert.busTime)
             ))
