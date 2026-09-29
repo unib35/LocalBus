@@ -510,7 +510,7 @@ struct StopsScreenView: View {
                     .accessibilityLabel("버스 선택")
 
                     let estimate = viewModel.arrivalEstimate(for: picked, at: context.date)
-                    let minutes = DateService.minutesUntil(timeString: picked, from: context.date) ?? 0
+                    let minutes = viewModel.minutesUntilDeparture(of: picked, isNextDay: false, at: context.date)
                     HStack(alignment: .center, spacing: 8) {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
