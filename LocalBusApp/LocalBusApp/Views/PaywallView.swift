@@ -6,6 +6,32 @@ import StoreKit
 // 위젯 미리보기를 소형·중형·잠금 화면으로 바꿔 보며 무엇을 사는지 먼저 보여준다.
 // 혜택은 위젯 종류를 구체적으로, 무료로 남는 기능도 밝힌다. 결제 상태는 버튼 안·위에서 제자리로 바뀐다.
 
+/// 결제 화면 문구
+enum PaywallCopy {
+    static let benefits = [
+        "홈 화면 위젯 15종 · 소형·중형·대형",
+        "잠금 화면 위젯",
+        "광고가 생겨도 Pro에는 없음",
+    ]
+
+    /// 결제 버튼 라벨. 결제 중에는 진행 문구, 실패한 뒤에는 '다시 시도'.
+    static func buyButtonTitle(isPurchasing: Bool, didFail: Bool, hasProduct: Bool, isLoadingProducts: Bool) -> String {
+        if isPurchasing { return "결제 확인 중" }
+        guard hasProduct else {
+            return isLoadingProducts ? "상품 정보 불러오는 중" : "상품 정보 다시 불러오기"
+        }
+        return didFail ? "다시 시도" : "Pro 시작하기"
+    }
+}
+
+/// 위젯 미리보기 색. 라이트 모드에서도 다크 모양 그대로 보여준다.
+private enum PreviewPalette {
+    static let surface = Color(white: 0.08)                                  // #141414
+    static let secondaryText = Color(white: 0.64)                            // #A3A3A3
+    static let accent = Color(red: 74/255, green: 222/255, blue: 128/255)    // #4ADE80
+    static let divider = Color(white: 0.133)                                 // #222222
+}
+
 struct PaywallView: View {
 
     private enum PreviewKind: String, CaseIterable, Identifiable {
@@ -47,7 +73,6 @@ struct PaywallView: View {
                     .accessibilityLabel("닫기")
                 }
                 .frame(height: 44)
-                .padding(.trailing, -8)
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
@@ -60,20 +85,21 @@ struct PaywallView: View {
 
                         Text("앱을 열지 않아도\n다음 버스가 보여요")
                             .font(.system(size: 28, weight: .heavy))
+                            .tracking(-0.5)
                             .lineSpacing(3)
                             .foregroundStyle(AppTheme.Color.primaryText)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, 22)
 
                         VStack(alignment: .leading, spacing: 12) {
-                            benefitRow("홈 화면 위젯 소형·중형·대형")
-                            benefitRow("잠금 화면 위젯")
-                            benefitRow("광고가 생겨도 Pro에는 없음")
+                            ForEach(PaywallCopy.benefits, id: \.self) { benefit in
+                                benefitRow(benefit)
+                            }
                         }
                         .padding(.top, 18)
 
                         Text("시간표·버스 알림·Live Activity는 지금처럼 무료예요.")
-                            .font(AppTheme.Typography.caption)
+                            .font(.system(size: 13))
                             .foregroundStyle(AppTheme.Color.secondaryText)
                             .padding(.top, 14)
                     }
@@ -149,19 +175,17 @@ struct PaywallView: View {
         .accessibilityLabel("위젯 미리보기 종류")
     }
 
-    private var widgetSurface: Color { Color(white: 0.08) }
-
     private var smallPreview: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("장유 → 사상")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppTheme.Color.secondaryText)
+                .foregroundStyle(PreviewPalette.secondaryText)
             Spacer(minLength: 0)
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 Text("12")
                     .font(.system(size: 50, weight: .heavy, design: .rounded))
                     .tracking(-1.5)
-                    .foregroundStyle(AppTheme.Color.accent)
+                    .foregroundStyle(PreviewPalette.accent)
                 Text("분")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(.white)
@@ -173,11 +197,11 @@ struct PaywallView: View {
             Spacer(minLength: 0)
             Text("다음 07:35 · 07:50")
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(AppTheme.Color.secondaryText)
+                .foregroundStyle(PreviewPalette.secondaryText)
         }
         .padding(14)
         .frame(width: 150, height: 150, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(widgetSurface))
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(PreviewPalette.surface))
     }
 
     private var mediumPreview: some View {
@@ -185,13 +209,13 @@ struct PaywallView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("장유 → 사상 · 평일")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .foregroundStyle(PreviewPalette.secondaryText)
                 Spacer(minLength: 0)
                 HStack(alignment: .lastTextBaseline, spacing: 5) {
                     Text("12")
                         .font(.system(size: 50, weight: .heavy, design: .rounded))
                         .tracking(-1.5)
-                        .foregroundStyle(AppTheme.Color.accent)
+                        .foregroundStyle(PreviewPalette.accent)
                     Text("분 후")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(.white)
@@ -208,11 +232,11 @@ struct PaywallView: View {
                     HStack {
                         Text(time).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
                         Spacer()
-                        Text(remain).font(.system(size: 12, weight: .medium)).foregroundStyle(AppTheme.Color.secondaryText)
+                        Text(remain).font(.system(size: 12, weight: .medium)).foregroundStyle(PreviewPalette.secondaryText)
                     }
                     .frame(height: 30)
                     if time != "08:05" {
-                        Rectangle().fill(Color(white: 0.13)).frame(height: 1)
+                        Rectangle().fill(PreviewPalette.divider).frame(height: 1)
                     }
                 }
             }
@@ -220,7 +244,7 @@ struct PaywallView: View {
         }
         .padding(14)
         .frame(width: 322, height: 150)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(widgetSurface))
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(PreviewPalette.surface))
     }
 
     private var lockPreview: some View {
@@ -270,7 +294,7 @@ struct PaywallView: View {
                 .foregroundStyle(AppTheme.Color.accent)
                 .frame(width: 20, height: 22)
             Text(text)
-                .font(AppTheme.Typography.rowBody)
+                .font(AppTheme.Typography.rowBody.weight(.medium))
                 .foregroundStyle(AppTheme.Color.primaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -368,9 +392,12 @@ struct PaywallView: View {
     }
 
     private var buyButtonTitle: String {
-        if store.purchaseInFlight { return "결제 중…" }
-        if store.proProduct != nil { return "Pro 시작하기" }
-        return store.isLoadingProducts ? "상품 정보 불러오는 중" : "상품 정보 다시 불러오기"
+        PaywallCopy.buyButtonTitle(
+            isPurchasing: store.purchaseInFlight,
+            didFail: didFail,
+            hasProduct: store.proProduct != nil,
+            isLoadingProducts: store.isLoadingProducts
+        )
     }
 
     private var footer: some View {
