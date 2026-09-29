@@ -15,6 +15,7 @@ struct TimetableScreenView: View {
     @State private var showNotificationDeniedAlert = false
     @State private var selectedBusInfo: BusDetailInfo?
     @State private var showArriveBy = false
+    @State private var showPaywall = false
     @State private var notificationToast: ToastMessage?
 
     var body: some View {
@@ -45,10 +46,12 @@ struct TimetableScreenView: View {
                 grid
                     .padding(.top, 6)
 
-                AdSlotView(placement: .timetableAnchor, isPro: storeService.isPro)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
+                adStrip
             }
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
+                .environmentObject(storeService)
         }
         .alert("알림 권한이 필요합니다", isPresented: $showNotificationDeniedAlert) {
             Button("설정으로 이동") {
@@ -62,19 +65,18 @@ struct TimetableScreenView: View {
         .toast(item: $notificationToast)
         .sheet(isPresented: $showArriveBy) {
             ArriveByView(viewModel: viewModel) { time in
-                Task {
-                    let status = await NotificationService.shared.authorizationStatus()
-                    if status == .denied {
-                        showArriveBy = false
-                        showNotificationDeniedAlert = true
-                    } else {
-                        await viewModel.toggleNotification(for: time)
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        notificationToast = viewModel.isNotificationScheduled(for: time)
-                            ? ToastMessage(icon: "bell.fill", message: "\(time) 버스 알림이 켜졌습니다")
-                            : ToastMessage(icon: "bell.slash.fill", message: "\(time) 버스 알림이 꺼졌습니다")
-                    }
+                let status = await NotificationService.shared.authorizationStatus()
+                if status == .denied {
+                    showArriveBy = false
+                    showNotificationDeniedAlert = true
+                    return nil
                 }
+                await viewModel.toggleNotification(for: time)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                // 결과 안내는 시트 안에서 보여준다
+                return viewModel.isNotificationScheduled(for: time)
+                    ? ToastMessage(icon: "bell.fill", message: "\(time) 버스 알림이 켜졌습니다")
+                    : ToastMessage(icon: "bell.slash.fill", message: "\(time) 버스 알림이 꺼졌습니다")
             }
         }
         .sheet(item: $selectedBusInfo) { info in
@@ -101,6 +103,23 @@ struct TimetableScreenView: View {
                     return viewModel.arrivalEstimate(for: info.departureTime)
                 }
             )
+        }
+    }
+
+    // MARK: - 광고 자리 (탭 바 바로 위 고정, 기본 비활성)
+
+    @ViewBuilder
+    private var adStrip: some View {
+        if AdsConfig.isEnabled && !storeService.isPro {
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(AppTheme.Color.divider)
+                    .frame(height: 1)
+                AdSlotView(placement: .timetableAnchor, isPro: storeService.isPro, onProTap: { showPaywall = true })
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+            }
+            .background(AppTheme.Color.screenBackground)
         }
     }
 
@@ -223,7 +242,7 @@ struct TimetableScreenView: View {
     private var grid: some View {
         ScrollViewReader { proxy in
             TimelineView(.periodic(from: .now, by: 5)) { context in
-                let nextBusTime = viewModel.nextBusTime(at: context.date)
+                let nextBusTime = todayNextBusTime(at: context.date)
 
                 ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 8) {
@@ -255,18 +274,25 @@ struct TimetableScreenView: View {
                     scrollToNextBus(newValue, proxy: proxy)
                 }
                 .onChange(of: viewModel.selectedScheduleType) { _ in
-                    scrollToNextBus(viewModel.nextBusTime(at: Date()), proxy: proxy, delay: 0.05)
+                    scrollToNextBus(todayNextBusTime(at: Date()), proxy: proxy, delay: 0.05)
                 }
                 .onChange(of: viewModel.selectedDirection) { _ in
-                    scrollToNextBus(viewModel.nextBusTime(at: Date()), proxy: proxy, delay: 0.05)
+                    scrollToNextBus(todayNextBusTime(at: Date()), proxy: proxy, delay: 0.05)
                 }
             }
         }
     }
 
+    /// 다음 버스·지난 버스 표시는 오늘 운행하는 시간표에만 붙인다.
+    /// 다른 요일 시간표를 볼 때는 모든 시각을 그대로 눌러 볼 수 있다.
+    private func todayNextBusTime(at date: Date) -> String? {
+        guard viewModel.selectedScheduleType == viewModel.todayScheduleType(at: date) else { return nil }
+        return viewModel.nextBusTime(at: date)
+    }
+
     private func scrollToNextBus(_ nextBusTime: String?, proxy: ScrollViewProxy, delay: Double = 0) {
-        guard let nextBusTime else { return }
-        let hour = String(nextBusTime.prefix(2))
+        // 다음 버스가 없으면(다른 요일 시간표 · 운행 종료) 첫 시간대부터 보여준다
+        guard let hour = nextBusTime.map({ String($0.prefix(2)) }) ?? hourGroups.first?.hour else { return }
         let action = {
             withAnimation(.easeInOut(duration: 0.35)) {
                 proxy.scrollTo(hour, anchor: .top)
@@ -337,41 +363,58 @@ struct TimetableCell: View {
 
     private var minuteText: String { String(time.suffix(2)) }
 
+    /// 지난 시각 셀 바탕 (다크 #0D0D0D / 라이트 #EBEBEB)
+    private static let pastBackground = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark ? UIColor(white: 0.05, alpha: 1) : UIColor(white: 0.92, alpha: 1)
+    })
+
+    @ViewBuilder
     var body: some View {
-        Button(action: onTap) {
-            ZStack {
-                Text(minuteText)
-                    .font(AppTheme.Typography.gridCell.weight(isNext ? .heavy : .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(textColor)
-
-                if isNotificationEnabled {
-                    Image(systemName: "bell.fill")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(isNext ? AppTheme.Color.accentForeground : AppTheme.Color.accent)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                        .padding(.top, 4)
-                        .padding(.trailing, 5)
-                }
-
-                if isVia {
-                    Circle()
-                        .fill(isNext ? AppTheme.Color.accentForeground : AppTheme.Color.secondaryText)
-                        .frame(width: 5, height: 5)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                        .padding(.bottom, 5)
-                }
+        if isPast {
+            // 지난 버스는 눌리지 않는다
+            cell
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(accessibilityText)
+        } else {
+            Button(action: onTap) {
+                cell
+                    .contentShape(RoundedRectangle(cornerRadius: AppTheme.Radius.gridCell, style: .continuous))
             }
-            .frame(width: 56, height: 40)
-            .background(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.gridCell, style: .continuous)
-                    .fill(backgroundColor)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: AppTheme.Radius.gridCell, style: .continuous))
+            .buttonStyle(.plain)
+            .accessibilityLabel(accessibilityText)
+            .accessibilityAddTraits(isNext ? [.isSelected] : [])
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityText)
-        .accessibilityAddTraits(isNext ? [.isSelected] : [])
+    }
+
+    private var cell: some View {
+        ZStack {
+            Text(minuteText)
+                .font(AppTheme.Typography.gridCell.weight(isNext ? .heavy : .semibold))
+                .monospacedDigit()
+                .foregroundStyle(textColor)
+
+            if isNotificationEnabled {
+                Image(systemName: "bell.fill")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(isNext ? AppTheme.Color.accentForeground : AppTheme.Color.accent)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(.top, 4)
+                    .padding(.trailing, 5)
+            }
+
+            if isVia {
+                Circle()
+                    .fill(isNext ? AppTheme.Color.accentForeground : AppTheme.Color.secondaryText)
+                    .frame(width: 5, height: 5)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 5)
+            }
+        }
+        .frame(width: 56, height: 40)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.gridCell, style: .continuous)
+                .fill(backgroundColor)
+        )
     }
 
     private var textColor: Color {
@@ -383,7 +426,7 @@ struct TimetableCell: View {
 
     private var backgroundColor: Color {
         if isNext { return AppTheme.Color.accent }
-        if isPast { return Color.clear }
+        if isPast { return Self.pastBackground }
         return AppTheme.Color.surface
     }
 
