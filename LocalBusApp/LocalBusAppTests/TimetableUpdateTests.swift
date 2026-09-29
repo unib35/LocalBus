@@ -72,6 +72,14 @@ struct TimetableUpdateTests {
         #expect(LastCheckedFormatter.text(for: checked, now: now) == "9월 25일 18:05")
     }
 
+    @Test func 공지_다이얼로그_날짜는_월일로_보여준다() {
+        #expect(NoticeDateText.monthDay(from: "2026.09.21") == "9월 21일")
+        #expect(NoticeDateText.monthDay(from: "2026-09-21") == "9월 21일")
+        #expect(NoticeDateText.monthDay(from: "2025.08.04") == "8월 4일")
+        // 읽을 수 없는 값은 그대로 둔다
+        #expect(NoticeDateText.monthDay(from: "곧 공개") == "곧 공개")
+    }
+
     @Test func notices_배열이_있으면_디코딩된다() throws {
         let json = """
         {
