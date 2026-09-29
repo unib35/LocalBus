@@ -391,13 +391,16 @@ final class MainViewModel: ObservableObject {
 
     // MARK: - Public Methods
 
-    func makeBusDetailInfo(for time: String, at date: Date = Date()) -> BusDetailInfo {
-        let estimate = arrivalEstimate(for: time, at: date)
-        let arrival = DateService.timeByAdding(minutes: effectiveDurationMinutes, to: time) ?? "--:--"
+    /// - Parameter isTomorrow: 오늘 운행이 끝난 뒤 여는 내일 출발편
+    func makeBusDetailInfo(for time: String, isTomorrow: Bool = false, at date: Date = Date()) -> BusDetailInfo {
+        // 남은 시간과 교통 반영은 오늘 실제로 운행하는 시간표의 버스에만 붙인다
+        let runsToday = !isTomorrow && selectedScheduleType == todayScheduleType(at: date)
+        let scheduleType = isTomorrow ? tomorrowScheduleType(at: date) : selectedScheduleType
+        let estimate = arrivalEstimate(for: time, isNextDay: !runsToday, at: date)
         return BusDetailInfo(
             departureTime: time,
-            arrivalTime: arrival,
-            durationMinutes: effectiveDurationMinutes,
+            arrivalTime: estimate.arrivalTime,
+            durationMinutes: estimate.durationMinutes,
             isVia: isViaBus(for: time),
             isNightFare: isNightFare(for: time),
             fare: fare,
@@ -406,12 +409,13 @@ final class MainViewModel: ObservableObject {
             stops: currentStops,
             direction: selectedDirection,
             directionDisplayName: selectedDirection.displayName,
-            scheduleTypeLabel: selectedScheduleType.displayLabel,
+            scheduleTypeLabel: scheduleType == .weekday ? "평일" : "주말 · 공휴일",
             nightFareStartTime: nightFareStartTime,
             isNotificationEnabled: isNotificationScheduled(for: time),
             estimate: estimate,
-            minutesUntilDeparture: DateService.minutesUntil(timeString: time, from: date),
-            lastTrafficAt: trafficUpdatedAt
+            minutesUntilDeparture: runsToday ? DateService.minutesUntil(timeString: time, from: date) : nil,
+            lastTrafficAt: trafficUpdatedAt,
+            isTomorrow: isTomorrow
         )
     }
 

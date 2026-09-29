@@ -286,6 +286,49 @@ struct BusDetailInfo: Identifiable {
     var minutesUntilDeparture: Int? = nil
     /// 마지막으로 교통정보를 받은 시각
     var lastTrafficAt: Date? = nil
+    /// 내일 출발편 (오늘 운행이 끝난 뒤 여는 내일 첫차 등)
+    var isTomorrow: Bool = false
+}
+
+extension BusDetailInfo {
+    /// 오늘 아직 출발하지 않은 버스
+    var isUpcomingToday: Bool {
+        guard !isTomorrow, let minutes = minutesUntilDeparture else { return false }
+        return minutes >= 0
+    }
+
+    /// 헤더 오른쪽 위 한 줄: "12분 후 출발" / "내일 06:20 출발". 지난 버스와 오늘 운행하지 않는 시간표는 nil.
+    var untilText: String? {
+        if isTomorrow { return "내일 \(departureTime) 출발" }
+        guard isUpcomingToday, let minutes = minutesUntilDeparture else { return nil }
+        if minutes == 0 { return "곧 출발" }
+        if minutes < 60 { return "\(minutes)분 후 출발" }
+        let rest = minutes % 60
+        return rest == 0 ? "\(minutes / 60)시간 후 출발" : "\(minutes / 60)시간 \(rest)분 후 출발"
+    }
+
+    /// 출발까지 많이 남아 아직 교통을 반영하지 않는 버스 (먼 시간대 · 내일 · 오늘 운행하지 않는 시간표)
+    var isBeforeTrafficWindow: Bool {
+        if isTomorrow { return true }
+        guard let minutes = minutesUntilDeparture else { return true }
+        return minutes > ArrivalEstimator.trafficWindowMinutes
+    }
+
+    /// 새로고침해서 교통을 반영할 수 있는 버스인지 (오늘 출발 1시간 이내)
+    var canRefreshTraffic: Bool {
+        isUpcomingToday && !isBeforeTrafficWindow
+    }
+
+    /// 설명 카드 각주: "17:30부터 교통 반영" / "내일 05:20부터 교통 반영". 교통을 이미 반영할 시간대면 nil.
+    var trafficStartText: String? {
+        guard isTomorrow || (minutesUntilDeparture ?? 0) > ArrivalEstimator.trafficWindowMinutes,
+              let start = DateService.timeByAdding(minutes: -ArrivalEstimator.trafficWindowMinutes, to: departureTime) else {
+            return nil
+        }
+        // 자정 직후 출발편은 교통 반영이 전날 밤에 시작된다
+        let startsOnDepartureDay = start < departureTime
+        return isTomorrow && startsOnDepartureDay ? "내일 \(start)부터 교통 반영" : "\(start)부터 교통 반영"
+    }
 }
 
 /// 시간표 (평일/주말)
