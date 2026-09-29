@@ -94,7 +94,7 @@ struct ContactView: View {
                 .font(AppTheme.Typography.screenTitle)
                 .foregroundStyle(AppTheme.Color.primaryText)
             Text("메일 앱으로 보내지며, 답장은 입력한 이메일로 드려요")
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 15))
                 .foregroundStyle(AppTheme.Color.secondaryText)
         }
     }
@@ -104,7 +104,7 @@ struct ContactView: View {
     private var typeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("문의 유형")
-                .font(AppTheme.Typography.caption)
+                .font(AppTheme.Typography.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.Color.secondaryText)
 
             HStack(spacing: 8) {
@@ -124,7 +124,7 @@ struct ContactView: View {
     private var contentSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("내용")
-                .font(AppTheme.Typography.caption)
+                .font(AppTheme.Typography.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.Color.secondaryText)
 
             ZStack(alignment: .topLeading) {
@@ -153,9 +153,9 @@ struct ContactView: View {
                 }
 
                 Text("\(content.count) / \(maxCharacters)")
-                    .font(AppTheme.Typography.footnote)
+                    .font(.system(size: 12))
                     .monospacedDigit()
-                    .foregroundStyle(AppTheme.Color.secondaryText)
+                    .foregroundStyle(AppTheme.Color.tertiaryText)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, 14)
                     .padding(.bottom, 12)
@@ -170,7 +170,7 @@ struct ContactView: View {
     private var replyEmailSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("회신받을 이메일 (선택)")
-                .font(AppTheme.Typography.caption)
+                .font(AppTheme.Typography.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.Color.secondaryText)
 
             ZStack(alignment: .leading) {
@@ -178,7 +178,7 @@ struct ContactView: View {
                     Text("example@email.com")
                         .font(AppTheme.Typography.rowBody)
                         .foregroundStyle(AppTheme.Color.secondaryText)
-                        .padding(.horizontal, 14)
+                        .padding(.horizontal, 16)
                         .allowsHitTesting(false)
                 }
                 TextField("회신받을 이메일", text: $replyEmail)
@@ -189,13 +189,14 @@ struct ContactView: View {
                     .textContentType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 16)
             }
             .frame(height: 52)
             .surfaceCard(cornerRadius: 14)
 
             Text("검토 후 이메일로 답변 드려요. 유형을 정확히 고르면 더 빨리 답할 수 있어요.")
-                .font(AppTheme.Typography.caption)
+                .font(.system(size: 13))
+                .lineSpacing(3)
                 .foregroundStyle(AppTheme.Color.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }

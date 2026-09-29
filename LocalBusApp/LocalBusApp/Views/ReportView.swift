@@ -39,7 +39,8 @@ struct ReportView: View {
                 descriptionSection
 
                 Text("보내면 메일 앱이 열립니다 · 앱 버전과 기기 정보가 함께 담깁니다")
-                    .font(AppTheme.Typography.caption)
+                    .font(.system(size: 13))
+                    .lineSpacing(3)
                     .foregroundStyle(AppTheme.Color.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -104,7 +105,7 @@ struct ReportView: View {
                 .font(AppTheme.Typography.screenTitle)
                 .foregroundStyle(AppTheme.Color.primaryText)
             Text("정류장에 붙은 새 시간표를 찍어 보내주세요. 확인 후 앱에 반영됩니다")
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 15))
                 .foregroundStyle(AppTheme.Color.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -157,7 +158,7 @@ struct ReportView: View {
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(AppTheme.Color.primaryText)
             Text(title)
-                .font(AppTheme.Typography.buttonLabel)
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(AppTheme.Color.primaryText)
         }
         .frame(maxWidth: .infinity)
@@ -171,7 +172,7 @@ struct ReportView: View {
     private var routeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("어느 노선인가요?")
-                .font(AppTheme.Typography.caption)
+                .font(AppTheme.Typography.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.Color.secondaryText)
 
             FlowLayout(spacing: 8) {
@@ -192,7 +193,7 @@ struct ReportView: View {
     private var descriptionSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("무엇이 바뀌었나요? (선택)")
-                .font(AppTheme.Typography.caption)
+                .font(AppTheme.Typography.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.Color.secondaryText)
 
             ZStack(alignment: .topLeading) {
@@ -201,8 +202,7 @@ struct ReportView: View {
                     .foregroundStyle(AppTheme.Color.primaryText)
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal, 11)
-                    .padding(.top, 8)
-                    .padding(.bottom, 36)
+                    .padding(.vertical, 8)
                     .frame(minHeight: 120)
                     .surfaceCard()
                     .onChange(of: description) { newValue in
@@ -219,16 +219,6 @@ struct ReportView: View {
                         .padding(.top, 16)
                         .allowsHitTesting(false)
                 }
-
-                Text("\(description.count) / \(maxCharacters)")
-                    .font(AppTheme.Typography.footnote)
-                    .monospacedDigit()
-                    .foregroundStyle(AppTheme.Color.secondaryText)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(.trailing, 14)
-                    .padding(.bottom, 12)
-                    .frame(minHeight: 120)
-                    .allowsHitTesting(false)
             }
         }
     }
