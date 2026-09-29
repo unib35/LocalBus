@@ -156,7 +156,9 @@ struct TrafficBasisDot: View {
         case .refreshing:
             ProgressView().controlSize(.mini).tint(AppTheme.Color.secondaryText).frame(width: 12, height: 12)
         case .offline:
-            Image(systemName: "wifi.slash").font(.system(size: 11, weight: .semibold))
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(AppTheme.Color.warning)
         }
     }
 }

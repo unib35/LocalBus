@@ -79,6 +79,7 @@ struct OperationsInfoTests {
         #expect(stale?.title == "7일 동안 시간표를 확인하지 못했어요")
         #expect(stale?.subtitle == "3월 8일 기준 · 바뀌었을 수 있어요")
         #expect(stale?.actionTitle == "새로고침")
+        #expect(stale?.isWarning == true)
 
         let fresh = OperationsEvaluator.banner(ops: nil, routeKey: route, now: now, lastUpdateCheckAt: now.addingTimeInterval(-2 * 86400), updatedAt: "2026-03-08")
         #expect(fresh == nil)

@@ -122,9 +122,12 @@ enum OperationsBanner: Equatable {
         }
     }
 
+    /// 아이콘을 경고색으로 그리는 배너 (운휴, 오래됨)
     var isWarning: Bool {
-        if case .closure = self { return true }
-        return false
+        switch self {
+        case .closure, .stale: return true
+        case .change, .maintenance: return false
+        }
     }
 }
 

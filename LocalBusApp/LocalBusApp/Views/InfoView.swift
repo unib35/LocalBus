@@ -234,7 +234,7 @@ struct InfoView: View {
             case .failed:
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(AppTheme.Color.nightFare)
+                    .foregroundStyle(AppTheme.Color.warning)
             case .idle, .latest, .updated:
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 22, weight: .semibold))

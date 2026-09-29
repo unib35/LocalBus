@@ -306,9 +306,9 @@ struct PaywallView: View {
             VStack(alignment: .leading, spacing: 0) {
                 if didFail {
                     HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.circle.fill")
+                        Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(AppTheme.Color.nightFare)
+                            .foregroundStyle(AppTheme.Color.warning)
                         Text("결제가 끝나지 않았어요. 요금은 청구되지 않았어요.")
                             .font(AppTheme.Typography.caption)
                             .foregroundStyle(AppTheme.Color.primaryText)
@@ -359,7 +359,7 @@ struct PaywallView: View {
                             Text(buyButtonTitle)
                         }
                     }
-                    .buttonStyle(PrimaryButtonStyle(height: 52))
+                    .buttonStyle(PrimaryButtonStyle(height: 52, isBusy: store.purchaseInFlight || store.isLoadingProducts))
                     .disabled(store.purchaseInFlight || store.isLoadingProducts)
                     .padding(.top, 14)
                 }

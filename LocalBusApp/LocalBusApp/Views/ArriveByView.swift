@@ -193,7 +193,7 @@ struct ArriveByView: View {
                 if let later = plan.later {
                     if plan.earlier != nil { RowDivider() }
                     let late = plan.lateMinutes ?? 0
-                    alternativeRow(tag: "놓치면", departure: later, note: "\(ArrivalPlanner.spanText(late)) 늦어요", noteColor: AppTheme.Color.nightFare)
+                    alternativeRow(tag: "놓치면", departure: later, note: "\(ArrivalPlanner.spanText(late)) 늦어요", noteColor: AppTheme.Color.warning)
                 }
             }
             .secondarySurface(cornerRadius: 16)

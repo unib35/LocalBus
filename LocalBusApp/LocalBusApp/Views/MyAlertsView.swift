@@ -182,7 +182,7 @@ struct MyAlertsView: View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(AppTheme.Color.nightFare)
+                .foregroundStyle(AppTheme.Color.warning)
                 .frame(width: 22)
 
             VStack(alignment: .leading, spacing: 3) {
