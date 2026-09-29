@@ -27,7 +27,7 @@ private struct TrafficCache {
     let cachedAt: Date
 
     var isExpired: Bool {
-        Date().timeIntervalSince(cachedAt) > 20 * 60  // 20분
+        !ArrivalEstimator.isTrafficFresh(updatedAt: cachedAt)
     }
 }
 
@@ -68,8 +68,8 @@ final class TrafficService {
         }
 
         guard let minutes = await requestDuration(origin: origin, destination: destination) else {
-            // 실패 시 만료된 캐시라도 반환
-            return cache[cacheKey].map { ($0.durationMinutes, $0.cachedAt) }
+            // 여기까지 왔다면 캐시가 없거나 만료된 것. 오래된 값을 "현재 교통"으로 돌려주지 않는다.
+            return nil
         }
 
         let entry = TrafficCache(durationMinutes: minutes, cachedAt: Date())
