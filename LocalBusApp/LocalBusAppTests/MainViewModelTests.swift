@@ -166,6 +166,52 @@ struct MainViewModelTests {
 
     // MARK: - Helper
 
+    // MARK: - 버스 상세 정보
+
+    @Test func 오늘_시간표의_버스는_출발까지_남은_시간을_갖는다() async {
+        let viewModel = await MainViewModel()
+        await viewModel.loadTimetable(with: createTestTimetableData())
+        let tuesdayMorning = makeKSTDate(year: 2026, month: 9, day: 22, hour: 6)
+        viewModel.selectedScheduleType = .weekday
+
+        let info = viewModel.makeBusDetailInfo(for: "06:30", at: tuesdayMorning)
+
+        #expect(info.minutesUntilDeparture == 30)
+        #expect(info.isTomorrow == false)
+        #expect(info.scheduleTypeLabel == "평일")
+    }
+
+    @Test func 오늘이_아닌_요일_시간표의_버스는_남은_시간과_교통_반영이_없다() async {
+        let viewModel = await MainViewModel()
+        await viewModel.loadTimetable(with: createTestTimetableData())
+        let tuesdayMorning = makeKSTDate(year: 2026, month: 9, day: 22, hour: 6)
+        viewModel.selectedScheduleType = .weekend
+        viewModel.trafficDurationMinutes = 34
+
+        let info = viewModel.makeBusDetailInfo(for: "07:00", at: tuesdayMorning)
+
+        #expect(info.minutesUntilDeparture == nil)
+        #expect(info.estimate?.basis == .timetable)
+        #expect(info.untilText == nil)
+        #expect(info.scheduleTypeLabel == "주말 · 공휴일")
+    }
+
+    @Test func 내일_버스_상세는_내일_표시와_시간표_기준을_갖는다() async {
+        let viewModel = await MainViewModel()
+        await viewModel.loadTimetable(with: createTestTimetableData())
+        let tuesdayNight = makeKSTDate(year: 2026, month: 9, day: 22, hour: 23)
+        viewModel.selectedScheduleType = .weekday
+        viewModel.trafficDurationMinutes = 34
+
+        let info = viewModel.makeBusDetailInfo(for: "06:00", isTomorrow: true, at: tuesdayNight)
+
+        #expect(info.isTomorrow == true)
+        #expect(info.minutesUntilDeparture == nil)
+        #expect(info.estimate?.basis == .timetable)
+        #expect(info.untilText == "내일 06:00 출발")
+        #expect(info.durationMinutes == info.estimate?.durationMinutes)
+    }
+
     private func makeKSTDate(year: Int, month: Int, day: Int, hour: Int = 9) -> Date {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!

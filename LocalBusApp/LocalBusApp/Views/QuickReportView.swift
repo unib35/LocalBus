@@ -63,7 +63,10 @@ struct QuickReportContext: Identifiable {
             let names = info.stops.map(\.name)
             return names.isEmpty ? nil : names.joined(separator: " → ")
         case .duration:
-            return "\(info.durationMinutes)분 · \(info.arrivalTime) \(info.direction.arrivalName) 도착 예상"
+            // 버스 상세에 보이는 도착 예상과 같은 값을 보여준다
+            let minutes = info.estimate?.durationMinutes ?? info.durationMinutes
+            let arrival = info.estimate?.arrivalTime ?? info.arrivalTime
+            return "\(minutes)분 · \(arrival) \(info.direction.arrivalName) 도착 예상"
         case .guide, .other:
             return nil
         }
@@ -97,11 +100,17 @@ struct QuickReportView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView(showsIndicators: false) {
-                if isSent {
-                    sentBody
-                } else {
-                    editingBody
+            GeometryReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    Group {
+                        if isSent {
+                            sentBody
+                        } else {
+                            editingBody
+                        }
+                    }
+                    // 내용이 짧으면 아래 버튼 묶음이 시트 바닥에 붙는다
+                    .frame(minHeight: proxy.size.height, alignment: .top)
                 }
             }
             .background(AppTheme.Color.sheetBackground.ignoresSafeArea())
@@ -175,7 +184,7 @@ struct QuickReportView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .secondarySurface(cornerRadius: 14)
+                .sheetTileSurface(cornerRadius: 14)
                 .padding(.top, 18)
                 .accessibilityElement(children: .combine)
             }
@@ -202,7 +211,7 @@ struct QuickReportView: View {
                         .padding(.vertical, 6)
                 }
                 .frame(height: 96)
-                .secondarySurface(cornerRadius: 14)
+                .sheetTileSurface(cornerRadius: 14)
             }
             .padding(.top, 18)
 
@@ -217,16 +226,17 @@ struct QuickReportView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
-                .secondarySurface(cornerRadius: 14)
+                .sheetTileSurface(cornerRadius: 14)
             }
             .buttonStyle(.plain)
             .padding(.top, 10)
+
+            Spacer(minLength: 18)
 
             Text("메일 작성 창에 위 내용이 채워져 열려요. 보내기만 누르면 끝나요.")
                 .font(AppTheme.Typography.caption)
                 .foregroundStyle(AppTheme.Color.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 28)
 
             Button {
                 send()
@@ -248,12 +258,13 @@ struct QuickReportView: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .bold))
                 }
-                .font(AppTheme.Typography.caption.weight(.semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(AppTheme.Color.secondaryText)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
             }
             .buttonStyle(.plain)
+            .padding(.top, 12)
         }
         .padding(.horizontal, 20)
         .padding(.top, 24)
@@ -280,9 +291,22 @@ struct QuickReportView: View {
             .padding(.top, 96)
             .accessibilityElement(children: .combine)
 
-            Button("닫기") { dismiss() }
-                .buttonStyle(SecondaryButtonStyle(height: 52))
-                .padding(.top, 72)
+            Spacer(minLength: 18)
+
+            Button {
+                dismiss()
+            } label: {
+                Text("닫기")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AppTheme.Color.primaryText)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppTheme.Radius.primaryButton, style: .continuous)
+                            .fill(AppTheme.Color.secondaryButton)
+                    )
+            }
+            .buttonStyle(.plain)
 
             Button {
                 isSent = false
@@ -291,7 +315,7 @@ struct QuickReportView: View {
                 selectedImage = nil
             } label: {
                 Text("다른 정보도 제보하기")
-                    .font(AppTheme.Typography.caption.weight(.semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(AppTheme.Color.secondaryText)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)

@@ -53,6 +53,32 @@ enum ArrivalPlanner {
         return ArrivalPlan(best: best, earlier: earlier, later: later, durationMinutes: durationMinutes, target: target)
     }
 
+    // MARK: - 목표 도착 시각 (자정부터의 분)
+
+    /// 고를 수 있는 목표 시각 범위: 05:00 ~ 23:50
+    static let targetRange: ClosedRange<Int> = 300...1430
+
+    static func clampedTarget(minutes: Int) -> Int {
+        min(max(minutes, targetRange.lowerBound), targetRange.upperBound)
+    }
+
+    /// −/+ 버튼으로 옮긴 목표 시각
+    static func shiftedTarget(minutes: Int, by delta: Int) -> Int {
+        clampedTarget(minutes: minutes + delta)
+    }
+
+    /// 기본 목표: 지금부터 1시간 뒤를 10분 단위로 올림
+    static func defaultTargetMinutes(nowMinutes: Int) -> Int {
+        let base = (nowMinutes + 60) % (24 * 60)
+        let rounded = ((base + 9) / 10) * 10
+        return clampedTarget(minutes: rounded)
+    }
+
+    /// "08:30"
+    static func timeText(minutes: Int) -> String {
+        String(format: "%02d:%02d", minutes / 60, minutes % 60)
+    }
+
     /// "1시간 12분" 같은 표기
     static func spanText(_ minutes: Int) -> String {
         if minutes < 60 { return "\(minutes)분" }

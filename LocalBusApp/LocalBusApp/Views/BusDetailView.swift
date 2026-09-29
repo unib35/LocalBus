@@ -3,8 +3,8 @@ import UIKit
 
 // MARK: - 버스 상세 시트 뷰 (디자인 캔버스 개선안)
 //
-// 출발 시각 하나를 헤더로, 알림은 기본 버튼 하나로. 요금은 타일 한 줄, 정류장은 통과 시각과 함께.
-// 시트 배경 위에 놓이므로 컨테이너 대신 구분선과 2차 서피스만 쓴다.
+// 헤더는 홈 히어로와 같은 '출발 → 약 도착' 한 쌍. 계산 근거와 알림 옵션은 눌렀을 때만 펼친다.
+// 시트 바탕 위에 놓이므로 컨테이너 대신 구분선과 시트 타일만 쓴다.
 
 struct BusDetailView: View {
     let info: BusDetailInfo
@@ -59,17 +59,18 @@ struct BusDetailView: View {
                     .padding(.top, 22)
 
                 boardingAndFareSection
-                    .padding(.top, 28)
+                    .padding(.top, 26)
 
                 stopsSection
-                    .padding(.top, 28)
+                    .padding(.top, 26)
             }
             .padding(.horizontal, 20)
             .padding(.top, 24)
             .padding(.bottom, 40)
         }
         .background(AppTheme.Color.sheetBackground.ignoresSafeArea())
-        .presentationDetents([.medium, .large])
+        // 펼치지 않은 첫 화면에 출발·도착, 교통 상태, 알림 버튼, 승차·요금까지 들어오게 한다
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .toast(item: $notificationToast)
         .sheet(item: $quickReport) { context in
@@ -77,7 +78,7 @@ struct BusDetailView: View {
         }
     }
 
-    // MARK: - 헤더 (디자인 캔버스 EtaBusDetail: "사상에 약 19:04 도착")
+    // MARK: - 헤더 (디자인 캔버스 BusDetailUnified: 출발 → 약 도착)
 
     private var displayBasis: TrafficBasis {
         if isRefreshingTraffic {
@@ -88,16 +89,8 @@ struct BusDetailView: View {
         return estimate.basis
     }
 
-    private var untilText: String? {
-        guard let minutes = info.minutesUntilDeparture, minutes >= 0 else { return nil }
-        if minutes == 0 { return "곧 출발" }
-        if minutes < 60 { return "\(minutes)분 후 출발" }
-        let rest = minutes % 60
-        return rest == 0 ? "\(minutes / 60)시간 후 출발" : "\(minutes / 60)시간 \(rest)분 후 출발"
-    }
-
     private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("\(info.directionDisplayName) · \(info.scheduleTypeLabel) · \(info.isVia ? "경유" : "직행")")
                     .font(AppTheme.Typography.caption)
@@ -105,45 +98,71 @@ struct BusDetailView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                 Spacer(minLength: 8)
-                if let untilText {
+                if let untilText = info.untilText {
                     Text(untilText)
                         .font(AppTheme.Typography.caption.weight(.bold))
                         .monospacedDigit()
-                        .foregroundStyle(AppTheme.Color.accent)
-                } else if info.isNightFare {
-                    Text("심야 요금")
-                        .font(AppTheme.Typography.footnote.weight(.bold))
-                        .foregroundStyle(AppTheme.Color.nightFare)
+                        // 강조색은 오늘 탈 버스에만. 내일 출발편은 본문색
+                        .foregroundStyle(info.isTomorrow ? AppTheme.Color.primaryText : AppTheme.Color.accent)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
             }
 
-            HStack(alignment: .lastTextBaseline, spacing: 8) {
-                Text("\(info.direction.arrivalName)에")
-                    .font(AppTheme.Typography.groupTitle)
-                    .foregroundStyle(AppTheme.Color.primaryText)
-                HStack(alignment: .lastTextBaseline, spacing: 5) {
-                    Text("약")
-                        .font(.system(size: 20, weight: .bold))
+            HStack(alignment: .bottom, spacing: 0) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("출발")
+                        .font(AppTheme.Typography.footnote.weight(.semibold))
                         .foregroundStyle(AppTheme.Color.secondaryText)
-                    Text(estimate.arrivalTime)
-                        .font(.system(size: 48, weight: .heavy, design: .rounded))
+                    Text(info.departureTime)
+                        .font(AppTheme.Typography.etaTime)
                         .monospacedDigit()
                         .tracking(-1)
                         .foregroundStyle(AppTheme.Color.primaryText)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
-                Text("도착")
-                    .font(AppTheme.Typography.groupTitle)
-                    .foregroundStyle(AppTheme.Color.primaryText)
-            }
-            .padding(.top, 10)
 
-            Text("\(info.departureTime) 출발 · \(estimate.durationText)")
-                .font(AppTheme.Typography.rowValue.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(AppTheme.Color.primaryText)
-                .padding(.top, 8)
+                Spacer(minLength: 4)
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(AppTheme.Color.tertiaryText)
+                    .padding(.bottom, 12)
+                    .accessibilityHidden(true)
+
+                Spacer(minLength: 4)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(info.direction.arrivalName) 도착 예상")
+                        .font(AppTheme.Typography.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.Color.secondaryText)
+                        .lineLimit(1)
+                    HStack(alignment: .lastTextBaseline, spacing: 5) {
+                        Text("약")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(AppTheme.Color.secondaryText)
+                        Text(estimate.arrivalTime)
+                            .font(AppTheme.Typography.etaTime)
+                            .monospacedDigit()
+                            .tracking(-1)
+                            .foregroundStyle(AppTheme.Color.primaryText)
+                            .lineLimit(1)
+                    }
+                    .fixedSize()
+                }
+            }
+            .minimumScaleFactor(0.8)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(headerAccessibilityText)
+    }
+
+    private var headerAccessibilityText: String {
+        var parts = ["\(info.directionDisplayName) \(info.scheduleTypeLabel) \(info.isVia ? "경유" : "직행")"]
+        if let untilText = info.untilText { parts.append(untilText) }
+        parts.append("\(info.departureTime) 출발, \(info.direction.arrivalName)에 약 \(estimate.arrivalTime) 도착 예상")
+        return parts.joined(separator: ", ")
     }
 
     // MARK: - 도착 예상 설명 카드 (근거 · 갱신)
@@ -155,7 +174,7 @@ struct BusDetailView: View {
         case .refreshing:
             return ("교통정보 갱신 중", "현재 교통상황과 정차시간을 반영했어요. 시간표대로 출발할 경우의 예상이며, 실제 도착은 달라질 수 있어요.")
         case .timetable:
-            if let minutes = info.minutesUntilDeparture, minutes > ArrivalEstimator.trafficWindowMinutes {
+            if info.isBeforeTrafficWindow {
                 return ("시간표 기준", "출발까지 많이 남아 기본 소요시간 \(estimate.durationMinutes)분으로 계산했어요. 출발 1시간 전부터 교통상황을 반영해요.")
             }
             return ("시간표 기준", "교통정보를 받지 못해 기본 소요시간 \(estimate.durationMinutes)분으로 계산했어요. 시간표대로 출발할 경우의 예상이에요.")
@@ -170,9 +189,8 @@ struct BusDetailView: View {
     }
 
     private var etaFootText: String {
-        if case .timetable = displayBasis, let minutes = info.minutesUntilDeparture, minutes > ArrivalEstimator.trafficWindowMinutes,
-           let start = DateService.timeByAdding(minutes: -ArrivalEstimator.trafficWindowMinutes, to: info.departureTime) {
-            return "\(start)부터 교통 반영"
+        if case .timetable = displayBasis, info.isBeforeTrafficWindow {
+            return info.trafficStartText ?? "출발 1시간 전부터 교통 반영"
         }
         return ArrivalEstimator.footText(for: displayBasis, lastTrafficAt: info.lastTrafficAt)
     }
@@ -213,7 +231,7 @@ struct BusDetailView: View {
                     }
                     .font(AppTheme.Typography.footnote)
                     .foregroundStyle(AppTheme.Color.secondaryText)
-                    .padding(.trailing, 6)
+                    .padding(.trailing, 4)
                 }
                 .frame(height: 44)
                 .contentShape(Rectangle())
@@ -230,16 +248,18 @@ struct BusDetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.trailing, 8)
 
-                RowDivider(leadingInset: 0)
+                Rectangle()
+                    .fill(AppTheme.Color.border)
+                    .frame(height: 1)
                     .padding(.top, 10)
-                    .padding(.trailing, 8)
+                    .padding(.trailing, 6)
 
                 etaFooter
             }
         }
         .padding(.leading, 14)
         .padding(.trailing, 8)
-        .secondarySurface(cornerRadius: 12)
+        .sheetTileSurface(cornerRadius: 12)
     }
 
     private var etaFooter: some View {
@@ -251,7 +271,7 @@ struct BusDetailView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                 Spacer(minLength: 0)
-                if let onRefreshTraffic, showsRefreshAction {
+                if let onRefreshTraffic, info.canRefreshTraffic {
                     Button {
                         Task { await refreshTraffic(onRefreshTraffic) }
                     } label: {
@@ -266,7 +286,7 @@ struct BusDetailView: View {
                         }
                         .font(AppTheme.Typography.caption.weight(.semibold))
                         .foregroundStyle(isRefreshingTraffic || isFreshlyRefreshed ? AppTheme.Color.tertiaryText : AppTheme.Color.primaryText)
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, 8)
                         .frame(height: 44)
                         .contentShape(Rectangle())
                     }
@@ -275,12 +295,6 @@ struct BusDetailView: View {
                 }
             }
             .frame(height: 48)
-    }
-
-    /// 먼 시간대(1시간 이상 남음)에는 새로고침해도 교통을 반영하지 않으므로 버튼을 숨긴다.
-    private var showsRefreshAction: Bool {
-        guard let minutes = info.minutesUntilDeparture else { return false }
-        return minutes >= 0 && minutes <= ArrivalEstimator.trafficWindowMinutes
     }
 
     private var refreshLabel: String {
@@ -362,14 +376,14 @@ struct BusDetailView: View {
                         if isAlertOn { Task { await arm() } }
                     } label: {
                         Text("\(lead)분 전")
-                            .font(.system(size: 14, weight: isSelected ? .bold : .medium))
+                            .font(.system(size: 14, weight: isSelected ? .bold : .semibold))
                             .monospacedDigit()
-                            .foregroundStyle(isSelected ? AppTheme.Color.screenBackground : AppTheme.Color.primaryText)
+                            .foregroundStyle(isSelected ? AppTheme.Color.accentForeground : AppTheme.Color.primaryText)
                             .frame(maxWidth: .infinity)
                             .frame(height: 44)
                             .background(
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(isSelected ? AppTheme.Color.primaryText : AppTheme.Color.surfaceSecondary)
+                                    .fill(isSelected ? AppTheme.Color.primaryText : AppTheme.Color.secondaryButton)
                             )
                     }
                     .buttonStyle(.plain)
@@ -383,7 +397,7 @@ struct BusDetailView: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("평일마다 반복")
-                        .font(AppTheme.Typography.rowBody)
+                        .font(AppTheme.Typography.rowBody.weight(.medium))
                         .foregroundStyle(AppTheme.Color.primaryText)
                     Text("월–금 같은 시각에 알려드려요. 공휴일은 건너뛰어요")
                         .font(AppTheme.Typography.caption)
@@ -401,7 +415,7 @@ struct BusDetailView: View {
             .padding(.leading, 16)
             .padding(.trailing, 14)
             .padding(.vertical, 12)
-            .secondarySurface(cornerRadius: 12)
+            .sheetTileSurface(cornerRadius: 12)
             .padding(.top, 8)
         }
     }
@@ -427,7 +441,7 @@ struct BusDetailView: View {
                         Task { await disarm() }
                     } label: {
                         Text("알림 끄기")
-                            .font(AppTheme.Typography.caption.weight(.semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(AppTheme.Color.primaryText)
                             .padding(.horizontal, 16)
                             .frame(height: 44)
@@ -450,7 +464,9 @@ struct BusDetailView: View {
                 }
                 .buttonStyle(.primaryAction)
                 .padding(.top, 12)
-                .accessibilityLabel("알림 꺼짐")
+                // 울릴 시각을 그대로 읽어 준다
+                .accessibilityLabel("\(previewAlert.alertTime)에 알림 받기")
+                .accessibilityValue("알림 꺼짐")
                 .accessibilityHint("탭하여 출발 \(selectedLead)분 전 알림을 설정합니다")
             }
     }
@@ -525,7 +541,10 @@ struct BusDetailView: View {
             }
             Spacer(minLength: 0)
             EditReportLink(accessibilityLabel: reportLabel) {
-                quickReport = QuickReportContext(entry: reportKind, info: info)
+                // 제보 시트의 '지금 앱에 나온 정보'가 이 시트에 보이는 값과 같도록 현재 도착 예상을 넘긴다
+                var shown = info
+                shown.estimate = estimate
+                quickReport = QuickReportContext(entry: reportKind, info: shown)
             }
             .padding(.trailing, -8)
         }
@@ -544,8 +563,9 @@ struct BusDetailView: View {
                 .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .secondarySurface()
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .sheetTileSurface()
         .accessibilityElement(children: .combine)
     }
 
@@ -554,19 +574,17 @@ struct BusDetailView: View {
             Text(label)
                 .font(AppTheme.Typography.footnote)
                 .foregroundStyle(AppTheme.Color.secondaryText)
-            HStack(alignment: .lastTextBaseline, spacing: 1) {
-                Text(formattedFare(amount))
-                    .font(AppTheme.Typography.rowTime.weight(.bold))
-                    .monospacedDigit()
-                    .foregroundStyle(AppTheme.Color.primaryText)
-                Text("원")
-                    .font(AppTheme.Typography.footnote)
-                    .foregroundStyle(AppTheme.Color.secondaryText)
-            }
+            Text("\(formattedFare(amount))원")
+                .font(AppTheme.Typography.rowTime.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.Color.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .secondarySurface()
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .sheetTileSurface()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label) \(amount)원")
     }
@@ -613,6 +631,7 @@ struct BusDetailView: View {
 
 // MARK: - 정류장 타임라인 행
 
+/// 마커 → 시각 → 이름 순서의 한 줄. 첫 행을 뺀 나머지는 위쪽에 구분선을 둔다.
 struct StopTimelineRow: View {
     enum Role { case departure, intermediate, destination }
 
@@ -620,43 +639,42 @@ struct StopTimelineRow: View {
     let time: String
     let role: Role
 
+    private var isEndpoint: Bool { role != .intermediate }
+
     var body: some View {
         HStack(spacing: 12) {
+            marker
+                .frame(width: 20)
+
             Text(time)
-                .font(AppTheme.Typography.caption.weight(role == .intermediate ? .medium : .semibold))
+                .font(.system(size: 14, weight: isEndpoint ? .bold : .regular))
                 .monospacedDigit()
-                .foregroundStyle(role == .intermediate ? AppTheme.Color.secondaryText : AppTheme.Color.primaryText)
+                .foregroundStyle(isEndpoint ? AppTheme.Color.primaryText : AppTheme.Color.secondaryText)
+                .lineLimit(1)
+                .fixedSize()
                 .frame(width: 64, alignment: .leading)
 
-            ZStack {
-                VStack(spacing: 0) {
-                    Rectangle()
-                        .fill(AppTheme.Color.divider)
-                        .frame(width: 2)
-                        .opacity(role == .departure ? 0 : 1)
-                    Rectangle()
-                        .fill(AppTheme.Color.divider)
-                        .frame(width: 2)
-                        .opacity(role == .destination ? 0 : 1)
-                }
-                marker
-            }
-            .frame(width: 16)
-
             Text(name)
-                .font(role == .intermediate ? AppTheme.Typography.rowBody : AppTheme.Typography.rowTitle)
+                .font(.system(size: isEndpoint ? 15 : 14, weight: isEndpoint ? .semibold : .regular))
                 .foregroundStyle(AppTheme.Color.primaryText)
                 .lineLimit(1)
 
             Spacer(minLength: 0)
 
-            if role != .intermediate {
+            if isEndpoint {
                 Text(role == .departure ? "출발" : "도착 예상")
                     .font(AppTheme.Typography.footnote.weight(.semibold))
                     .foregroundStyle(AppTheme.Color.secondaryText)
             }
         }
-        .frame(height: role == .intermediate ? 40 : 44)
+        .frame(height: isEndpoint ? 44 : 40)
+        .overlay(alignment: .top) {
+            if role != .departure {
+                Rectangle()
+                    .fill(AppTheme.Color.divider)
+                    .frame(height: 1)
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(time) \(name)\(role == .departure ? ", 출발 정류장" : role == .destination ? ", 종점" : "")")
     }
@@ -668,11 +686,10 @@ struct StopTimelineRow: View {
             Circle().fill(AppTheme.Color.accent).frame(width: 12, height: 12)
         case .destination:
             Circle()
-                .stroke(AppTheme.Color.primaryText, lineWidth: 2.5)
-                .background(Circle().fill(AppTheme.Color.sheetBackground))
+                .strokeBorder(AppTheme.Color.primaryText, lineWidth: 2)
                 .frame(width: 12, height: 12)
         case .intermediate:
-            Circle().fill(AppTheme.Color.tertiaryText).frame(width: 7, height: 7)
+            Circle().fill(AppTheme.Color.tertiaryText).frame(width: 6, height: 6)
         }
     }
 }
