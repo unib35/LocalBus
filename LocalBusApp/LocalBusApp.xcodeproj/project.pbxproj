@@ -78,6 +78,8 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Models/BusLiveActivityAttributes.swift,
+				Models/LiveActivityTiming.swift,
+				Models/ServiceDaySchedule.swift,
 				Resources/timetable.json,
 				Services/EntitlementStore.swift,
 			);

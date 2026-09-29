@@ -33,182 +33,42 @@ enum WidgetRouteOption: String, AppEnum {
     }
 }
 
-// MARK: - Style Options (디자인 캔버스 위젯 후보 — 고르지 않고 모두 제공)
+// MARK: - Configuration Intents
+//
+// 보기(캔버스 후보)는 위젯 추가 화면에서 위젯을 골라 정한다. 편집에서는 노선만 고른다.
 
-enum SmallStyleOption: String, AppEnum {
-    case remaining, arrival, list, lastBus, bothWays, target, timeline
-
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "보기")
-    static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
-        .remaining: "남은 시간",
-        .arrival: "출발 → 도착",
-        .list: "다음 3대",
-        .lastBus: "막차",
-        .bothWays: "양방향",
-        .target: "도착 목표",
-        .timeline: "세로 타임라인"
-    ]
-
-    var style: SmallWidgetStyle {
-        switch self {
-        case .remaining: .remaining
-        case .arrival: .arrival
-        case .list: .list
-        case .lastBus: .lastBus
-        case .bothWays: .bothWays
-        case .target: .target
-        case .timeline: .timeline
-        }
-    }
-}
-
-enum MediumStyleOption: String, AppEnum {
-    case remaining, arrival, bothWays, hourGrid, summary, target
-
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "보기")
-    static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
-        .remaining: "남은 시간 + 이후 3대",
-        .arrival: "출발 → 도착 타임라인",
-        .bothWays: "양방향",
-        .hourGrid: "시간대 시간표",
-        .summary: "다음 버스 + 하루 요약",
-        .target: "도착 목표"
-    ]
-
-    var style: MediumWidgetStyle {
-        switch self {
-        case .remaining: .remaining
-        case .arrival: .arrival
-        case .bothWays: .bothWays
-        case .hourGrid: .hourGrid
-        case .summary: .summary
-        case .target: .target
-        }
-    }
-}
-
-enum LargeStyleOption: String, AppEnum {
-    case list, grid
-
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "보기")
-    static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
-        .list: "다음 버스 + 이어지는 버스",
-        .grid: "오늘 시간표"
-    ]
-
-    var style: LargeWidgetStyle {
-        switch self {
-        case .list: .list
-        case .grid: .grid
-        }
-    }
-}
-
-enum CircularStyleOption: String, AppEnum {
-    case remaining, departure
-
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "원형 보기")
-    static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
-        .remaining: "남은 시간 고리",
-        .departure: "출발 시각"
-    ]
-
-    var style: LockCircularStyle {
-        switch self {
-        case .remaining: .remaining
-        case .departure: .departure
-        }
-    }
-}
-
-// MARK: - Configuration Intents (크기마다 하나)
-
-/// 소형 위젯. 기존 설치를 깨지 않도록 kind와 intent 이름은 그대로 둔다.
+/// 노선 선택. 출시된 위젯이 쓰는 intent라 이름과 파라미터를 바꾸지 않는다.
 struct RouteConfigIntent: AppIntent, WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "노선 선택"
-    static var description = IntentDescription("표시할 버스 노선과 보기 방식을 선택합니다")
+    static var description = IntentDescription("표시할 버스 노선을 선택합니다")
 
     @Parameter(title: "노선", default: .jangyuToSasang)
     var route: WidgetRouteOption
 
-    @Parameter(title: "보기", default: .remaining)
-    var style: SmallStyleOption
+    init() {}
+    init(route: WidgetRouteOption) { self.route = route }
+}
 
-    @Parameter(title: "도착 목표 시각 (도착 목표 보기)", default: "08:30")
+/// 도착 목표 위젯: 노선과 도착하고 싶은 시각
+struct TargetRouteConfigIntent: AppIntent, WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "노선과 도착 시각"
+    static var description = IntentDescription("노선과 도착하고 싶은 시각을 정합니다")
+
+    @Parameter(title: "노선", default: .jangyuToSasang)
+    var route: WidgetRouteOption
+
+    @Parameter(title: "도착 목표 시각", default: "08:30")
     var targetTime: String
 
     init() {}
-    init(route: WidgetRouteOption, style: SmallStyleOption = .remaining, targetTime: String = "08:30") {
-        self.route = route
-        self.style = style
-        self.targetTime = targetTime
-    }
-
-    var options: WidgetOptions {
-        WidgetOptions(small: style.style, targetTime: WidgetTimeInput.normalize(targetTime))
-    }
-}
-
-struct MediumRouteConfigIntent: AppIntent, WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "노선 선택"
-    static var description = IntentDescription("표시할 버스 노선과 보기 방식을 선택합니다")
-
-    @Parameter(title: "노선", default: .jangyuToSasang)
-    var route: WidgetRouteOption
-
-    @Parameter(title: "보기", default: .remaining)
-    var style: MediumStyleOption
-
-    @Parameter(title: "도착 목표 시각 (도착 목표 보기)", default: "08:30")
-    var targetTime: String
-
-    init() {}
-
-    var options: WidgetOptions {
-        WidgetOptions(medium: style.style, targetTime: WidgetTimeInput.normalize(targetTime))
-    }
-}
-
-struct LargeRouteConfigIntent: AppIntent, WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "노선 선택"
-    static var description = IntentDescription("표시할 버스 노선과 보기 방식을 선택합니다")
-
-    @Parameter(title: "노선", default: .jangyuToSasang)
-    var route: WidgetRouteOption
-
-    @Parameter(title: "보기", default: .list)
-    var style: LargeStyleOption
-
-    init() {}
-
-    var options: WidgetOptions {
-        WidgetOptions(large: style.style)
-    }
-}
-
-struct LockRouteConfigIntent: AppIntent, WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "노선 선택"
-    static var description = IntentDescription("잠금 화면에 표시할 버스 노선을 선택합니다")
-
-    @Parameter(title: "노선", default: .jangyuToSasang)
-    var route: WidgetRouteOption
-
-    @Parameter(title: "원형 보기", default: .remaining)
-    var circular: CircularStyleOption
-
-    init() {}
-
-    var options: WidgetOptions {
-        WidgetOptions(circular: circular.style)
-    }
 }
 
 /// "8:30", "0830", "08시30분" 같은 입력을 "HH:mm"으로 맞춘다. 못 읽으면 기본값.
 enum WidgetTimeInput {
     static func normalize(_ raw: String, fallback: String = "08:30") -> String {
-        let digits = raw.filter(\.isNumber)
-        guard digits.count >= 3, digits.count <= 4,
-              let value = Int(digits) else { return fallback }
+        let numbers = raw.filter(\.isNumber)
+        guard numbers.count >= 3, numbers.count <= 4,
+              let value = Int(numbers) else { return fallback }
         let hour = value / 100
         let minute = value % 100
         guard (0...23).contains(hour), (0...59).contains(minute) else { return fallback }
@@ -229,124 +89,223 @@ private func makeTimeline(routeKey: String, direction: String, options: WidgetOp
     return Timeline(entries: entries, policy: .after(nextUpdate))
 }
 
+/// 위젯 추가 화면의 미리보기는 예시 값으로 그린다. 실제 값으로 그리면 밤에는 모든 후보가 '운행 종료'로 똑같이 보인다.
+private func previewEntry(route: WidgetRouteOption, options: WidgetOptions) -> BusEntry {
+    BusEntry.placeholder(options: options, routeKey: route.rawValue, direction: route.displayName)
+}
+
 struct ConfigurableProvider: AppIntentTimelineProvider {
     typealias Entry = BusEntry
     typealias Intent = RouteConfigIntent
 
-    func placeholder(in context: Context) -> BusEntry { BusEntry.placeholder() }
+    /// 이 위젯이 보여 줄 보기 (크기마다 하나)
+    var options: WidgetOptions = .default
+
+    func placeholder(in context: Context) -> BusEntry { BusEntry.placeholder(options: options) }
 
     func snapshot(for configuration: RouteConfigIntent, in context: Context) async -> BusEntry {
-        WidgetDataHelper.createEntry(for: Date(), routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: configuration.options)
+        if context.isPreview { return previewEntry(route: configuration.route, options: options) }
+        return WidgetDataHelper.createEntry(for: Date(), routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: options)
     }
 
     func timeline(for configuration: RouteConfigIntent, in context: Context) async -> Timeline<BusEntry> {
-        makeTimeline(routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: configuration.options)
+        makeTimeline(routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: options)
     }
 }
 
-struct MediumProvider: AppIntentTimelineProvider {
+struct TargetProvider: AppIntentTimelineProvider {
     typealias Entry = BusEntry
-    typealias Intent = MediumRouteConfigIntent
+    typealias Intent = TargetRouteConfigIntent
 
-    func placeholder(in context: Context) -> BusEntry { BusEntry.placeholder() }
-
-    func snapshot(for configuration: MediumRouteConfigIntent, in context: Context) async -> BusEntry {
-        WidgetDataHelper.createEntry(for: Date(), routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: configuration.options)
+    private func options(for configuration: TargetRouteConfigIntent) -> WidgetOptions {
+        WidgetOptions(small: .target, medium: .target, targetTime: WidgetTimeInput.normalize(configuration.targetTime))
     }
 
-    func timeline(for configuration: MediumRouteConfigIntent, in context: Context) async -> Timeline<BusEntry> {
-        makeTimeline(routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: configuration.options)
-    }
-}
-
-struct LargeProvider: AppIntentTimelineProvider {
-    typealias Entry = BusEntry
-    typealias Intent = LargeRouteConfigIntent
-
-    func placeholder(in context: Context) -> BusEntry { BusEntry.placeholder(options: WidgetOptions(large: .list)) }
-
-    func snapshot(for configuration: LargeRouteConfigIntent, in context: Context) async -> BusEntry {
-        WidgetDataHelper.createEntry(for: Date(), routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: configuration.options)
+    func placeholder(in context: Context) -> BusEntry {
+        BusEntry.placeholder(options: WidgetOptions(small: .target, medium: .target))
     }
 
-    func timeline(for configuration: LargeRouteConfigIntent, in context: Context) async -> Timeline<BusEntry> {
-        makeTimeline(routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: configuration.options)
+    func snapshot(for configuration: TargetRouteConfigIntent, in context: Context) async -> BusEntry {
+        let options = options(for: configuration)
+        if context.isPreview { return previewEntry(route: configuration.route, options: options) }
+        return WidgetDataHelper.createEntry(for: Date(), routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: options)
+    }
+
+    func timeline(for configuration: TargetRouteConfigIntent, in context: Context) async -> Timeline<BusEntry> {
+        makeTimeline(routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: options(for: configuration))
     }
 }
 
-struct LockProvider: AppIntentTimelineProvider {
-    typealias Entry = BusEntry
-    typealias Intent = LockRouteConfigIntent
+// MARK: - Widgets (캔버스 후보마다 위젯 추가 화면에 하나씩)
+//
+// 같은 생각의 후보는 크기만 다른 한 위젯으로 묶는다. 위젯 추가 화면에서 위젯을 고르고 옆으로 넘겨 크기를 고른다.
+//
+//  위젯            소형   중형   대형   잠금 화면
+//  다음 버스        A      A      A     사각형 · 원형(남은 시간) · 한 줄
+//  출발 → 도착      B      B            원형(출발 시각)
+//  다음 3대         C
+//  막차            D
+//  양방향          E      C
+//  도착 목표        F      F
+//  세로 타임라인     G
+//  시간표                 D      B
+//  하루 요약               E
 
-    func placeholder(in context: Context) -> BusEntry { BusEntry.placeholder() }
-
-    func snapshot(for configuration: LockRouteConfigIntent, in context: Context) async -> BusEntry {
-        WidgetDataHelper.createEntry(for: Date(), routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: configuration.options)
+private func routeWidget(
+    kind: String,
+    name: String,
+    description: String,
+    families: [WidgetFamily],
+    options: WidgetOptions
+) -> some WidgetConfiguration {
+    AppIntentConfiguration(kind: kind, intent: RouteConfigIntent.self, provider: ConfigurableProvider(options: options)) { entry in
+        LocalBusWidgetEntryView(entry: entry)
+            .containerBackground(for: .widget) { WidgetContainerBackground() }
     }
-
-    func timeline(for configuration: LockRouteConfigIntent, in context: Context) async -> Timeline<BusEntry> {
-        makeTimeline(routeKey: configuration.route.rawValue, direction: configuration.route.displayName, options: configuration.options)
-    }
+    .configurationDisplayName(name)
+    .description(description)
+    .supportedFamilies(families)
+    .contentMarginsDisabled()
 }
 
-// MARK: - Widgets (크기별)
-
-/// 소형. kind는 기존 설치 유지를 위해 그대로.
+/// 남은 시간. 출시된 위젯이라 kind와 지원 크기를 그대로 둔다.
 struct LocalBusConfigurableWidget: Widget {
     let kind: String = "LocalBusConfigurableWidget"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: RouteConfigIntent.self, provider: ConfigurableProvider()) { entry in
+        routeWidget(
+            kind: kind,
+            name: "다음 버스",
+            description: "남은 시간을 크게. 중형은 이후 3대, 대형은 이어지는 버스 표까지",
+            families: [.systemSmall, .systemMedium, .systemLarge, .accessoryCircular, .accessoryRectangular, .accessoryInline],
+            options: .default
+        )
+    }
+}
+
+struct LocalBusArrivalWidget: Widget {
+    let kind: String = "LocalBusArrivalWidget"
+
+    var body: some WidgetConfiguration {
+        routeWidget(
+            kind: kind,
+            name: "출발 → 도착",
+            description: "출발 시각과 도착 예상을 함께. 잠금 화면 원형은 출발 시각만",
+            families: [.systemSmall, .systemMedium, .accessoryCircular],
+            options: WidgetOptions(small: .arrival, medium: .arrival, circular: .departure)
+        )
+    }
+}
+
+struct LocalBusNextThreeWidget: Widget {
+    let kind: String = "LocalBusNextThreeWidget"
+
+    var body: some WidgetConfiguration {
+        routeWidget(
+            kind: kind,
+            name: "다음 3대",
+            description: "한 대를 놓쳐도 바로 다음 버스가 보여요",
+            families: [.systemSmall],
+            options: WidgetOptions(small: .list)
+        )
+    }
+}
+
+struct LocalBusLastBusWidget: Widget {
+    let kind: String = "LocalBusLastBusWidget"
+
+    var body: some WidgetConfiguration {
+        routeWidget(
+            kind: kind,
+            name: "막차",
+            description: "막차 시각과 남은 시간, 심야 요금",
+            families: [.systemSmall],
+            options: WidgetOptions(small: .lastBus)
+        )
+    }
+}
+
+struct LocalBusBothWaysWidget: Widget {
+    let kind: String = "LocalBusBothWaysWidget"
+
+    var body: some WidgetConfiguration {
+        routeWidget(
+            kind: kind,
+            name: "양방향",
+            description: "가는 버스와 오는 버스를 한 번에",
+            families: [.systemSmall, .systemMedium],
+            options: WidgetOptions(small: .bothWays, medium: .bothWays)
+        )
+    }
+}
+
+struct LocalBusTargetWidget: Widget {
+    let kind: String = "LocalBusTargetWidget"
+
+    var body: some WidgetConfiguration {
+        AppIntentConfiguration(kind: kind, intent: TargetRouteConfigIntent.self, provider: TargetProvider()) { entry in
             LocalBusWidgetEntryView(entry: entry)
                 .containerBackground(for: .widget) { WidgetContainerBackground() }
         }
-        .configurationDisplayName("다음 버스")
-        .description("남은 시간 · 출발 → 도착 · 다음 3대 · 막차 · 양방향 · 도착 목표 · 세로 타임라인")
-        .supportedFamilies([.systemSmall])
+        .configurationDisplayName("도착 목표")
+        .description("정한 시각까지 도착하려면 타야 할 버스. 위젯 편집에서 도착 시각을 정해요")
+        .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
 }
 
-struct LocalBusMediumWidget: Widget {
-    let kind: String = "LocalBusMediumWidget"
+struct LocalBusTimelineWidget: Widget {
+    let kind: String = "LocalBusTimelineWidget"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: MediumRouteConfigIntent.self, provider: MediumProvider()) { entry in
-            LocalBusWidgetEntryView(entry: entry)
-                .containerBackground(for: .widget) { WidgetContainerBackground() }
-        }
-        .configurationDisplayName("다음 버스 · 중형")
-        .description("남은 시간 · 출발 → 도착 · 양방향 · 시간대 시간표 · 하루 요약 · 도착 목표")
-        .supportedFamilies([.systemMedium])
-        .contentMarginsDisabled()
+        routeWidget(
+            kind: kind,
+            name: "세로 타임라인",
+            description: "출발과 도착 예상을 위아래로",
+            families: [.systemSmall],
+            options: WidgetOptions(small: .timeline)
+        )
     }
 }
 
-struct LocalBusLargeWidget: Widget {
-    let kind: String = "LocalBusLargeWidget"
+struct LocalBusTimetableWidget: Widget {
+    let kind: String = "LocalBusTimetableWidget"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: LargeRouteConfigIntent.self, provider: LargeProvider()) { entry in
-            LocalBusWidgetEntryView(entry: entry)
-                .containerBackground(for: .widget) { WidgetContainerBackground() }
-        }
-        .configurationDisplayName("다음 버스 · 대형")
-        .description("이어지는 버스 표 또는 오늘 시간표 전체")
-        .supportedFamilies([.systemLarge])
-        .contentMarginsDisabled()
+        routeWidget(
+            kind: kind,
+            name: "시간표",
+            description: "중형은 지금과 다음 시간대, 대형은 오늘 시간표",
+            families: [.systemMedium, .systemLarge],
+            options: WidgetOptions(medium: .hourGrid, large: .grid)
+        )
     }
 }
 
-struct LocalBusLockWidget: Widget {
-    let kind: String = "LocalBusLockWidget"
+struct LocalBusDaySummaryWidget: Widget {
+    let kind: String = "LocalBusDaySummaryWidget"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: LockRouteConfigIntent.self, provider: LockProvider()) { entry in
-            LocalBusWidgetEntryView(entry: entry)
-                .containerBackground(for: .widget) { WidgetContainerBackground() }
-        }
-        .configurationDisplayName("다음 버스 · 잠금 화면")
-        .description("사각형 · 원형 · 한 줄")
-        .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
+        routeWidget(
+            kind: kind,
+            name: "하루 요약",
+            description: "다음 버스와 막차 · 심야 요금 · 내일 첫차",
+            families: [.systemMedium],
+            options: WidgetOptions(medium: .summary)
+        )
+    }
+}
+
+/// 새로 더한 후보 위젯 묶음. 번들 한 곳에 넣을 수 있는 수를 넘지 않게 나눠 둔다.
+struct CandidateWidgetBundle: WidgetBundle {
+    var body: some Widget {
+        LocalBusArrivalWidget()
+        LocalBusNextThreeWidget()
+        LocalBusLastBusWidget()
+        LocalBusBothWaysWidget()
+        LocalBusTargetWidget()
+        LocalBusTimelineWidget()
+        LocalBusTimetableWidget()
+        LocalBusDaySummaryWidget()
     }
 }
