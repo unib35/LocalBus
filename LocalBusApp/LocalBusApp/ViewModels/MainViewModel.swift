@@ -32,7 +32,6 @@ struct BusTimingSnapshot {
     let minutesUntilFirstBus: Int
     let nextBusArrivalTime: String
     let followingBusTime: String
-    let nextBusProgress: Double
     let upcomingBuses: [UpcomingBusSnapshot]
 }
 
@@ -72,7 +71,20 @@ final class MainViewModel: ObservableObject {
     /// 알림 예약 상태
     @Published private(set) var scheduledNotifications: Set<String> = []
 
+    @Published private(set) var isCheckingTimetableUpdate = false
+    @Published private(set) var isUpdatingTimetable = false
+    @Published private(set) var hasCheckedTimetableUpdate = false
+    @Published private var pendingTimetableData: TimetableData?
+
+    var hasTimetableUpdate: Bool { pendingTimetableData != nil }
+
+    enum TimetableUpdateResult {
+        case updated, alreadyCurrent, unavailable
+    }
+
     // MARK: - Private Properties
+
+    private var updateCheckTask: Task<Void, Never>?
 
     /// 전체 시간표 데이터 (routes 포함)
     private var timetableData: TimetableData?
@@ -139,7 +151,7 @@ final class MainViewModel: ObservableObject {
 
     /// 홈 상단 위치 텍스트
     var dashboardLocationText: String {
-        "현재 위치: \(currentTerminalName)"
+        "출발지: \(currentDepartureStopName)"
     }
 
     /// 홈 화면 출발 터미널 이름
@@ -235,17 +247,21 @@ final class MainViewModel: ObservableObject {
 
     /// 현재 시간표 배지 텍스트
     var scheduleBadgeText: String {
-        "실시간"
+        let now = Date()
+        let today = TimetableTimeline.calendar.startOfDay(for: now)
+        let serviceDate = departures(from: now).first.flatMap { $0.serviceDate <= today ? $0.serviceDate : nil } ?? now
+        let type: ScheduleType = DateService.shouldUseWeekdaySchedule(serviceDate, holidays: holidays) ? .weekday : .weekend
+        return "\(type.displayLabel) · 시간표 기준"
     }
 
     /// 첫차 시간
     var firstBusTime: String {
-        currentTimes.first ?? "--:--"
+        operatingTimes(on: Date()).first ?? "--:--"
     }
 
     /// 막차 시간
     var lastBusTime: String {
-        currentTimes.last ?? "--:--"
+        operatingTimes(on: Date()).last ?? "--:--"
     }
 
     /// 실시간 교통 기반 소요시간 (nil이면 고정값 사용)
@@ -262,6 +278,15 @@ final class MainViewModel: ObservableObject {
     init() {
         let saved = UserDefaults.standard.string(forKey: "selectedDirection") ?? RouteDirection.jangyuToSasang.rawValue
         self.selectedDirection = RouteDirection(rawValue: saved) ?? .jangyuToSasang
+        if PreviewRuntime.isRunning, let data = TimetableService().loadLocalData() {
+            selectedDirection = .jangyuToSasang
+            timetableData = data
+            holidays = data.holidays
+            noticeMessage = data.meta.noticeMessage
+            loadTimesForCurrentDirection(from: data)
+            selectedScheduleType = .weekday
+            isLoading = false
+        }
     }
 
     // MARK: - Public Methods
@@ -284,34 +309,47 @@ final class MainViewModel: ObservableObject {
         )
     }
 
+    private func operatingTimes(on date: Date) -> [String] {
+        TimetableTimeline.times(on: date, weekday: weekdayTimes, weekend: weekendTimes, holidays: holidays)
+    }
+
+    private func departures(from date: Date) -> [TimetableTimeline.Departure] {
+        TimetableTimeline.departures(weekday: weekdayTimes, weekend: weekendTimes, holidays: holidays, from: date)
+    }
+
     func nextBusTime(at referenceDate: Date) -> String? {
-        DateService.findNextBus(times: currentTimes, from: referenceDate)
+        let today = TimetableTimeline.calendar.startOfDay(for: referenceDate)
+        return departures(from: referenceDate).first(where: { $0.serviceDate <= today })?.time
+    }
+
+    func nextBusTimeForSelectedSchedule(at referenceDate: Date) -> String? {
+        let today = TimetableTimeline.calendar.startOfDay(for: referenceDate)
+        let type: ScheduleType = DateService.shouldUseWeekdaySchedule(referenceDate, holidays: holidays) ? .weekday : .weekend
+        guard selectedScheduleType == type,
+              let next = departures(from: referenceDate).first,
+              next.serviceDate == today else { return nil }
+        return next.time
     }
 
     func makeTimingSnapshot(at referenceDate: Date) -> BusTimingSnapshot {
-        let nextBusTime = nextBusTime(at: referenceDate)
-        let minutesUntilNextBus = minutesUntilNextBus(at: referenceDate, nextBusTime: nextBusTime)
-        let secondsUntilNextBus = secondsUntilNextBus(at: referenceDate, nextBusTime: nextBusTime)
-        let firstBusLeadTime = firstBusLeadTime(at: referenceDate)
-
-        let isServiceEnded: Bool = {
-            guard !currentTimes.isEmpty else { return false }
-            guard let minutes = minutesUntilNextBus else { return true }
-            return minutes > 120
-        }()
-
+        let future = departures(from: referenceDate)
+        let today = TimetableTimeline.calendar.startOfDay(for: referenceDate)
+        let next = future.first
+        let isServiceEnded = next.map { $0.serviceDate > today } ?? (!weekdayTimes.isEmpty || !weekendTimes.isEmpty)
+        let seconds = next.map { max(0, Int($0.date.timeIntervalSince(referenceDate))) }
+        let leadMinutes = Int(ceil(Double(seconds ?? 0) / 60))
+        let firstTime = isServiceEnded ? (next?.time ?? "--:--") : (operatingTimes(on: next?.serviceDate ?? referenceDate).first ?? "--:--")
         return BusTimingSnapshot(
-            nextBusTime: nextBusTime,
+            nextBusTime: isServiceEnded ? nil : next?.time,
             isServiceEnded: isServiceEnded,
-            nextBusMinuteDisplay: nextBusMinuteDisplay(secondsUntilNextBus: secondsUntilNextBus),
-            nextBusUnitDisplay: nextBusUnitDisplay(secondsUntilNextBus: secondsUntilNextBus),
-            nextBusCountdownDescription: nextBusCountdownDescription(secondsUntilNextBus: secondsUntilNextBus),
-            firstBusTime: firstBusTime,
-            hoursUntilFirstBus: firstBusLeadTime.hours,
-            minutesUntilFirstBus: firstBusLeadTime.minutes,
-            nextBusArrivalTime: nextBusArrivalTime(for: nextBusTime),
-            followingBusTime: followingBusTime(after: nextBusTime),
-            nextBusProgress: nextBusProgress(nextBusTime: nextBusTime, minutesUntilNextBus: minutesUntilNextBus),
+            nextBusMinuteDisplay: nextBusMinuteDisplay(secondsUntilNextBus: seconds),
+            nextBusUnitDisplay: nextBusUnitDisplay(secondsUntilNextBus: seconds),
+            nextBusCountdownDescription: nextBusCountdownDescription(secondsUntilNextBus: seconds),
+            firstBusTime: firstTime,
+            hoursUntilFirstBus: leadMinutes / 60,
+            minutesUntilFirstBus: leadMinutes % 60,
+            nextBusArrivalTime: nextBusArrivalTime(for: next?.time),
+            followingBusTime: future.dropFirst().first?.time ?? "--:--",
             upcomingBuses: buildUpcomingBuses(limit: 3, at: referenceDate)
         )
     }
@@ -351,6 +389,7 @@ final class MainViewModel: ObservableObject {
     /// 시간표 데이터 로드
     func loadTimetable(with data: TimetableData) async {
         timetableData = data
+        errorMessage = nil
         holidays = data.holidays
         noticeMessage = data.meta.noticeMessage
 
@@ -365,6 +404,7 @@ final class MainViewModel: ObservableObject {
 
         await refreshTrafficDuration()
         await refreshScheduledNotifications()
+        await updateSavedLastBusReminder(using: data)
     }
 
     /// 방향 변경
@@ -372,7 +412,10 @@ final class MainViewModel: ObservableObject {
         guard selectedDirection != direction else { return }
 
         selectedDirection = direction
-        UserDefaults.standard.set(direction.rawValue, forKey: "selectedDirection")
+        trafficDurationMinutes = nil
+        if !PreviewRuntime.isRunning {
+            UserDefaults.standard.set(direction.rawValue, forKey: "selectedDirection")
+        }
         if let data = timetableData {
             loadTimesForCurrentDirection(from: data)
         }
@@ -381,12 +424,15 @@ final class MainViewModel: ObservableObject {
 
     /// 실시간 교통 소요시간 갱신
     func refreshTrafficDuration() async {
+        guard !PreviewRuntime.isRunning else { return }
+        let requestedDirection = selectedDirection
         guard let origin = currentRouteOrigin,
               let destination = currentRouteDestination else { return }
         let minutes = await TrafficService.shared.fetchDuration(
             origin: origin,
             destination: destination
         )
+        guard selectedDirection == requestedDirection else { return }
         trafficDurationMinutes = minutes
     }
 
@@ -408,65 +454,99 @@ final class MainViewModel: ObservableObject {
             }
     }
 
-    /// 막차 30분 전 알림 예약
-    func scheduleLastBusNotification() async {
-        let granted = await NotificationService.shared.requestAuthorization()
-        guard granted else { return }
-        NotificationService.shared.scheduleLastBusNotification(
-            lastBusTime: lastBusTime,
-            direction: currentDirectionName
+    /// 현재 노선의 실제 오늘 시간표로 막차 알림을 예약한다.
+    func scheduleLastBusNotification() async throws {
+        guard let data = timetableData,
+              let time = TimetableService().getCurrentTimetable(for: Date(), direction: selectedDirection, data: data).last else {
+            throw NotificationService.ScheduleError.invalidTime
+        }
+        try await NotificationService.shared.scheduleLastBusNotification(
+            lastBusTime: time, direction: currentDirectionName
         )
     }
 
-    /// 막차 알림 취소
+    /// 저장한 알림 대상 노선은 홈에서 조회하는 노선과 독립적으로 유지한다.
+    private func updateSavedLastBusReminder(using data: TimetableData) async {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: "lastMileAlertEnabled"),
+              let raw = defaults.string(forKey: "lastBusDirection"),
+              let direction = RouteDirection(rawValue: raw),
+              let lastTime = TimetableService().getCurrentTimetable(for: Date(), direction: direction, data: data).last,
+              await NotificationService.shared.lastBusReminderSummary() != nil else { return }
+        do {
+            try await NotificationService.shared.scheduleLastBusNotification(lastBusTime: lastTime, direction: direction.displayName)
+            defaults.removeObject(forKey: "lastBusReminderUpdateError")
+        } catch {
+            defaults.set("시간표 변경에 맞춰 알림을 갱신하지 못했습니다. 다시 설정해주세요.", forKey: "lastBusReminderUpdateError")
+        }
+    }
+
     func cancelLastBusNotification() {
         NotificationService.shared.cancelLastBusNotification()
     }
 
-    /// 캐시 초기화 후 데이터 재로드
-    func clearCacheAndRefresh() async {
-        TimetableService().clearCache()
-        await refresh()
-    }
-
-    /// 알림 토글
-    func toggleNotification(for busTime: String, minutesBefore: Int = 5) async {
-        let key = "\(busTime)_\(minutesBefore)"
-        if scheduledNotifications.contains(key) {
-            NotificationService.shared.cancelNotification(busTime: busTime, minutesBefore: minutesBefore)
-            scheduledNotifications.remove(key)
-            if #available(iOS 16.2, *) {
-                LiveActivityService.shared.endActivity()
-            }
-        } else {
-            let granted = await NotificationService.shared.requestAuthorization()
-            if granted {
-                NotificationService.shared.scheduleBusNotification(
-                    busTime: busTime,
-                    minutesBefore: minutesBefore,
-                    direction: currentDirectionName
-                )
-                scheduledNotifications.insert(key)
-
-                // 20분 이내 버스면 Live Activity 시작 (설정에서 활성화된 경우)
-                let liveActivityEnabled = UserDefaults.standard.object(forKey: "liveActivityEnabled") as? Bool ?? true
-                if #available(iOS 16.2, *),
-                   liveActivityEnabled,
-                   let minutes = DateService.minutesUntil(timeString: busTime, from: Date()),
-                   minutes >= 0 && minutes <= 20 {
-                    LiveActivityService.shared.startActivity(
-                        departureTime: busTime,
-                        direction: currentDirectionName,
-                        durationMinutes: effectiveDurationMinutes
-                    )
-                }
+    enum NotificationResult {
+        case scheduled, cancelled, denied, failed(String)
+        var message: String {
+            switch self {
+            case .scheduled: return "출발 5분 전 알림을 설정했습니다"
+            case .cancelled: return "버스 알림을 해제했습니다"
+            case .denied: return "설정에서 알림 권한을 허용해주세요"
+            case .failed(let message): return message
             }
         }
     }
 
-    /// 알림이 예약되어 있는지 확인
-    func isNotificationScheduled(for busTime: String, minutesBefore: Int = 5) -> Bool {
-        scheduledNotifications.contains("\(busTime)_\(minutesBefore)")
+    private var notificationChangeInFlight = false
+
+    func notificationDeparture(for time: String, useSelectedSchedule: Bool = true, now: Date = Date()) -> TimetableTimeline.Departure? {
+        let today = TimetableTimeline.calendar.startOfDay(for: now)
+        if !useSelectedSchedule {
+            return departures(from: now).first { $0.time == time && $0.serviceDate <= today }
+        }
+        let type: ScheduleType = DateService.shouldUseWeekdaySchedule(now, holidays: holidays) ? .weekday : .weekend
+        guard selectedScheduleType == type else { return nil }
+        return TimetableTimeline.departure(time: time, times: currentTimes, serviceDate: today)
+    }
+
+    @discardableResult
+    func toggleNotification(for busTime: String, minutesBefore: Int = 5, useSelectedSchedule: Bool = true, now: Date = Date(), notificationService: any BusNotificationScheduling = NotificationService.shared) async -> NotificationResult {
+        guard !notificationChangeInFlight else { return .failed("알림 설정 중입니다. 잠시 기다려주세요.") }
+        guard let departure = notificationDeparture(for: busTime, useSelectedSchedule: useSelectedSchedule, now: now) else {
+            return .failed("오늘 운행하는 시간표에서 알림을 설정해주세요.")
+        }
+        notificationChangeInFlight = true
+        defer { notificationChangeInFlight = false }
+        let direction = selectedDirection
+        let duration = effectiveDurationMinutes
+        let key = NotificationService.busNotificationIdentifier(departure: departure.date, direction: direction, minutesBefore: minutesBefore)
+        scheduledNotifications = await notificationService.scheduledBusNotificationKeys()
+        if scheduledNotifications.contains(key) {
+            notificationService.cancelNotification(identifier: key)
+            scheduledNotifications.remove(key)
+            if #available(iOS 16.2, *) {
+                await LiveActivityService.shared.endActivity(departure: departure.date, direction: direction.displayName)
+            }
+            return .cancelled
+        }
+        do {
+            _ = try NotificationService.reminderComponents(departure: departure.date, minutesBefore: minutesBefore, now: now)
+            guard await notificationService.requestAuthorization() else { return .denied }
+            try await notificationService.scheduleBusNotification(departure: departure, minutesBefore: minutesBefore, direction: direction)
+            scheduledNotifications.insert(key)
+            let enabled = UserDefaults.standard.object(forKey: "liveActivityEnabled") as? Bool ?? true
+            if #available(iOS 16.2, *), enabled, departure.date.timeIntervalSinceNow <= 20 * 60 {
+                await LiveActivityService.shared.startActivity(departure: departure, direction: direction.displayName, durationMinutes: duration)
+            }
+            return .scheduled
+        } catch {
+            return .failed((error as? NotificationService.ScheduleError)?.localizedDescription ?? "알림을 예약하지 못했습니다. 다시 시도해주세요.")
+        }
+    }
+
+    func isNotificationScheduled(for busTime: String, minutesBefore: Int = 5, useSelectedSchedule: Bool = true) -> Bool {
+        guard let departure = notificationDeparture(for: busTime, useSelectedSchedule: useSelectedSchedule) else { return false }
+        return scheduledNotifications.contains(NotificationService.busNotificationIdentifier(departure: departure.date, direction: selectedDirection, minutesBefore: minutesBefore))
     }
 
     func refreshScheduledNotifications() async {
@@ -474,16 +554,6 @@ final class MainViewModel: ObservableObject {
     }
 
     // MARK: - Private Methods
-
-    private func minutesUntilNextBus(at referenceDate: Date, nextBusTime: String?) -> Int? {
-        guard let nextBusTime else { return nil }
-        return DateService.minutesUntil(timeString: nextBusTime, from: referenceDate)
-    }
-
-    private func secondsUntilNextBus(at referenceDate: Date, nextBusTime: String?) -> Int? {
-        guard let nextBusTime else { return nil }
-        return DateService.secondsUntil(timeString: nextBusTime, from: referenceDate)
-    }
 
     private func nextBusMinuteDisplay(secondsUntilNextBus: Int?) -> String {
         guard let secondsUntilNextBus else { return "--" }
@@ -504,7 +574,7 @@ final class MainViewModel: ObservableObject {
 
     private func nextBusCountdownDescription(secondsUntilNextBus: Int?) -> String {
         guard let secondsUntilNextBus else { return "후 출발" }
-        if secondsUntilNextBus <= 60 { return "곧 도착" }
+        if secondsUntilNextBus <= 60 { return "곧 출발" }
         let minutes = Int(ceil(Double(secondsUntilNextBus) / 60.0))
         if minutes >= 60 {
             let remainingMinutes = minutes % 60
@@ -513,47 +583,9 @@ final class MainViewModel: ObservableObject {
         return "후 출발"
     }
 
-    private func firstBusLeadTime(at referenceDate: Date) -> (hours: Int, minutes: Int) {
-        guard let firstTime = currentTimes.first else { return (0, 0) }
-        let totalMinutes = DateService.minutesUntilNextDay(timeString: firstTime, from: referenceDate)
-        return (totalMinutes / 60, totalMinutes % 60)
-    }
-
     private func nextBusArrivalTime(for nextBusTime: String?) -> String {
         guard let nextBusTime else { return "--:--" }
         return DateService.timeByAdding(minutes: effectiveDurationMinutes, to: nextBusTime) ?? "--:--"
-    }
-
-    private func followingBusTime(after nextBusTime: String?) -> String {
-        guard let nextBusTime,
-              let nextIndex = currentTimes.firstIndex(of: nextBusTime),
-              nextIndex + 1 < currentTimes.count else { return "--:--" }
-        return currentTimes[nextIndex + 1]
-    }
-
-    private func nextBusProgress(nextBusTime: String?, minutesUntilNextBus: Int?) -> Double {
-        guard let nextBusTime,
-              let nextIndex = currentTimes.firstIndex(of: nextBusTime),
-              let minutesUntilNextBus else {
-            return 0
-        }
-
-        let intervalMinutes: Int
-        if nextIndex > 0,
-           let previousInterval = DateService.minutesBetween(from: currentTimes[nextIndex - 1], to: nextBusTime),
-           previousInterval > 0 {
-            intervalMinutes = previousInterval
-        } else if nextIndex + 1 < currentTimes.count,
-                  let nextInterval = DateService.minutesBetween(from: nextBusTime, to: currentTimes[nextIndex + 1]),
-                  nextInterval > 0 {
-            intervalMinutes = nextInterval
-        } else {
-            intervalMinutes = max(minutesUntilNextBus, 1)
-        }
-
-        let elapsedMinutes = max(intervalMinutes - max(minutesUntilNextBus, 0), 0)
-        let progress = Double(elapsedMinutes) / Double(max(intervalMinutes, 1))
-        return min(max(progress, 0.08), 1.0)
     }
 
     /// 현재 방향에 맞는 시간표 로드
@@ -570,44 +602,23 @@ final class MainViewModel: ObservableObject {
     }
 
     func buildUpcomingBuses(limit: Int, at referenceDate: Date = Date()) -> [UpcomingBusSnapshot] {
-        guard !currentTimes.isEmpty else { return [] }
-
-        let futureTimes = currentTimes.filter {
-            (DateService.minutesUntil(timeString: $0, from: referenceDate) ?? -1) >= 0
-        }
-
-        var selectedTimes = futureTimes.prefix(limit).map { ($0, false) }
-
-        if selectedTimes.count < limit {
-            let remainingCount = limit - selectedTimes.count
-            let nextDayTimes = currentTimes.prefix(remainingCount).map { ($0, true) }
-            selectedTimes.append(contentsOf: nextDayTimes)
-        }
-
-        let actualLastTodayTime   = futureTimes.last
-        let firstNextDayIndex = selectedTimes.firstIndex { $0.1 }
-
-        return Array(selectedTimes.enumerated()).map { index, item in
-            let (time, isNextDay) = item
-            let minutesUntilDeparture = isNextDay
-                ? DateService.minutesUntilNextDay(timeString: time, from: referenceDate)
-                : max(DateService.minutesUntil(timeString: time, from: referenceDate) ?? 0, 0)
+        guard limit > 0 else { return [] }
+        let today = TimetableTimeline.calendar.startOfDay(for: referenceDate)
+        let selected = Array(departures(from: referenceDate).prefix(limit))
+        let firstNextDayIndex = selected.firstIndex { $0.serviceDate > today }
+        return selected.enumerated().map { index, departure in
+            let isNextDay = departure.serviceDate > today
+            let minutes = max(0, Int(ceil(departure.date.timeIntervalSince(referenceDate) / 60)))
             let status = statusDescriptor(
-                for: minutesUntilDeparture,
-                isNextDay: isNextDay,
-                isFirstNextDay: index == firstNextDayIndex,
-                isLastToday: !isNextDay && time == actualLastTodayTime,
-                isNightBus: !isNextDay && isNightFare(for: time)
+                for: minutes, isNextDay: isNextDay, isFirstNextDay: index == firstNextDayIndex,
+                isLastToday: !isNextDay && departure.isLast,
+                isNightBus: !isNextDay && isNightFare(for: departure.time)
             )
-            let totalMinutes = effectiveDurationMinutes + (status.kind == .delayed ? 5 : 0)
-
             return UpcomingBusSnapshot(
-                id: "\(time)_\(isNextDay)",
-                departureTime: time,
-                relativeText: relativeDepartureText(for: minutesUntilDeparture, isNextDay: isNextDay),
-                arrivalTime: DateService.timeByAdding(minutes: totalMinutes, to: time) ?? time,
-                statusText: status.text,
-                statusKind: status.kind
+                id: "\(departure.time)_\(Int(departure.date.timeIntervalSince1970))", departureTime: departure.time,
+                relativeText: relativeDepartureText(for: minutes, isNextDay: isNextDay),
+                arrivalTime: DateService.timeByAdding(minutes: effectiveDurationMinutes, to: departure.time) ?? departure.time,
+                statusText: status.text, statusKind: status.kind
             )
         }
     }
@@ -658,51 +669,72 @@ final class MainViewModel: ObservableObject {
             return ("곧 출발", .onTime)
         }
 
-        return ("정시 운행", .onTime)
+        return ("시간표 기준", .onTime)
     }
 
-    /// 앱 시작 시 데이터 로드
-    func onAppear() async {
-        let timetableService = TimetableService()
-        let networkService = NetworkService()
+    /// 저장된 시간표를 먼저 표시하고 새 시간표가 있는지 확인합니다.
+    func onAppear(timetableService: TimetableService = TimetableService(), networkService: NetworkService = NetworkService()) async {
+        await checkForTimetableUpdate(timetableService: timetableService, networkService: networkService)
+    }
 
-        // 1. 원격 데이터 fetch 시도
-        if let url = remoteURL {
-            do {
-                let remoteData: TimetableData = try await networkService.fetch(from: url)
-                timetableService.saveToCache(remoteData)
-                // App Group 캐시가 갱신됐으니 위젯도 새 시간표로 다시 그리도록 타임라인 리로드
+    func checkForTimetableUpdate(timetableService: TimetableService = TimetableService(), networkService: NetworkService = NetworkService()) async {
+        guard !PreviewRuntime.isRunning else { return }
+        if let updateCheckTask {
+            await updateCheckTask.value
+            return
+        }
+        guard !isUpdatingTimetable else { return }
+        isCheckingTimetableUpdate = true
+        let task = Task { @MainActor in
+            if timetableData == nil,
+               let saved = timetableService.loadInitialData() {
                 WidgetCenter.shared.reloadAllTimelines()
-                await loadTimetable(with: remoteData)
+                await loadTimetable(with: saved)
+            }
+            do {
+                guard let url = remoteURL else { throw NetworkError.invalidURL }
+                let remote: TimetableData = try await networkService.fetch(from: url)
+                try remote.validate(requireRoutes: timetableData?.routes != nil)
+                if let current = timetableData {
+                    pendingTimetableData = try remote.isUpdate(comparedTo: current) ? remote : nil
+                } else {
+                    // 최초 실행에 저장된 시간표도 없을 때만 바로 적용합니다.
+                    timetableService.saveToCache(remote)
+                    WidgetCenter.shared.reloadAllTimelines()
+                    await loadTimetable(with: remote)
+                }
                 isOffline = false
-                return
+                hasCheckedTimetableUpdate = true
             } catch {
-                // 네트워크 실패 - 오프라인 모드로 전환
-                print("⚠️ [MainViewModel] fetch 실패: \(error)")
+                // 이미 확인한 업데이트와 사용 중인 시간표는 보존합니다.
                 isOffline = true
             }
+            isLoading = false
+            if timetableData == nil { errorMessage = "시간표를 불러올 수 없습니다." }
         }
-
-        // 2. 캐시된 데이터 시도
-        if let cached = timetableService.loadCachedData() {
-            await loadTimetable(with: cached)
-            return
-        }
-
-        // 3. 로컬 번들 데이터 사용
-        if let local = timetableService.loadLocalData() {
-            await loadTimetable(with: local)
-            return
-        }
-
-        // 4. 데이터 없음
-        isLoading = false
-        errorMessage = "시간표를 불러올 수 없습니다."
+        updateCheckTask = task
+        await task.value
+        updateCheckTask = nil
+        isCheckingTimetableUpdate = false
     }
 
-    /// 데이터 새로고침
-    func refresh() async {
-        isLoading = true
-        await onAppear()
+    /// 사용자가 요청할 때 확인한 새 시간표를 적용합니다. 당겨서 새로고침도 같은 동작입니다.
+    @discardableResult
+    func refresh(timetableService: TimetableService = TimetableService(), networkService: NetworkService = NetworkService()) async -> TimetableUpdateResult {
+        if let updateCheckTask { await updateCheckTask.value }
+        guard !isUpdatingTimetable else { return .unavailable }
+        if pendingTimetableData == nil {
+            await checkForTimetableUpdate(timetableService: timetableService, networkService: networkService)
+        }
+        guard let update = pendingTimetableData else {
+            return isOffline ? .unavailable : .alreadyCurrent
+        }
+        isUpdatingTimetable = true
+        pendingTimetableData = nil
+        timetableService.saveToCache(update)
+        WidgetCenter.shared.reloadAllTimelines()
+        await loadTimetable(with: update)
+        isUpdatingTimetable = false
+        return .updated
     }
 }

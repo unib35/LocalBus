@@ -9,7 +9,7 @@ enum DateService {
 
     /// 해당 날짜가 평일인지 확인 (월~금)
     static func isWeekday(_ date: Date) -> Bool {
-        var calendar = Calendar.current
+        var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = koreaTimeZone
         let weekday = calendar.component(.weekday, from: date)
         // 1: 일요일, 7: 토요일
@@ -40,7 +40,7 @@ enum DateService {
     ///   - from: 기준 시간
     /// - Returns: 다음 버스 시간 (없으면 nil)
     static func findNextBus(times: [String], from date: Date) -> String? {
-        var calendar = Calendar.current
+        var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = koreaTimeZone
 
         let currentHour = calendar.component(.hour, from: date)
@@ -72,7 +72,7 @@ enum DateService {
     ///   - from: 기준 시간
     /// - Returns: 남은 분 (음수면 이미 지남)
     static func minutesUntil(timeString: String, from date: Date) -> Int? {
-        var calendar = Calendar.current
+        var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = koreaTimeZone
 
         let components = timeString.split(separator: ":")
@@ -97,7 +97,7 @@ enum DateService {
     ///   - from: 기준 시간
     /// - Returns: 남은 초 (음수면 이미 지남)
     static func secondsUntil(timeString: String, from date: Date) -> Int? {
-        var calendar = Calendar.current
+        var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = koreaTimeZone
 
         let components = timeString.split(separator: ":")
@@ -147,7 +147,7 @@ enum DateService {
     ///   - from: 기준 시간
     /// - Returns: 남은 분
     static func minutesUntilNextDay(timeString: String, from date: Date) -> Int {
-        var calendar = Calendar.current
+        var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = koreaTimeZone
 
         let components = timeString.split(separator: ":")
@@ -170,6 +170,8 @@ enum DateService {
 
     private static func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.timeZone = koreaTimeZone
         return formatter.string(from: date)

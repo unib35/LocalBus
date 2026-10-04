@@ -84,9 +84,9 @@ struct UpcomingBusesStatusTests {
 
         // Then: 3개 반환, 마지막만 막차
         try #require(result.count == 3)
-        #expect(result[0].statusText == "정시 운행")
+        #expect(result[0].statusText == "시간표 기준")
         #expect(result[0].statusKind == .onTime)
-        #expect(result[1].statusText == "정시 운행")
+        #expect(result[1].statusText == "시간표 기준")
         #expect(result[1].statusKind == .onTime)
         #expect(result[2].statusText == "막차")
         #expect(result[2].statusKind == .lastBus)
@@ -241,7 +241,7 @@ struct UpcomingBusesStatusTests {
 
         // Then: 22:09 → 정시 운행
         try #require(result.count > 0)
-        #expect(result[0].statusText == "정시 운행")
+        #expect(result[0].statusText == "시간표 기준")
         #expect(result[0].statusKind == .onTime)
     }
 
@@ -307,7 +307,7 @@ struct UpcomingBusesStatusTests {
 
         // Then
         try #require(result.count > 0)
-        #expect(result[0].statusText == "정시 운행")
+        #expect(result[0].statusText == "시간표 기준")
         #expect(result[0].statusKind == .onTime)
     }
 
