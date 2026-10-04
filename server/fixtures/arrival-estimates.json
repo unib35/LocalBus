@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "snapshotId": "shared-fixture-v1",
+  "generatedAt": "2026-10-04T10:00:00Z",
+  "timezone": "Asia/Seoul",
+  "validFrom": "2026-10-05T00:00:00+09:00",
+  "validUntil": "2026-10-12T00:00:00+09:00",
+  "enabled": true,
+  "samples": [
+    {
+      "routeId": "jangyu_to_sasang",
+      "variantId": "regular",
+      "routeVersion": "test-v1",
+      "correctionVersion": "test-v1",
+      "serviceDate": "2026-10-05",
+      "correctionSeconds": 120,
+      "fetchedAt": "2026-10-04T10:00:00Z",
+      "source": "synthetic",
+      "departureMinute": 420,
+      "durationSeconds": 1800
+    },
+    {
+      "routeId": "jangyu_to_sasang",
+      "variantId": "regular",
+      "routeVersion": "test-v1",
+      "correctionVersion": "test-v1",
+      "serviceDate": "2026-10-05",
+      "correctionSeconds": 120,
+      "fetchedAt": "2026-10-04T10:00:00Z",
+      "source": "synthetic",
+      "departureMinute": 480,
+      "durationSeconds": 2400
+    }
+  ]
+}

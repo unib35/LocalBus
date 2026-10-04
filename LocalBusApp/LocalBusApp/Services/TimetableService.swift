@@ -36,7 +36,17 @@ struct TimetableService {
             return nil
         }
 
-        return try? JSONDecoder().decode(TimetableData.self, from: data)
+        return try? TimetableData.validatedDecode(data)
+    }
+
+    /// 앱 업데이트에 포함된 수정본이 오래된 캐시에 가려지지 않도록 합니다.
+    func loadInitialData() -> TimetableData? {
+        let cached = loadCachedData()
+        guard let bundled = loadLocalData() else { return cached }
+        if let cached, (try? cached.validate(requireRoutes: bundled.routes != nil)) != nil,
+           cached.meta.revision >= bundled.meta.revision { return cached }
+        saveToCache(bundled)
+        return bundled
     }
 
     // MARK: - Cache Management
@@ -48,7 +58,7 @@ struct TimetableService {
             return nil
         }
 
-        return try? JSONDecoder().decode(TimetableData.self, from: data)
+        return try? TimetableData.validatedDecode(data)
     }
 
     /// UserDefaults 캐시 삭제
@@ -59,7 +69,7 @@ struct TimetableService {
     /// UserDefaults 캐시에 데이터 저장
     /// - Parameter data: 저장할 TimetableData
     func saveToCache(_ data: TimetableData) {
-        guard let encoded = try? JSONEncoder().encode(data) else {
+        guard (try? data.validate()) != nil, let encoded = try? JSONEncoder().encode(data) else {
             return
         }
 

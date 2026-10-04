@@ -10,6 +10,7 @@ struct MainViewModelTests {
 
     @Test func 초기상태_로딩중이다() async {
         // Given & When
+        TestEnvironment.reset()
         let viewModel = await MainViewModel()
 
         // Then
@@ -20,6 +21,7 @@ struct MainViewModelTests {
 
     @Test func 시간표_로드_성공시_데이터가_설정된다() async {
         // Given
+        TestEnvironment.reset()
         let viewModel = await MainViewModel()
         let testData = createTestTimetableData()
 
@@ -34,6 +36,7 @@ struct MainViewModelTests {
 
     @Test func 평일시간표가_올바르게_설정된다() async {
         // Given
+        TestEnvironment.reset()
         let viewModel = await MainViewModel()
         let testData = createTestTimetableData()
 
@@ -46,6 +49,7 @@ struct MainViewModelTests {
 
     @Test func 주말시간표가_올바르게_설정된다() async {
         // Given
+        TestEnvironment.reset()
         let viewModel = await MainViewModel()
         let testData = createTestTimetableData()
 
@@ -60,6 +64,7 @@ struct MainViewModelTests {
 
     @Test func 공지메시지가_있으면_표시된다() async {
         // Given
+        TestEnvironment.reset()
         let viewModel = await MainViewModel()
         let testData = createTestTimetableData(noticeMessage: "테스트 공지")
 
@@ -73,6 +78,7 @@ struct MainViewModelTests {
 
     @Test func 공지메시지가_없으면_표시안됨() async {
         // Given
+        TestEnvironment.reset()
         let viewModel = await MainViewModel()
         let testData = createTestTimetableData(noticeMessage: nil)
 
@@ -88,6 +94,7 @@ struct MainViewModelTests {
 
     @Test func 평일_선택시_평일시간표_반환() async {
         // Given
+        TestEnvironment.reset()
         let viewModel = await MainViewModel()
         let testData = createTestTimetableData()
         await viewModel.loadTimetable(with: testData)
@@ -101,6 +108,7 @@ struct MainViewModelTests {
 
     @Test func 주말_선택시_주말시간표_반환() async {
         // Given
+        TestEnvironment.reset()
         let viewModel = await MainViewModel()
         let testData = createTestTimetableData()
         await viewModel.loadTimetable(with: testData)

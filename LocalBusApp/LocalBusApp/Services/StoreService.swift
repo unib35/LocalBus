@@ -35,7 +35,7 @@ final class StoreService: ObservableObject {
 
     init(entitlementStore: EntitlementStore = .shared) {
         self.entitlementStore = entitlementStore
-        self.transactionListener = listenForTransactions()
+        if !PreviewRuntime.isRunning { self.transactionListener = listenForTransactions() }
     }
 
     deinit {
@@ -46,16 +46,17 @@ final class StoreService: ObservableObject {
 
     /// 상품 목록 로드 (앱 시작 또는 Paywall 진입 시 호출)
     func loadProducts() async {
+        guard !PreviewRuntime.isRunning else { return }
         isLoadingProducts = true
         defer { isLoadingProducts = false }
 
         do {
             let fetched = try await Product.products(for: Self.allProductIDs)
             products = fetched.sorted { $0.price < $1.price }
-            await refreshPurchasedProducts()
         } catch {
             products = []
         }
+        await refreshPurchasedProducts()
     }
 
     /// 구매 실행
@@ -83,8 +84,8 @@ final class StoreService: ObservableObject {
     }
 
     /// 구매 복원 (Non-Consumable은 반드시 제공해야 함 — App Review 요구사항)
-    func restorePurchases() async {
-        try? await AppStore.sync()
+    func restorePurchases() async throws {
+        try await AppStore.sync()
         await refreshPurchasedProducts()
     }
 

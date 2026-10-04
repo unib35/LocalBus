@@ -49,6 +49,7 @@ struct PaywallView: View {
     @State private var didPurchase = false
     @State private var showSuccessGuide = false
     @State private var showRestoreAlert = false
+    @State private var restoreFailed = false
 
     var body: some View {
         ZStack {
@@ -124,7 +125,7 @@ struct PaywallView: View {
         .alert("구매 복원", isPresented: $showRestoreAlert) {
             Button("확인", role: .cancel) {}
         } message: {
-            Text(store.isPro ? "구매가 복원되었어요." : "복원할 구매 내역이 없어요.")
+            Text(restoreMessage)
         }
     }
 
@@ -442,8 +443,18 @@ struct PaywallView: View {
     }
 
     private func restore() async {
-        await store.restorePurchases()
+        do {
+            try await store.restorePurchases()
+            restoreFailed = false
+        } catch {
+            restoreFailed = true
+        }
         showRestoreAlert = true
+    }
+
+    private var restoreMessage: String {
+        if restoreFailed { return "App Store에 연결하지 못했어요. 네트워크를 확인하고 다시 시도해 주세요." }
+        return store.isPro ? "구매가 복원되었어요." : "복원할 구매 내역이 없어요."
     }
 }
 

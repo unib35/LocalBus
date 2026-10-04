@@ -1,0 +1,77 @@
+{
+  "usageApproved": false,
+  "maxRequests": 1000,
+  "monthlyLimit": 5000,
+  "routes": [
+    {
+      "routeId": "jangyu_to_sasang",
+      "variantId": "regular",
+      "routeVersion": "unverified-v1",
+      "verified": false,
+      "correctionVersion": "unverified-v1",
+      "correctionSeconds": 0,
+      "intervalMinutes": 60,
+      "waypoints": [],
+      "minDistanceMeters": 0,
+      "maxDistanceMeters": 0,
+      "corridor": [],
+      "corridorToleranceMeters": 100
+    },
+    {
+      "routeId": "jangyu_to_sasang",
+      "variantId": "via",
+      "routeVersion": "unverified-v1",
+      "verified": false,
+      "correctionVersion": "unverified-v1",
+      "correctionSeconds": 0,
+      "intervalMinutes": 60,
+      "waypoints": [],
+      "minDistanceMeters": 0,
+      "maxDistanceMeters": 0,
+      "corridor": [],
+      "corridorToleranceMeters": 100
+    },
+    {
+      "routeId": "sasang_to_jangyu",
+      "variantId": "regular",
+      "routeVersion": "unverified-v1",
+      "verified": false,
+      "correctionVersion": "unverified-v1",
+      "correctionSeconds": 0,
+      "intervalMinutes": 60,
+      "waypoints": [],
+      "minDistanceMeters": 0,
+      "maxDistanceMeters": 0,
+      "corridor": [],
+      "corridorToleranceMeters": 100
+    },
+    {
+      "routeId": "yulha_to_sasang",
+      "variantId": "regular",
+      "routeVersion": "unverified-v1",
+      "verified": false,
+      "correctionVersion": "unverified-v1",
+      "correctionSeconds": 0,
+      "intervalMinutes": 60,
+      "waypoints": [],
+      "minDistanceMeters": 0,
+      "maxDistanceMeters": 0,
+      "corridor": [],
+      "corridorToleranceMeters": 100
+    },
+    {
+      "routeId": "sasang_to_yulha",
+      "variantId": "regular",
+      "routeVersion": "unverified-v1",
+      "verified": false,
+      "correctionVersion": "unverified-v1",
+      "correctionSeconds": 0,
+      "intervalMinutes": 60,
+      "waypoints": [],
+      "minDistanceMeters": 0,
+      "maxDistanceMeters": 0,
+      "corridor": [],
+      "corridorToleranceMeters": 100
+    }
+  ]
+}

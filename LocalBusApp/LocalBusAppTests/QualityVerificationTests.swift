@@ -142,6 +142,7 @@ struct QualityVerificationTests {
 
     @Test @MainActor func 막차_이후_운행종료_상태() async {
         // Given
+        TestEnvironment.reset()
         let viewModel = MainViewModel()
         let testData = TimetableData(
             meta: Meta(
@@ -169,6 +170,7 @@ struct QualityVerificationTests {
 
     @Test @MainActor func 오프라인_모드_초기값_false() async {
         // Given & When
+        TestEnvironment.reset()
         let viewModel = MainViewModel()
 
         // Then

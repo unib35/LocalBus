@@ -1,0 +1,14 @@
+{
+  "name": "localbus-arrival-estimates",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "plan": "node src/cli.ts plan",
+    "demo": "node src/cli.ts demo",
+    "collect": "node src/cli.ts collect"
+  },
+  "devDependencies": { "@types/node": "^22.0.0", "typescript": "^5.9.0" }
+}

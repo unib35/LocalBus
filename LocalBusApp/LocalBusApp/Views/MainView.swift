@@ -211,6 +211,9 @@ struct MainView: View {
             mainContent
                 .background(AmbientBackground())
                 .toolbar(.hidden, for: .navigationBar)
+                // UI 테스트가 홈 표시를 기다리는 기준
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(AccessibilityID.Home.root)
                 // 탭 바 위에 뜨도록 탭 안쪽에 붙인다
                 .toast(item: $notificationToast)
                 .navigationDestination(isPresented: $showAlertsHub) {

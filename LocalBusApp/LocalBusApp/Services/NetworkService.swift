@@ -22,19 +22,25 @@ class NetworkService {
         from url: URL,
         session: URLSession = .shared
     ) async throws -> T {
-        // 네트워크 요청 수행
-        let (data, response): (Data, URLResponse)
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 30
+        let (bytes, response): (URLSession.AsyncBytes, URLResponse)
         do {
-            (data, response) = try await session.data(from: url)
+            (bytes, response) = try await session.bytes(for: request)
         } catch {
             throw NetworkError.requestFailed
         }
-
-        // HTTP 응답 검증
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw NetworkError.requestFailed
-        }
+        defer { bytes.task.cancel() }
+        guard let response = response as? HTTPURLResponse,
+              (200...299).contains(response.statusCode),
+              response.expectedContentLength <= 2_000_000 else { throw NetworkError.requestFailed }
+        var data = Data()
+        do {
+            for try await byte in bytes {
+                guard data.count < 2_000_000 else { throw NetworkError.requestFailed }
+                data.append(byte)
+            }
+        } catch { throw NetworkError.requestFailed }
 
         // JSON 디코딩
         do {

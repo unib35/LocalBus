@@ -21,6 +21,12 @@
 
 ## 프로젝트 구조
 
+실제 작업 기준 경로는 `/Users/lee/Developer/personal/LocalBus`입니다. 별도 요청이 없으면
+이 폴더에서 수정·검증하며, Orca 작업폴더의 변경만으로 완료 처리하지 않습니다.
+서버는 `server/`, 향후 관리자는 `admin/`, 개발 문서는 `documentation/`에 둡니다.
+`docs/`는 공개 GitHub Pages용입니다. 서버 구현 기준은
+[구현 계획](server/implementation-plan.md)과 [설계](server/arrival-estimate-design.md)입니다.
+
 ```
 LocalBusApp/
 ├── LocalBusApp/

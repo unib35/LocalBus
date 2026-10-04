@@ -42,6 +42,8 @@ struct LocalBusAppApp: App {
                     LaunchScreenView()
                         .transition(.opacity)
                         .zIndex(2)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier(AccessibilityID.splash)
                 }
             }
             .task {
