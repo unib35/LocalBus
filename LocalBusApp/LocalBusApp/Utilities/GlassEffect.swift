@@ -1,12 +1,37 @@
 import SwiftUI
 
+/// 밝은 화면에서는 카드의 바탕과 테두리를 유지해 콘텐츠 영역을 구분합니다.
+private struct ReadableGlassCard<S: Shape, F: ShapeStyle>: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    let shape: S
+    let fallback: F
+    let interactive: Bool
+    var tint: Color? = nil
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if colorScheme == .light {
+            content
+                .background(fallback, in: shape)
+                .overlay(shape.stroke(AppTheme.Color.border, lineWidth: 1).allowsHitTesting(false))
+        } else if #available(iOS 26.0, *) {
+            if let tint {
+                content.glassEffect(interactive ? .regular.tint(tint).interactive() : .regular.tint(tint), in: shape)
+            } else {
+                content.glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
+            }
+        } else {
+            content.background(fallback, in: shape)
+        }
+    }
+}
+
 // MARK: - Liquid Glass Helper
 //
 // iOS 26.0+ Liquid Glass 디자인 언어를 점진적으로 적용하기 위한 헬퍼.
 //
-// 핵심 원칙: 글래스는 뷰 "뒤"에 깔리므로, 뷰에 불투명 배경이 있으면 가려진다.
-// 따라서 iOS 26+ 에서는 글래스만 적용하고, 그 이하 버전에서만 폴백 배경을 칠한다.
-// (기존처럼 불투명 배경 위에 glassEffect를 얹으면 글래스가 전혀 보이지 않는다.)
+// 다크 모드 iOS 26+에서는 글래스를 사용합니다.
+// 라이트 모드에서는 밝은 배경에 카드가 묻히지 않도록 바탕과 테두리를 유지합니다.
 
 /// iOS 26+에서 자식 글래스 요소들을 하나의 `GlassEffectContainer`로 묶는다.
 /// 인접한 글래스끼리 자연스럽게 블렌딩되고 렌더링 비용도 줄어든다.
@@ -32,7 +57,8 @@ struct GlassGroup<Content: View>: View {
 extension View {
 
     /// 카드·배너처럼 떠 있는 컨테이너에 Liquid Glass를 적용한다.
-    /// - iOS 26+: `glassEffect(in:)` — 배경 없이 글래스만.
+    /// - 라이트 모드: 배경 스타일과 테두리를 유지해 주변 화면과 구분.
+    /// - 다크 모드 iOS 26+: `glassEffect(in:)`.
     /// - iOS 16~25: `fallback` 스타일을 같은 shape로 배경 적용.
     ///
     /// - Parameters:
@@ -45,11 +71,7 @@ extension View {
         fallback: F,
         interactive: Bool = false
     ) -> some View {
-        if #available(iOS 26.0, *) {
-            self.glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
-        } else {
-            self.background(fallback, in: shape)
-        }
+        modifier(ReadableGlassCard(shape: shape, fallback: fallback, interactive: interactive))
     }
 
     /// 모서리 반지름을 받아 `RoundedRectangle(continuous)` 형태로 glassCard를 적용한다.
@@ -75,14 +97,7 @@ extension View {
         fallback: F,
         interactive: Bool = false
     ) -> some View {
-        if #available(iOS 26.0, *) {
-            self.glassEffect(
-                interactive ? .regular.tint(tint).interactive() : .regular.tint(tint),
-                in: shape
-            )
-        } else {
-            self.background(fallback, in: shape)
-        }
+        modifier(ReadableGlassCard(shape: shape, fallback: fallback, interactive: interactive, tint: tint))
     }
 
     /// 버튼·캡슐 칩 같은 인터랙티브 요소에 Liquid Glass 버튼 스타일을 적용한다.

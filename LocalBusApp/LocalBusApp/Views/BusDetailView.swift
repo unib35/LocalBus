@@ -5,11 +5,12 @@ import UIKit
 
 struct BusDetailView: View {
     let info: BusDetailInfo
+    @State private var notificationInFlight = false
     @State private var isNotificationEnabled: Bool
     @State private var notificationToast: ToastMessage?
-    let onNotificationTap: () async -> Void
+    let onNotificationTap: () async -> MainViewModel.NotificationResult
 
-    init(info: BusDetailInfo, onNotificationTap: @escaping () async -> Void) {
+    init(info: BusDetailInfo, onNotificationTap: @escaping () async -> MainViewModel.NotificationResult) {
         self.info = info
         self._isNotificationEnabled = State(initialValue: info.isNotificationEnabled)
         self.onNotificationTap = onNotificationTap
@@ -74,7 +75,7 @@ struct BusDetailView: View {
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .stroke(isAccent
                                 ? HomeDashboardTheme.primaryBlue.opacity(0.3)
-                                : HomeDashboardTheme.timetablePickerSelected,
+                                : HomeDashboardTheme.segmentBorder,
                                     lineWidth: 1)
                     )
             )
@@ -152,13 +153,18 @@ struct BusDetailView: View {
             Toggle("", isOn: Binding(
                 get: { isNotificationEnabled },
                 set: { _ in
-                    isNotificationEnabled.toggle()
-                    let newState = isNotificationEnabled
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    notificationToast = newState
-                        ? ToastMessage(icon: "bell.fill", message: "\(info.departureTime) 버스 알림이 켜졌습니다")
-                        : ToastMessage(icon: "bell.slash.fill", message: "\(info.departureTime) 버스 알림이 꺼졌습니다")
-                    Task { await onNotificationTap() }
+                    guard !notificationInFlight else { return }
+                    notificationInFlight = true
+                    Task {
+                        let result = await onNotificationTap()
+                        switch result {
+                        case .scheduled: isNotificationEnabled = true
+                        case .cancelled: isNotificationEnabled = false
+                        default: break
+                        }
+                        notificationToast = ToastMessage(icon: "bell", message: result.message)
+                        notificationInFlight = false
+                    }
                 }
             ))
             .labelsHidden()
@@ -343,3 +349,23 @@ struct BusDetailView: View {
     }
 }
 
+
+#Preview("버스 상세 · 일반") {
+    BusDetailView(info: BusDetailInfo(
+        departureTime: "07:20", arrivalTime: "08:00", durationMinutes: 40,
+        isVia: false, isNightFare: false, fare: 2200, nightFare: nil,
+        platformNumber: "3", stops: TimetableService().loadLocalData()?.routes?["jangyu_to_sasang"]?.stops ?? [],
+        directionDisplayName: "장유 → 사상", scheduleTypeLabel: "평일", isNotificationEnabled: false
+    ), onNotificationTap: { .scheduled })
+    .preferredColorScheme(.light)
+}
+
+#Preview("버스 상세 · 심야 / 알림 설정") {
+    BusDetailView(info: BusDetailInfo(
+        departureTime: "22:20", arrivalTime: "23:00", durationMinutes: 40,
+        isVia: true, isNightFare: true, fare: 2200, nightFare: 2400,
+        platformNumber: "3", stops: [], directionDisplayName: "사상 → 장유",
+        scheduleTypeLabel: "주말", isNotificationEnabled: true
+    ), onNotificationTap: { .scheduled })
+    .preferredColorScheme(.dark)
+}

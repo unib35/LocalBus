@@ -178,7 +178,7 @@ struct PaywallView: View {
 
             HStack(spacing: 16) {
                 Link("이용약관", destination: URL(string: "https://unib35.github.io/LocalBus/terms.html")!)
-                Link("개인정보 처리방침", destination: URL(string: "https://unib35.github.io/LocalBus/privacy.html")!)
+                Link("개인정보 처리방침", destination: URL(string: "https://unib35.github.io/LocalBus/privacy-policy.html")!)
             }
             .font(.system(size: 12))
             .foregroundStyle(HomeDashboardTheme.tertiaryText)
@@ -204,8 +204,12 @@ struct PaywallView: View {
     }
 
     private func restore() async {
-        await store.restorePurchases()
-        showRestoreAlert = true
+        do {
+            try await store.restorePurchases()
+            showRestoreAlert = true
+        } catch {
+            errorMessage = "구매 내역을 복원하지 못했습니다. 연결 상태를 확인하고 다시 시도해주세요."
+        }
     }
 }
 

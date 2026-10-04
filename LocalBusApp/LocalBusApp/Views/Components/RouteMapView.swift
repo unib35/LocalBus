@@ -30,7 +30,7 @@ private enum RouteMapTheme {
 
 struct RouteMapView: UIViewRepresentable {
     let pins: [RouteMapPin]
-    /// 미리 추출한 도로 경로 좌표. nil이면 정류장 직선으로 폴백.
+    /// 검증된 도로 경로가 있을 때만 선을 표시합니다.
     let routePath: [CLLocationCoordinate2D]?
     let selectedStopID: String?
     let selectedCoordinate: CLLocationCoordinate2D?
@@ -40,6 +40,7 @@ struct RouteMapView: UIViewRepresentable {
     let sheetTopY: CGFloat
     var onPinTap: (String) -> Void
     var onLocationUpdate: ((CLLocation) -> Void)?
+    var onLocationError: ((String) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -55,6 +56,7 @@ struct RouteMapView: UIViewRepresentable {
         context.coordinator.configure(mapView: mapView)
         context.coordinator.onPinTap = onPinTap
         context.coordinator.onLocationUpdate = onLocationUpdate
+        context.coordinator.onLocationError = onLocationError
         context.coordinator.updateRouteIfNeeded(
             pins,
             routePath: routePath,
@@ -70,6 +72,7 @@ struct RouteMapView: UIViewRepresentable {
     func updateUIView(_ uiView: MKMapView, context: Context) {
         context.coordinator.onPinTap = onPinTap
         context.coordinator.onLocationUpdate = onLocationUpdate
+        context.coordinator.onLocationError = onLocationError
 
         uiView.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
 
@@ -115,6 +118,7 @@ extension RouteMapView {
 
         var onPinTap: ((String) -> Void)?
         var onLocationUpdate: ((CLLocation) -> Void)?
+        var onLocationError: ((String) -> Void)?
 
         override init() {
             super.init()
@@ -126,7 +130,7 @@ extension RouteMapView {
             self.mapView = mapView
             updateUserLocationVisibility(on: mapView)
 
-            if isAuthorizedForLocation {
+            if isAuthorizedForLocation, !PreviewRuntime.isRunning {
                 locationManager.requestLocation()
             }
         }
@@ -233,6 +237,7 @@ extension RouteMapView {
                 locationManager.requestLocation()
             default:
                 pendingCenterOnUser = false
+                onLocationError?("설정에서 위치 접근을 허용해주세요. 위치 권한 없이도 정류장과 길 찾기를 이용할 수 있습니다.")
             }
         }
 
@@ -242,6 +247,9 @@ extension RouteMapView {
             updateUserLocationVisibility(on: mapView)
 
             guard isAuthorizedForLocation else {
+                if pendingCenterOnUser, manager.authorizationStatus != .notDetermined {
+                    onLocationError?("위치 접근이 허용되지 않았습니다. 설정에서 권한을 변경할 수 있습니다.")
+                }
                 pendingCenterOnUser = false
                 return
             }
@@ -261,6 +269,7 @@ extension RouteMapView {
         }
 
         func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+            if pendingCenterOnUser { onLocationError?("현재 위치를 찾지 못했습니다. 잠시 후 다시 시도해주세요.") }
             pendingCenterOnUser = false
         }
 
@@ -319,12 +328,9 @@ extension RouteMapView {
                 StopPin(pin: $0, isSelected: $0.stopID == selectedStopID)
             }
 
-            // routePath가 있으면 도로 경로, 없으면 정류장 직선으로 폴백
+            // 경로 데이터가 없을 때 정류장을 직선으로 잇지 않습니다.
             if let path = routePath, path.count > 1 {
                 mapView.addOverlay(MKPolyline(coordinates: path, count: path.count))
-            } else if annotations.count > 1 {
-                let coordinates = annotations.map(\.coordinate)
-                mapView.addOverlay(MKPolyline(coordinates: coordinates, count: coordinates.count))
             }
 
             mapView.addAnnotations(annotations)
@@ -396,6 +402,12 @@ private final class StopPinAnnotationView: MKAnnotationView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let dx = max(0, (44 - bounds.width) / 2)
+        let dy = max(0, (44 - bounds.height) / 2)
+        return bounds.insetBy(dx: -dx, dy: -dy).contains(point)
     }
 
     func apply(pin: StopPin) {
@@ -505,4 +517,14 @@ private final class StopPinAnnotationView: MKAnnotationView {
         addSubview(label)
         frame = CGRect(x: 0, y: 0, width: totalWidth, height: pinSize + 6 + labelHeight)
     }
+}
+
+#Preview("정류장 지도") {
+    RouteMapView(
+        pins: [RouteMapPin(coordinate: CLLocationCoordinate2D(latitude: 35.20777, longitude: 128.8051),
+                          stopID: "sample", stopName: "출발 정류장", isDeparture: true, isDestination: false)],
+        routePath: nil, selectedStopID: "sample", selectedCoordinate: nil,
+        centerOnUser: .constant(false), fitToRoute: .constant(false),
+        colorScheme: .light, sheetTopY: 0, onPinTap: { _ in }
+    ).frame(height: 350)
 }

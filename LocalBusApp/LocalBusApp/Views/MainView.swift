@@ -29,9 +29,10 @@ private enum AppDeepLink {
 
 /// 메인 화면
 struct MainView: View {
-    // 정류장 위치 탭은 다음 버전에 도입 예정. 활성화하려면 true 로 변경.
-    private let isStopsTabEnabled = false
+    // 정류장 지도와 목록을 제품 탭으로 제공합니다.
+    private let isStopsTabEnabled = true
 
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel = MainViewModel()
     @AppStorage("colorSchemePreference") private var colorSchemeRaw = AppColorScheme.dark.rawValue
     @State private var selectedTab: MainTab = .home
@@ -67,6 +68,7 @@ struct MainView: View {
                     .accessibilityIdentifier(AccessibilityID.Settings.root)
             }
             .tabItem { Label("설정", systemImage: "gearshape").accessibilityIdentifier(AccessibilityID.Tab.settings) }
+            .badge(viewModel.hasTimetableUpdate ? "N" : nil)
             .tag(MainTab.settings)
         }
         .glassTabBarMinimize()
@@ -81,6 +83,16 @@ struct MainView: View {
         .preferredColorScheme(preferredColorScheme)
         .task {
             await viewModel.onAppear()
+            await viewModel.refreshScheduledNotifications()
+            if #available(iOS 16.2, *) { await LiveActivityService.shared.reconcileActivities() }
+        }
+        .onChange(of: scenePhase) { phase in
+            guard phase == .active, !viewModel.isLoading else { return }
+            Task {
+                await viewModel.refreshScheduledNotifications()
+                if #available(iOS 16.2, *) { await LiveActivityService.shared.reconcileActivities() }
+                await viewModel.checkForTimetableUpdate()
+            }
         }
         .onChange(of: selectedTab) { newValue in
             guard isStopsTabEnabled, newValue == .stops else { return }
@@ -132,16 +144,6 @@ struct MainView: View {
 
     private var mainContentStack: some View {
         VStack(alignment: .leading, spacing: 24) {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let snapshot = viewModel.makeTimingSnapshot(at: context.date)
-                    DashboardHeaderView(
-                        locationText: viewModel.dashboardLocationText,
-                        isNotificationEnabled: isNextBusNotificationEnabled(for: snapshot),
-                        onNotificationTap: { handleNotificationTap(for: snapshot.nextBusTime) }
-                    )
-                    .accessibilityIdentifier(AccessibilityID.Home.header)
-                }
-
                 if viewModel.hasRoutes {
                     DirectionSelector(
                         selectedDirection: viewModel.selectedDirection,
@@ -160,22 +162,23 @@ struct MainView: View {
                         heroSection(using: snapshot)
 
                         UpcomingBusesSectionView(
-                            title: "예정된 버스",
+                            title: "그다음 버스",
                             badgeText: viewModel.scheduleBadgeText,
-                            buses: snapshot.upcomingBuses,
+                            buses: followingBuses(using: snapshot),
                             destinationName: viewModel.currentArrivalHubName
                         )
                         .accessibilityIdentifier(AccessibilityID.Home.upcomingBuses)
+
+                        if viewModel.hasRoutes {
+                            FirstLastBusSectionView(
+                                firstBusTime: viewModel.firstBusTime,
+                                lastBusTime: viewModel.lastBusTime
+                            )
+                            .accessibilityIdentifier(AccessibilityID.Home.firstLastBus)
+                        }
                     }
                 }
 
-                if viewModel.hasRoutes {
-                    FirstLastBusSectionView(
-                        firstBusTime: viewModel.firstBusTime,
-                        lastBusTime: viewModel.lastBusTime
-                    )
-                    .accessibilityIdentifier(AccessibilityID.Home.firstLastBus)
-                }
 
                 if viewModel.isOffline {
                     DashboardNoticeCard(
@@ -214,10 +217,11 @@ struct MainView: View {
                 minuteText: snapshot.nextBusMinuteDisplay,
                 unitText: snapshot.nextBusUnitDisplay,
                 descriptionText: snapshot.nextBusCountdownDescription,
-                progress: snapshot.nextBusProgress,
                 departureTime: nextBusTime,
                 arrivalTime: snapshot.nextBusArrivalTime,
-                nextBusTime: snapshot.followingBusTime
+                isNotificationEnabled: isNextBusNotificationEnabled(for: snapshot),
+                isDepartingSoon: (DateService.minutesUntil(timeString: nextBusTime, from: Date()) ?? 99) <= 5,
+                onNotificationTap: { handleNotificationTap(for: nextBusTime) }
             )
             .accessibilityIdentifier(AccessibilityID.Home.heroNextBus)
         } else {
@@ -313,6 +317,13 @@ struct MainView: View {
 
     // MARK: - 헬퍼
 
+    private func followingBuses(using snapshot: BusTimingSnapshot) -> [UpcomingBusSnapshot] {
+        guard !snapshot.isServiceEnded, snapshot.nextBusTime != nil else {
+            return snapshot.upcomingBuses
+        }
+        return Array(snapshot.upcomingBuses.dropFirst())
+    }
+
     private func firstBusRemainingText(for snapshot: BusTimingSnapshot) -> String {
         if snapshot.hoursUntilFirstBus > 0 {
             return "\(snapshot.hoursUntilFirstBus)시간 \(snapshot.minutesUntilFirstBus)분 후 첫차"
@@ -322,23 +333,15 @@ struct MainView: View {
 
     private func isNextBusNotificationEnabled(for snapshot: BusTimingSnapshot) -> Bool {
         guard let nextBusTime = snapshot.nextBusTime else { return false }
-        return viewModel.isNotificationScheduled(for: nextBusTime)
+        return viewModel.isNotificationScheduled(for: nextBusTime, useSelectedSchedule: false)
     }
 
     private func handleNotificationTap(for nextBusTime: String?) {
         guard let nextBusTime else { return }
         Task {
-            let status = await NotificationService.shared.authorizationStatus()
-            if status == .denied {
-                showNotificationDeniedAlert = true
-            } else {
-                await viewModel.toggleNotification(for: nextBusTime)
-                let isEnabled = viewModel.isNotificationScheduled(for: nextBusTime)
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                notificationToast = isEnabled
-                    ? ToastMessage(icon: "bell.fill", message: "\(nextBusTime) 버스 알림이 켜졌습니다")
-                    : ToastMessage(icon: "bell.slash.fill", message: "\(nextBusTime) 버스 알림이 꺼졌습니다")
-            }
+            let result = await viewModel.toggleNotification(for: nextBusTime, useSelectedSchedule: false)
+            if case .denied = result { showNotificationDeniedAlert = true }
+            else { notificationToast = ToastMessage(icon: "bell", message: result.message) }
         }
     }
 
@@ -352,8 +355,12 @@ struct MainView: View {
     }
 }
 
-#Preview {
-    MainView()
+#Preview("전체 앱 · 라이트") {
+    MainView().environmentObject(StoreService()).defaultAppStorage(PreviewRuntime.defaults).preferredColorScheme(.light)
+}
+
+#Preview("전체 앱 · 다크") {
+    MainView().environmentObject(StoreService()).defaultAppStorage(PreviewRuntime.defaults).preferredColorScheme(.dark)
 }
 
 private extension MainTab {

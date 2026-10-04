@@ -9,22 +9,46 @@ struct ReportView: View {
     @State private var selectedItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
     @State private var description = ""
+    @State private var isLoadingPhoto = false
+    @State private var photoError: String?
 
     @State private var isShowingMailComposer = false
-    @State private var isShowingMailUnavailableAlert = false
-    @State private var sendResultMessage: String?
+    @State private var sendResult: MailResultNotice?
+    @State private var showShareSheet = false
 
     private let maxCharacters = 200
     private let recipientEmail = "jangyubus.app@gmail.com"
 
     private var canSend: Bool {
-        selectedImage != nil || !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        (!isLoadingPhoto && (selectedItem == nil || selectedImage != nil || photoError != nil)) && (selectedImage != nil || !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 28) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("메일 앱에서 내용을 확인한 뒤 직접 발송합니다.")
+                        .font(.footnote).foregroundStyle(HomeDashboardTheme.secondaryText)
+                    if !MailComposeView.canSendMail {
+                        Text("메일 계정이 없어도 작성 내용을 다른 앱으로 공유할 수 있습니다.")
+                            .font(.footnote).foregroundStyle(HomeDashboardTheme.secondaryText)
+                        Button("문의 이메일 복사") { UIPasteboard.general.string = recipientEmail }
+                            .font(.subheadline)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 uploadSection
+                if isLoadingPhoto { ProgressView("사진을 불러오는 중") }
+                if let photoError {
+                    Text(photoError).font(.footnote).foregroundStyle(.orange)
+                }
+                if selectedItem != nil || selectedImage != nil {
+                    Button("사진 제거", role: .destructive) {
+                        selectedItem = nil
+                        selectedImage = nil
+                        photoError = nil
+                    }
+                }
                 formSection
             }
             .padding(.horizontal, 20)
@@ -39,6 +63,9 @@ struct ReportView: View {
         .navigationBarTitleDisplayMode(.inline)
         .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
         .toolbar(.hidden, for: .tabBar)
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(activityItems: shareItems)
+        }
         .sheet(isPresented: $isShowingMailComposer) {
             MailComposeView(
                 recipients: [recipientEmail],
@@ -49,28 +76,29 @@ struct ReportView: View {
             )
             .ignoresSafeArea()
         }
-        .alert("메일 앱을 사용할 수 없어요", isPresented: $isShowingMailUnavailableAlert) {
-            Button("확인", role: .cancel) {}
-        } message: {
-            Text("기본 메일 앱에 계정이 설정되어 있지 않습니다. 설정 → 메일에서 계정을 추가한 뒤 다시 시도해주세요.\n또는 \(recipientEmail) 으로 직접 보내주실 수 있어요.")
-        }
         .alert(
-            "제보 전송 완료",
+            sendResult?.title ?? "메일 결과",
             isPresented: Binding(
-                get: { sendResultMessage != nil },
-                set: { if !$0 { sendResultMessage = nil } }
+                get: { sendResult != nil },
+                set: { if !$0 { sendResult = nil } }
             )
         ) {
             Button("확인", role: .cancel) {}
         } message: {
-            Text(sendResultMessage ?? "")
+            Text(sendResult?.message ?? "")
         }
     }
 
     // MARK: - 업로드 섹션
 
     private var uploadSection: some View {
-        PhotosPicker(selection: $selectedItem, matching: .images) {
+        PhotosPicker(selection: Binding(get: { selectedItem }, set: { item in
+            guard item != selectedItem else { return }
+            selectedImage = nil
+            photoError = nil
+            isLoadingPhoto = item != nil
+            selectedItem = item
+        }), matching: .images) {
             ZStack {
                 if let image = selectedImage {
                     Image(uiImage: image)
@@ -85,16 +113,16 @@ struct ReportView: View {
                             Circle()
                                 .fill(HomeDashboardTheme.border)
                                 .frame(width: 60, height: 60)
-                            Image(systemName: "camera.badge.plus")
+                            Image(systemName: "photo.badge.plus")
                                 .font(.system(size: 22))
                                 .foregroundStyle(HomeDashboardTheme.primaryText)
                         }
                         VStack(spacing: 4) {
-                            Text("사진 업로드")
+                            Text("시간표 사진 선택")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(HomeDashboardTheme.primaryText)
-                            Text("변경된 시간표 사진을 찍어주세요")
-                                .font(.system(size: 13))
+                            Text("사진 보관함에서 시간표를 선택해주세요")
+                                .font(.footnote)
                                 .foregroundStyle(HomeDashboardTheme.secondaryText)
                         }
                     }
@@ -111,12 +139,21 @@ struct ReportView: View {
                     )
             )
         }
-        .onChange(of: selectedItem) { newItem in
-            Task {
-                if let data = try? await newItem?.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data) {
-                    selectedImage = image
-                }
+        .task(id: selectedItem) {
+            let item = selectedItem
+            selectedImage = nil
+            photoError = nil
+            guard let item else { isLoadingPhoto = false; return }
+            isLoadingPhoto = true
+            defer { if selectedItem == item { isLoadingPhoto = false } }
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self),
+                      let image = UIImage(data: data) else { throw CocoaError(.fileReadCorruptFile) }
+                guard !Task.isCancelled, selectedItem == item else { return }
+                selectedImage = image
+            } catch {
+                guard !Task.isCancelled, selectedItem == item else { return }
+                photoError = "사진을 불러오지 못했습니다. 다른 사진을 선택하거나 설명만 보내주세요."
             }
         }
     }
@@ -175,12 +212,12 @@ struct ReportView: View {
             // 안내 박스
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "info.circle")
-                    .font(.system(size: 13))
+                    .font(.footnote)
                     .foregroundStyle(HomeDashboardTheme.secondaryText)
                     .padding(.top, 1)
 
-                Text("사용자님의 제보는 검토 후 서비스에 즉시 반영됩니다. 정확한 정보 공유를 위해 노력해주셔서 감사합니다.")
-                    .font(.system(size: 13))
+                Text("제보해주신 내용은 확인 후 시간표 업데이트에 반영합니다. 확인에 시간이 걸릴 수 있습니다.")
+                    .font(.footnote)
                     .foregroundStyle(HomeDashboardTheme.secondaryText)
                     .lineSpacing(3)
             }
@@ -203,7 +240,7 @@ struct ReportView: View {
             Button {
                 presentMailComposer()
             } label: {
-                Text("제보 보내기")
+                Text(MailComposeView.canSendMail ? "메일 작성으로 이동" : "제보 내용 공유")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(AppTheme.Color.primaryForeground)
                     .frame(maxWidth: .infinity)
@@ -228,26 +265,24 @@ struct ReportView: View {
         if MailComposeView.canSendMail {
             isShowingMailComposer = true
         } else {
-            isShowingMailUnavailableAlert = true
+            showShareSheet = true
         }
     }
 
     private func handleMailFinish(_ result: MFMailComposeResult, error: Error?) {
-        switch result {
-        case .sent:
-            sendResultMessage = "소중한 제보 감사합니다. 검토 후 빠르게 반영하겠습니다."
+        isShowingMailComposer = false
+        sendResult = MailResultNotice.make(result: result, error: error)
+        if result == .sent {
             selectedItem = nil
             selectedImage = nil
             description = ""
-        case .saved:
-            sendResultMessage = "임시 보관함에 저장되었습니다."
-        case .failed:
-            sendResultMessage = "전송에 실패했습니다.\n\(error?.localizedDescription ?? "잠시 후 다시 시도해주세요.")"
-        case .cancelled:
-            break
-        @unknown default:
-            break
         }
+    }
+
+    private var shareItems: [Any] {
+        var items: [Any] = ["수신: \(recipientEmail)\n제목: \(mailSubject)\n\n\(mailBody)"]
+        if let selectedImage { items.append(selectedImage) }
+        return items
     }
 
     // MARK: - 메일 내용

@@ -3,42 +3,17 @@ import SwiftUI
 // HomeDashboardTheme / HomeDashboardTypography 는 DesignSystem.swift 로 이전됨.
 // typealias 를 통해 이 파일에서 기존 이름을 그대로 사용할 수 있음.
 
-struct DashboardHeaderView: View {
-    let locationText: String
-    let isNotificationEnabled: Bool
-    let onNotificationTap: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text(locationText)
-                .font(HomeDashboardTypography.headerLabel)
-                .foregroundStyle(HomeDashboardTheme.secondaryText)
-                .lineLimit(1)
-
-            Spacer()
-
-            Button(action: onNotificationTap) {
-                Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(HomeDashboardTheme.primaryText)
-                    .frame(width: 44, height: 44)
-                    .glassCard(in: Circle(), fallback: HomeDashboardTheme.iconBackground, interactive: true)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(isNotificationEnabled ? "알림 켜짐" : "알림 꺼짐")
-            .accessibilityHint(isNotificationEnabled ? "탭하여 알림을 끕니다" : "탭하여 다음 버스 5분 전 알림을 설정합니다")
-        }
-    }
-}
-
 struct NextBusHeroCard: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .largeTitle) private var countdownSize = 72
     let minuteText: String
     let unitText: String
     let descriptionText: String
-    let progress: Double
     let departureTime: String
     let arrivalTime: String
-    let nextBusTime: String
+    let isNotificationEnabled: Bool
+    let isDepartingSoon: Bool
+    let onNotificationTap: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,17 +25,17 @@ struct NextBusHeroCard: View {
 
             if minuteText.isEmpty {
                 Text(descriptionText)
-                    .font(HomeDashboardTypography.heroValue)
-                    .foregroundStyle(HomeDashboardTheme.heroText)
+                    .font(.system(size: countdownSize, weight: .black, design: .rounded))
+                    .foregroundStyle(isDepartingSoon ? Color.orange : HomeDashboardTheme.heroText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .padding(.bottom, 6)
             } else {
                 HStack(alignment: .lastTextBaseline, spacing: 6) {
                     Text(minuteText)
-                        .font(HomeDashboardTypography.heroValue)
+                        .font(.system(size: countdownSize, weight: .black, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(HomeDashboardTheme.heroText)
+                        .foregroundStyle(isDepartingSoon ? Color.orange : HomeDashboardTheme.heroText)
 
                     Text(unitText)
                         .font(HomeDashboardTypography.heroUnit)
@@ -74,51 +49,41 @@ struct NextBusHeroCard: View {
                     .padding(.top, 6)
             }
 
-            progressBar
-                .padding(.top, 28)
-
-            HStack(spacing: 0) {
+            let metaLayout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 14)) : AnyLayout(HStackLayout(spacing: 0))
+            metaLayout {
                 dashboardMetaBlock(title: "출발 시간", value: departureTime, alignment: .leading)
 
                 Rectangle()
                     .fill(HomeDashboardTheme.border)
                     .frame(width: 1, height: 36)
 
-                dashboardMetaBlock(title: "예상 도착", value: arrivalTime, alignment: .center)
-
-                Rectangle()
-                    .fill(HomeDashboardTheme.border)
-                    .frame(width: 1, height: 36)
-
-                dashboardMetaBlock(title: "다음 배차", value: nextBusTime, alignment: .trailing)
+                dashboardMetaBlock(title: "도착 예정 · 시간표 기준", value: arrivalTime, alignment: .trailing)
             }
-            .padding(.top, 24)
+            .padding(.top, 18)
+
+            Button(action: onNotificationTap) {
+                Label(isNotificationEnabled ? "알림 설정됨" : "출발 5분 전 알림",
+                      systemImage: isNotificationEnabled ? "checkmark.circle.fill" : "bell")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .foregroundStyle(isNotificationEnabled ? Color.green : HomeDashboardTheme.heroText)
+                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(isNotificationEnabled ? "탭하여 이 버스 알림을 끕니다" : "이 버스의 출발 5분 전 알림을 설정합니다")
+            .padding(.top, 18)
         }
         .padding(.horizontal, 24)
-        .padding(.vertical, 28)
+        .padding(.vertical, 22)
         .frame(maxWidth: .infinity)
-        .background(heroBackground)
+        .background(heroBackground.allowsHitTesting(false))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(HomeDashboardTheme.border.opacity(0.9), lineWidth: 1)
+                .allowsHitTesting(false)
         )
         .shadow(color: .black.opacity(0.28), radius: 22, x: 0, y: 14)
-    }
-
-    private var progressBar: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(HomeDashboardTheme.border)
-
-                Capsule()
-                    .fill(HomeDashboardTheme.heroText)
-                    .frame(width: max(proxy.size.width * progress, 24))
-            }
-        }
-        .frame(height: 4)
-        .accessibilityHidden(true)
     }
 
     private var heroBackground: some View {
@@ -255,8 +220,8 @@ struct UpcomingBusesSectionView: View {
 
             if buses.isEmpty {
                 DashboardNoticeCard(
-                    title: "표시할 버스가 없습니다",
-                    message: "선택한 시간표에 남아 있는 운행 정보가 없어요.",
+                    title: "이후 배차가 없습니다",
+                    message: "현재 표시된 버스가 마지막 운행입니다.",
                     systemImage: "clock.badge.xmark"
                 )
             } else {
@@ -274,11 +239,13 @@ struct UpcomingBusesSectionView: View {
 }
 
 struct UpcomingBusCardView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let bus: UpcomingBusSnapshot
     let destinationName: String
 
     var body: some View {
-        HStack(alignment: .center, spacing: 16) {
+        let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout(alignment: .center, spacing: 16))
+        layout {
             VStack(alignment: .leading, spacing: 6) {
                 Text(bus.departureTime)
                     .font(HomeDashboardTypography.busTime)
@@ -310,7 +277,7 @@ struct UpcomingBusCardView: View {
 
     @ViewBuilder
     private var statusLabel: some View {
-        Text(bus.statusText)
+        Label(bus.statusText, systemImage: bus.statusKind == .lastBus ? "moon.stars.fill" : "clock")
             .font(HomeDashboardTypography.statusChip)
             .foregroundStyle(statusColor)
     }
@@ -330,11 +297,13 @@ struct UpcomingBusCardView: View {
 }
 
 struct FirstLastBusSectionView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let firstBusTime: String
     let lastBusTime: String
 
     var body: some View {
-        HStack(spacing: 12) {
+        let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+        layout {
             chip(label: "첫차", time: firstBusTime)
             chip(label: "막차", time: lastBusTime)
         }
@@ -343,10 +312,10 @@ struct FirstLastBusSectionView: View {
     private func chip(label: String, time: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 12, weight: .medium))
+                .font(.caption.weight(.medium))
                 .foregroundStyle(HomeDashboardTheme.tertiaryText)
             Text(time)
-                .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                .font(.title3.monospaced().weight(.semibold))
                 .foregroundStyle(HomeDashboardTheme.primaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -390,3 +359,26 @@ struct DashboardNoticeCard: View {
     }
 }
 
+
+#Preview("홈 카드 · 라이트") {
+    ScrollView {
+        VStack(spacing: 20) {
+            NextBusHeroCard(minuteText: "12", unitText: "분", descriptionText: "출발까지",
+                           departureTime: "07:20", arrivalTime: "08:00",
+                           isNotificationEnabled: false, isDepartingSoon: false, onNotificationTap: {})
+            UpcomingBusesSectionView(title: "그다음 버스", badgeText: "평일 · 시간표 기준", buses: [
+                UpcomingBusSnapshot(id: "sample", departureTime: "07:40", relativeText: "32분 후",
+                                    arrivalTime: "08:20", statusText: "시간표 기준", statusKind: .onTime)
+            ], destinationName: "사상")
+            FirstLastBusSectionView(firstBusTime: "06:00", lastBusTime: "22:20")
+            DashboardNoticeCard(title: "오프라인", message: "저장된 시간표를 사용 중입니다.", systemImage: "wifi.slash")
+        }.padding()
+    }.background(HomeDashboardTheme.screenBackground).preferredColorScheme(.light)
+}
+
+#Preview("홈 카드 · 로딩 / 운행 종료") {
+    VStack(spacing: 20) {
+        DashboardLoadingCard()
+        DashboardServiceEndedCard(firstBusTime: "06:00", remainingText: "5시간 후 첫차")
+    }.padding().background(HomeDashboardTheme.screenBackground).preferredColorScheme(.dark)
+}

@@ -118,3 +118,8 @@ private struct ToastModifier: ViewModifier {
 #Preview("NoticeBanner") {
     NoticeBanner(message: "설 연휴 특별 운행 안내")
 }
+
+#Preview("완료 안내") {
+    ToastView(toast: ToastMessage(icon: "checkmark.circle", message: "시간표를 업데이트했습니다"))
+        .padding()
+}

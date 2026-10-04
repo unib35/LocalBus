@@ -20,7 +20,7 @@ enum AppTheme {
         static let screenBackground = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
                 ? UIColor(white: 0,     alpha: 1)        // #000000
-                : UIColor(white: 0.96,  alpha: 1)        // #F5F5F5
+                : UIColor(white: 0.93,  alpha: 1)        // #EDEDED
         })
         static let cardBackground = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
@@ -35,29 +35,28 @@ enum AppTheme {
         static let sheetBackground = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
                 ? UIColor(white: 0.08,  alpha: 1)        // #141414
-                : UIColor(white: 0.96,  alpha: 1)        // #F5F5F5
+                : UIColor(white: 0.93,  alpha: 1)        // #EDEDED
         })
         static let noteBackground = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
                 ? UIColor(white: 0.11,  alpha: 1)        // #1C1C1C
-                : UIColor(white: 0.94,  alpha: 1)        // #F0F0F0
+                : UIColor(white: 0.88,  alpha: 1)        // #E0E0E0
         })
         static let segmentBackground = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
                 ? UIColor(white: 0.10,  alpha: 1)        // #1A1A1A
                 : UIColor(white: 0.88,  alpha: 1)        // #E0E0E0
         })
-        /// 세그먼트에서 선택된 항목의 배경. 트랙보다 반드시 밝아야 선택이 드러난다.
-        /// 예전에는 chipBackground를 썼는데 라이트 모드에서 트랙과 같은 #EBEBEB라
-        /// 선택 표시가 아예 보이지 않았다.
+        /// 선택 항목은 트랙과 반대 명도로 표시합니다.
         static let segmentSelected = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
-                ? UIColor(white: 0.95,  alpha: 1)        // #F2F2F2
-                : UIColor(white: 1,     alpha: 1)        // #FFFFFF
+                ? UIColor(white: 0.95, alpha: 1)
+                : UIColor(white: 0.16, alpha: 1)
         })
-        /// segmentSelected 위 텍스트 — 두 모드 모두 밝은 배경이므로 항상 어둡게.
-        static let segmentSelectedText = SwiftUI.Color(UIColor { _ in
-            UIColor(white: 0.05, alpha: 1)               // #0D0D0D
+        static let segmentSelectedText = SwiftUI.Color(UIColor { t in
+            t.userInterfaceStyle == .dark
+                ? UIColor(white: 0.05, alpha: 1)
+                : .white
         })
         /// 세그먼트 트랙 테두리. iOS 26의 glassEffect는 fallback 색을 무시하므로
         /// 테두리를 항상 그려야 컨트롤 경계가 배경과 구분된다.
@@ -69,12 +68,12 @@ enum AppTheme {
         static let iconBackground = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
                 ? UIColor(white: 0.17,  alpha: 1)        // #2B2B2B
-                : UIColor(white: 0.94,  alpha: 1)        // #F0F0F0
+                : UIColor(white: 0.88,  alpha: 1)        // #E0E0E0
         })
         static let chipBackground = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
                 ? UIColor(white: 0.17,  alpha: 1)        // #2B2B2B
-                : UIColor(white: 0.92,  alpha: 1)        // #EBEBEB
+                : UIColor(white: 0.88,  alpha: 1)        // #E0E0E0
         })
 
         // ── 텍스트 ────────────────────────────────────────────────
@@ -90,8 +89,8 @@ enum AppTheme {
         })
         static let tertiaryText = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
-                ? UIColor(white: 0.33, alpha: 1)         // #555555 — ~6.5:1 WCAG AA
-                : UIColor(white: 0.60, alpha: 1)         // #999999
+                ? UIColor(white: 0.62, alpha: 1)         // #9E9E9E
+                : UIColor(white: 0.42, alpha: 1)         // #6B6B6B
         })
 
         // ── 히어로 카드 (항상 어두운 배경 — 라이트/다크 모두 동일) ──
@@ -109,12 +108,12 @@ enum AppTheme {
         static let border = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
                 ? UIColor(white: 0.18,  alpha: 1)        // #2E2E2E
-                : UIColor(white: 0.88,  alpha: 1)        // #E0E0E0
+                : UIColor(white: 0.76,  alpha: 1)        // #C2C2C2
         })
         static let listDivider = SwiftUI.Color(UIColor { t in
             t.userInterfaceStyle == .dark
                 ? UIColor(white: 0.18,  alpha: 1)        // #2E2E2E
-                : UIColor(white: 0.91,  alpha: 1)        // #E8E8E8
+                : UIColor(white: 0.82,  alpha: 1)        // #D1D1D1
         })
 
         // ── 인터랙션 / 상태 ───────────────────────────────────────
@@ -175,29 +174,29 @@ enum AppTheme {
 
     enum Typography {
         // 헤더 / 세그먼트
-        static let headerLabel      = Font.system(size: 14, weight: .medium)
-        static let segmentSelected  = Font.system(size: 14, weight: .bold)
-        static let segmentDefault   = Font.system(size: 14, weight: .medium)
+        static let headerLabel      = Font.system(.subheadline, design: .default).weight(.medium)
+        static let segmentSelected  = Font.system(.subheadline, design: .default).weight(.bold)
+        static let segmentDefault   = Font.system(.subheadline, design: .default).weight(.medium)
         // 히어로 카드
-        static let heroEyebrow      = Font.system(size: 12, weight: .medium)
-        static let heroValue        = Font.system(size: 72, weight: .black, design: .rounded)
-        static let heroUnit         = Font.system(size: 24, weight: .bold)
-        static let heroDescription  = Font.system(size: 14, weight: .medium)
-        static let heroMetaLabel    = Font.system(size: 11, weight: .bold)
-        static let heroMetaValue    = Font.system(size: 20, weight: .bold, design: .monospaced)
-        static let heroMetaSuffix   = Font.system(size: 12, weight: .medium)
+        static let heroEyebrow      = Font.system(.caption, design: .default).weight(.medium)
+        static let heroValue        = Font.system(.largeTitle, design: .rounded).weight(.black)
+        static let heroUnit         = Font.system(.title2, design: .default).weight(.bold)
+        static let heroDescription  = Font.system(.subheadline, design: .default).weight(.medium)
+        static let heroMetaLabel    = Font.system(.caption2, design: .default).weight(.bold)
+        static let heroMetaValue    = Font.system(.title3, design: .monospaced).weight(.bold)
+        static let heroMetaSuffix   = Font.system(.caption, design: .default).weight(.medium)
         // 섹션
-        static let sectionTitle     = Font.system(size: 20, weight: .black, design: .rounded)
-        static let sectionBadge     = Font.system(size: 11, weight: .bold)
+        static let sectionTitle     = Font.system(.title3, design: .rounded).weight(.black)
+        static let sectionBadge     = Font.system(.caption2, design: .default).weight(.bold)
         // 버스 시간
-        static let busTime          = Font.system(size: 18, weight: .bold, design: .monospaced)
-        static let busRelativeStrong = Font.system(size: 14, weight: .bold)
-        static let busRelativeMuted  = Font.system(size: 14, weight: .medium)
-        static let busArrival       = Font.system(size: 12, weight: .medium)
+        static let busTime          = Font.system(.headline, design: .monospaced).weight(.bold)
+        static let busRelativeStrong = Font.system(.subheadline, design: .default).weight(.bold)
+        static let busRelativeMuted  = Font.system(.subheadline, design: .default).weight(.medium)
+        static let busArrival       = Font.system(.caption, design: .default).weight(.medium)
         // 기타
-        static let statusChip       = Font.system(size: 12, weight: .medium)
-        static let noticeTitle      = Font.system(size: 14, weight: .bold)
-        static let noticeBody       = Font.system(size: 12, weight: .medium)
+        static let statusChip       = Font.system(.caption, design: .default).weight(.medium)
+        static let noticeTitle      = Font.system(.subheadline, design: .default).weight(.bold)
+        static let noticeBody       = Font.system(.caption, design: .default).weight(.medium)
     }
 
     // MARK: - Spacing

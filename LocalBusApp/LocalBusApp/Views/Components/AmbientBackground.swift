@@ -46,13 +46,13 @@ struct AmbientBackground: View {
     private var highlight: Color {
         colorScheme == .dark
             ? Color.white.opacity(0.07)
-            : Color.white.opacity(0.9)
+            : Color.white.opacity(0.12)
     }
 
     private var dim: Color {
         colorScheme == .dark
             ? Color.white.opacity(0.03)
-            : Color.black.opacity(0.03)
+            : Color.black.opacity(0.015)
     }
 }
 

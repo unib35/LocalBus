@@ -5,26 +5,17 @@ import CoreLocation
 
 // MARK: - 정류장 화면
 
-// 좌표 없는 노선의 임시 폴백 (율하 노선 등)
-private let fallbackCoordinates: [String: CLLocationCoordinate2D] = [
-    "sasang_terminal": CLLocationCoordinate2D(latitude: 35.163329, longitude: 128.981845),
-    "gimhae_foreign":  CLLocationCoordinate2D(latitude: 35.2257, longitude: 128.8928),
-    "yulha_central":   CLLocationCoordinate2D(latitude: 35.2207, longitude: 128.8994),
-]
-
 struct StopsScreenView: View {
     @ObservedObject var viewModel: MainViewModel
     let presentationToken: Int
 
-    @State private var selectedStop: BusStop? = nil
+    @State private var selectedStopID: String?
+    private var selectedStop: BusStop? { stops.first { $0.id == selectedStopID } }
     @State private var centerOnUser = false
     @State private var fitToRoute = false
     @State private var userLocation: CLLocation? = nil
 
-    // 시트 상태 (SwiftUI 표준 sheet)
-    @State private var isSheetPresented: Bool = true
-    @State private var sheetDetent: PresentationDetent = .medium
-    private let peekDetent: PresentationDetent = .height(120)
+    @State private var locationError: String?
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -34,7 +25,6 @@ struct StopsScreenView: View {
     private var platform: String? { viewModel.getPlatformNumber(for: stopsDirection) }
     private var nightFare: Int? { viewModel.getNightFare(for: stopsDirection) }
     private var nightFareStartTime: String? { viewModel.getNightFareStartTime(for: stopsDirection) }
-    private var selectedStopID: String? { selectedStop?.id }
     private var defaultStop: BusStop? { stops.first(where: \.isDeparture) ?? stops.first }
 
     private var selectedCoordinate: CLLocationCoordinate2D? {
@@ -47,12 +37,13 @@ struct StopsScreenView: View {
         return f
     }()
 
-    /// JSON 좌표 우선, 없으면 폴백 사용
+    /// 제공된 유효 좌표만 사용합니다.
     private func coordinate(for stop: BusStop) -> CLLocationCoordinate2D? {
         if let lat = stop.latitude, let lng = stop.longitude {
-            return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            return CLLocationCoordinate2DIsValid(coordinate) ? coordinate : nil
         }
-        return fallbackCoordinates[stop.id]
+        return nil
     }
 
     private var mapPins: [RouteMapPin] {
@@ -81,13 +72,13 @@ struct StopsScreenView: View {
     private func handleStopSelection(_ stop: BusStop) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         withAnimation(.easeInOut(duration: 0.3)) {
-            selectedStop = stop
+            selectedStopID = stop.id
         }
     }
 
     private func selectDefaultStopIfNeeded(force: Bool = false) {
         guard let defaultStop else {
-            selectedStop = nil
+            selectedStopID = nil
             return
         }
 
@@ -96,144 +87,69 @@ struct StopsScreenView: View {
         } ?? false
 
         guard force || !currentSelectionIsValid else { return }
-        selectedStop = defaultStop
+        selectedStopID = defaultStop.id
     }
 
     // MARK: - Body
 
     var body: some View {
-        ZStack(alignment: .top) {
-            AmbientBackground()
-
-            // 지도 — 화면 전체. safe area 무시
-            GeometryReader { geo in
-                RouteMapView(
-                    pins: mapPins,
-                    routePath: mapRoutePath,
-                    selectedStopID: selectedStopID,
-                    selectedCoordinate: selectedCoordinate,
-                    centerOnUser: $centerOnUser,
-                    fitToRoute: $fitToRoute,
-                    colorScheme: colorScheme,
-                    sheetTopY: estimatedSheetTopY(for: geo.size.height),
-                    onPinTap: { stopID in
-                        guard let stop = stops.first(where: { $0.id == stopID }) else { return }
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            selectedStop = stop
-                        }
-                        if !isSheetPresented {
-                            isSheetPresented = true
-                        }
-                        if sheetDetent == peekDetent {
-                            sheetDetent = .medium
-                        }
-                    },
-                    onLocationUpdate: { location in
-                        userLocation = location
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    DirectionSelector(selectedDirection: stopsDirection) { direction in
+                        viewModel.changeDirection(to: direction)
                     }
-                )
-            }
-            .ignoresSafeArea()
+                    .padding(.horizontal, 20)
 
-            // 우상단 고정 컨트롤 — safe area 안에 자동 위치 (시계 아래)
-            VStack(spacing: 10) {
-                mapControlButton(
-                    systemName: "arrow.up.left.and.arrow.down.right",
-                    accessibilityLabel: "노선 전체 보기"
-                ) {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    fitToRoute = true
-                }
-
-                mapControlButton(
-                    systemName: "location.fill",
-                    accessibilityLabel: "현재 위치로 이동"
-                ) {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    centerOnUser = true
-                }
-
-                #if DEBUG
-                mapControlButton(
-                    systemName: "square.and.arrow.down.on.square",
-                    accessibilityLabel: "경로 추출 (DEBUG)"
-                ) {
-                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-                    let direction = stopsDirection
-                    let currentStops = stops
-                    Task {
-                        await RoutePathExporter.exportPath(
-                            for: direction,
-                            stops: currentStops
+                    if !mapPins.isEmpty {
+                        RouteMapView(
+                            pins: mapPins, routePath: mapRoutePath,
+                            selectedStopID: selectedStopID, selectedCoordinate: selectedCoordinate,
+                            centerOnUser: $centerOnUser, fitToRoute: $fitToRoute,
+                            colorScheme: colorScheme, sheetTopY: 0,
+                            onPinTap: { id in
+                                if let stop = stops.first(where: { $0.id == id }) { handleStopSelection(stop) }
+                            },
+                            onLocationUpdate: { userLocation = $0 },
+                            onLocationError: { locationError = $0 }
                         )
-                    }
-                }
-                #endif
-            }
-            .padding(.top, 16)
-            .padding(.trailing, 16)
-            .frame(maxWidth: .infinity, alignment: .topTrailing)
-
-            // 시트 닫혔을 때 다시 열기 버튼
-            if !isSheetPresented {
-                VStack {
-                    Spacer()
-                    Button {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        isSheetPresented = true
-                        sheetDetent = .medium
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text("정류장 목록")
-                                .font(.system(.subheadline, weight: .semibold))
-                            Image(systemName: "chevron.up")
-                                .font(.system(.caption, weight: .bold))
+                        .frame(height: 300)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .overlay(alignment: .topTrailing) {
+                            VStack(spacing: 10) {
+                                mapControlButton(systemName: "arrow.up.left.and.arrow.down.right", accessibilityLabel: "정류장 전체 보기") {
+                                    selectedStopID = nil
+                                    fitToRoute = true
+                                }
+                                mapControlButton(systemName: "location.fill", accessibilityLabel: "현재 위치로 이동") { centerOnUser = true }
+                            }.padding(12)
                         }
-                        .foregroundStyle(AppTheme.Color.primaryForeground)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 11)
-                        .background(HomeDashboardTheme.primaryBlue)
-                        .clipShape(Capsule())
-                        .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 4)
+                        .padding(.horizontal, 20)
+                        Text("정류장 위치를 표시합니다. 실제 버스 위치나 운행 경로는 제공하지 않습니다.")
+                            .font(.footnote)
+                            .foregroundStyle(HomeDashboardTheme.secondaryText)
+                            .padding(.horizontal, 24)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("정류장 목록 열기")
-                    .padding(.bottom, 24)
+                    stopDetailsContent
                 }
-                .transition(.asymmetric(
-                    insertion: .move(edge: .bottom).combined(with: .opacity),
-                    removal: .opacity
-                ))
+                .padding(.vertical, 16)
             }
+            .background(AmbientBackground())
+            .navigationTitle("정류장")
+            .navigationBarTitleDisplayMode(.inline)
+            .alert("현재 위치를 확인할 수 없습니다", isPresented: Binding(
+                get: { locationError != nil }, set: { if !$0 { locationError = nil } }
+            )) {
+                Button("설정 열기") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                }
+                Button("닫기", role: .cancel) { locationError = nil }
+            } message: { Text(locationError ?? "") }
         }
-        .onAppear {
-            selectDefaultStopIfNeeded()
-        }
-        .onChange(of: viewModel.selectedDirection) { _ in
-            selectDefaultStopIfNeeded(force: true)
-        }
-        .onChange(of: presentationToken) { _ in
-            isSheetPresented = true
-            sheetDetent = .medium
-            selectDefaultStopIfNeeded()
-        }
-        .sheet(isPresented: $isSheetPresented) {
-            ScrollView(showsIndicators: false) {
-                sheetContent
-                    .padding(.bottom, 40)
-            }
-            .presentationDetents([peekDetent, .medium, .large], selection: $sheetDetent)
-            .presentationDragIndicator(.visible)
-            .sheetEnhancements()
-        }
-    }
-
-    // MARK: - Sheet 높이 추정 (지도 핀 centering 보정용)
-
-    private func estimatedSheetTopY(for screenHeight: CGFloat) -> CGFloat {
-        if sheetDetent == .large { return screenHeight * 0.10 }
-        if sheetDetent == .medium { return screenHeight * 0.50 }
-        return screenHeight * 0.85
+        .onAppear { selectDefaultStopIfNeeded() }
+        .onChange(of: viewModel.selectedDirection) { _ in selectDefaultStopIfNeeded(force: true) }
+        .onChange(of: viewModel.updatedAtText) { _ in selectDefaultStopIfNeeded(force: true) }
+        .onChange(of: presentationToken) { _ in selectDefaultStopIfNeeded() }
     }
 
     // MARK: - 지도 컨트롤 버튼
@@ -246,26 +162,22 @@ struct StopsScreenView: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(.subheadline, weight: .medium))
-                .foregroundStyle(.white)
+                .foregroundStyle(HomeDashboardTheme.primaryText)
                 .frame(width: 44, height: 44)
-                .glassCard(in: Circle(), fallback: Material.ultraThin, interactive: true)
-                .shadow(color: .black.opacity(0.4), radius: 8)
+                .background(HomeDashboardTheme.cardBackground, in: Circle())
+                .contentShape(Rectangle())
+                .shadow(color: .black.opacity(0.15), radius: 4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
     }
 
-    // MARK: - 시트 콘텐츠
+    // MARK: - 정류장 상세 및 요금
 
-    private var sheetContent: some View {
+    private var stopDetailsContent: some View {
         let currentStops = stops
         let adult = adultFare
         return VStack(spacing: 20) {
-            DirectionSelector(selectedDirection: stopsDirection) { newDirection in
-                viewModel.changeDirection(to: newDirection)
-            }
-            .padding(.horizontal, 24)
-
             if let platformNum = platform {
                 platformBanner(platformNum)
                     .padding(.horizontal, 24)
@@ -279,8 +191,9 @@ struct StopsScreenView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            fareCard(adult: adult)
-                .padding(.horizontal, 24)
+            if adult > 0 {
+                fareCard(adult: adult).padding(.horizontal, 24)
+            }
         }
         .padding(.top, 8)
         .padding(.bottom, 8)
@@ -343,7 +256,7 @@ struct StopsScreenView: View {
             Text("정류장 정보를 불러올 수 없습니다")
                 .font(.system(.subheadline, weight: .medium))
                 .foregroundStyle(HomeDashboardTheme.timetableSecondaryText)
-            Text("네트워크 연결을 확인하고 다시 시도해 주세요")
+            Text("설정에서 시간표 업데이트를 확인해주세요.")
                 .font(.system(.caption, weight: .regular))
                 .foregroundStyle(HomeDashboardTheme.timetableMutedText)
                 .multilineTextAlignment(.center)
@@ -388,13 +301,13 @@ struct StopsScreenView: View {
                         : String(format: "%.1fkm", meters / 1000)
                     Spacer()
                     HStack(spacing: 3) {
-                        Image(systemName: "figure.walk")
+                        Image(systemName: "location")
                             .font(.system(.caption2, weight: .medium))
-                        Text(distanceText)
+                        Text("직선거리 " + distanceText)
                             .font(.system(.caption, weight: .semibold))
                     }
                     .foregroundStyle(HomeDashboardTheme.primaryBlue)
-                    .accessibilityLabel("도보 \(distanceText)")
+                    .accessibilityLabel("현재 위치에서 직선거리 \(distanceText)")
                     .accessibilityElement(children: .ignore)
                 }
             }
@@ -416,6 +329,9 @@ struct StopsScreenView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
+            } else {
+                Text("이 정류장은 위치 정보가 없어 길 찾기를 제공하지 않습니다.")
+                    .font(.footnote).foregroundStyle(HomeDashboardTheme.secondaryText)
             }
         }
         .padding(16)
@@ -462,7 +378,7 @@ struct StopsScreenView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
-                    .glassCard(cornerRadius: 4, fallback: Material.ultraThin)
+                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 4))
                     .padding(12)
             }
         }
@@ -491,8 +407,9 @@ struct StopsScreenView: View {
 
             VStack(spacing: 12) {
                 fareRow(label: "성인", amount: adult)
-                fareRow(label: "청소년 (13-18세)", amount: Int(Double(adult) * 0.8))
-                fareRow(label: "어린이 (6-12세)", amount: Int(Double(adult) * 0.52))
+                Text("청소년·어린이 할인요금은 운수사에 확인해주세요.")
+                    .font(.footnote)
+                    .foregroundStyle(HomeDashboardTheme.secondaryText)
 
                 if let nFare = nightFare, let startTime = nightFareStartTime {
                     Rectangle()
@@ -683,16 +600,12 @@ private extension View {
 
 // MARK: - Preview
 
-#Preview {
-    struct Wrapper: View {
-        @StateObject var vm = MainViewModel()
-        var body: some View {
-            ZStack {
-                Color.black.ignoresSafeArea()
-                Text("정류장 위치 (시뮬레이터에서 확인)")
-                    .foregroundStyle(.white)
-            }
-        }
-    }
-    return Wrapper()
+#Preview("정류장 · 라이트") {
+    StopsScreenView(viewModel: MainViewModel(), presentationToken: 0)
+        .preferredColorScheme(.light)
+}
+
+#Preview("정류장 · 다크") {
+    StopsScreenView(viewModel: MainViewModel(), presentationToken: 0)
+        .preferredColorScheme(.dark)
 }

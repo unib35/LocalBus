@@ -18,7 +18,10 @@ private struct TipSection: Identifiable {
 // MARK: - 이용 안내 화면
 
 struct BusTipsView: View {
-    private let sections: [TipSection] = [
+    var direction: RouteDirection = .jangyuToSasang
+    var departureStopName: String = "갑을장유병원"
+
+    private var sections: [TipSection] { [
         TipSection(header: "탑승 방법", items: [
             TipItem(
                 icon: "creditcard",
@@ -61,13 +64,13 @@ struct BusTipsView: View {
         TipSection(header: "시간표 안내", items: [
             TipItem(
                 icon: "clock",
-                title: "갑을장유병원 출발 기준",
-                description: "시간표는 갑을장유병원 정류장 출발 기준입니다. 이후 정류장은 약 1분 뒤 도착합니다."
+                title: "\(direction.displayName) 시간표",
+                description: "\(departureStopName) 출발 기준입니다. 경유 정류장의 도착 시각은 거리와 교통 상황에 따라 달라집니다."
             ),
             TipItem(
                 icon: "moon.stars",
-                title: "심야버스 전용 승차장",
-                description: "심야버스는 일반 20번홈이 아닌 심야버스 전용 승차장에서 탑승하세요."
+                title: "승차장 확인",
+                description: "사상 출발 심야편은 일반편과 승차장이 다를 수 있습니다. 탑승 전 터미널 현장 안내를 확인해주세요."
             ),
             TipItem(
                 icon: "exclamationmark.triangle",
@@ -87,7 +90,7 @@ struct BusTipsView: View {
                 description: "오전 7~8시 혼잡 시간대에는 앞쪽 정류장에서 탑승하시면 좌석 확보에 유리합니다."
             )
         ])
-    ]
+    ] }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -147,11 +150,11 @@ struct BusTipsView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(HomeDashboardTheme.primaryText)
 
                 Text(item.description)
-                    .font(.system(size: 13))
+                    .font(.subheadline)
                     .foregroundStyle(HomeDashboardTheme.secondaryText)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)

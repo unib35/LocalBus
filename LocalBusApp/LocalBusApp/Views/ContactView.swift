@@ -18,19 +18,35 @@ struct ContactView: View {
     @State private var replyEmail = ""
 
     @State private var isShowingMailComposer = false
-    @State private var isShowingMailUnavailableAlert = false
-    @State private var sendResultMessage: String?
+    @State private var sendResult: MailResultNotice?
+    @State private var showShareSheet = false
 
     private let maxCharacters = 500
     private let recipientEmail = "jangyubus.app@gmail.com"
 
+    private var isReplyEmailValid: Bool {
+        let email = replyEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        return email.isEmpty || email.range(of: #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#, options: .regularExpression) != nil
+    }
+
     private var canSend: Bool {
-        !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        isReplyEmailValid && !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("메일 앱에서 내용을 확인한 뒤 직접 발송합니다.")
+                        .font(.footnote).foregroundStyle(HomeDashboardTheme.secondaryText)
+                    if !MailComposeView.canSendMail {
+                        Text("메일 계정이 없어도 작성 내용을 다른 앱으로 공유할 수 있습니다.")
+                            .font(.footnote).foregroundStyle(HomeDashboardTheme.secondaryText)
+                        Button("문의 이메일 복사") { UIPasteboard.general.string = recipientEmail }
+                            .font(.subheadline)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 typeSection
                 contentSection
                 replyEmailSection
@@ -49,6 +65,9 @@ struct ContactView: View {
         .legacyToolbarBackground(HomeDashboardTheme.screenBackground.opacity(0.95))
         .toolbarColorScheme(nil, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(activityItems: shareItems)
+        }
         .sheet(isPresented: $isShowingMailComposer) {
             MailComposeView(
                 recipients: [recipientEmail],
@@ -59,21 +78,16 @@ struct ContactView: View {
             )
             .ignoresSafeArea()
         }
-        .alert("메일 앱을 사용할 수 없어요", isPresented: $isShowingMailUnavailableAlert) {
-            Button("확인", role: .cancel) {}
-        } message: {
-            Text("기본 메일 앱에 계정이 설정되어 있지 않습니다. 설정 → 메일에서 계정을 추가한 뒤 다시 시도해주세요.\n또는 \(recipientEmail) 으로 직접 보내주실 수 있어요.")
-        }
         .alert(
-            "문의 전송 완료",
+            sendResult?.title ?? "메일 결과",
             isPresented: Binding(
-                get: { sendResultMessage != nil },
-                set: { if !$0 { sendResultMessage = nil } }
+                get: { sendResult != nil },
+                set: { if !$0 { sendResult = nil } }
             )
         ) {
             Button("확인", role: .cancel) {}
         } message: {
-            Text(sendResultMessage ?? "")
+            Text(sendResult?.message ?? "")
         }
     }
 
@@ -104,7 +118,7 @@ struct ContactView: View {
 
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $content)
-                    .font(.system(size: 16))
+                    .font(.body)
                     .foregroundStyle(HomeDashboardTheme.primaryText)
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal, 11)
@@ -121,7 +135,7 @@ struct ContactView: View {
 
                 if content.isEmpty {
                     Text("문의 내용을 입력해주세요.")
-                        .font(.system(size: 16))
+                        .font(.body)
                         .foregroundStyle(HomeDashboardTheme.secondaryText)
                         .padding(.horizontal, 16)
                         .padding(.top, 16)
@@ -153,7 +167,7 @@ struct ContactView: View {
                 .foregroundStyle(HomeDashboardTheme.secondaryText)
 
             TextField("", text: $replyEmail, prompt: Text("example@email.com").foregroundColor(HomeDashboardTheme.secondaryText))
-                .font(.system(size: 16))
+                .font(.body)
                 .foregroundStyle(HomeDashboardTheme.primaryText)
                 .keyboardType(.emailAddress)
                 .textContentType(.emailAddress)
@@ -164,7 +178,11 @@ struct ContactView: View {
                 .glassCard(cornerRadius: 12, fallback: HomeDashboardTheme.cardBackground)
                 .fallbackCardBorder(cornerRadius: 12, color: HomeDashboardTheme.border)
 
-            Text("답변받을 이메일 주소를 입력하면 더 빠르게 회신받을 수 있어요.")
+            if !replyEmail.isEmpty && !isReplyEmailValid {
+                Text("이메일 주소 형식을 확인해주세요.")
+                    .font(.footnote).foregroundStyle(.orange)
+            }
+            Text("입력하지 않으면 메일을 보낸 주소로 답변드립니다.")
                 .font(.system(size: 12))
                 .foregroundStyle(HomeDashboardTheme.secondaryText)
         }
@@ -202,7 +220,7 @@ struct ContactView: View {
             Button {
                 presentMailComposer()
             } label: {
-                Text("보내기")
+                Text(MailComposeView.canSendMail ? "메일 작성으로 이동" : "작성 내용 공유")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(AppTheme.Color.primaryForeground)
                     .frame(maxWidth: .infinity)
@@ -227,25 +245,22 @@ struct ContactView: View {
         if MailComposeView.canSendMail {
             isShowingMailComposer = true
         } else {
-            isShowingMailUnavailableAlert = true
+            showShareSheet = true
         }
     }
 
     private func handleMailFinish(_ result: MFMailComposeResult, error: Error?) {
-        switch result {
-        case .sent:
-            sendResultMessage = "문의를 보내주셔서 감사합니다. 검토 후 이메일로 답변 드리겠습니다."
+        isShowingMailComposer = false
+        sendResult = MailResultNotice.make(result: result, error: error)
+        if result == .sent {
             content = ""
             replyEmail = ""
-        case .saved:
-            sendResultMessage = "임시 보관함에 저장되었습니다."
-        case .failed:
-            sendResultMessage = "전송에 실패했습니다.\n\(error?.localizedDescription ?? "잠시 후 다시 시도해주세요.")"
-        case .cancelled:
-            break
-        @unknown default:
-            break
         }
+    }
+
+    private var shareItems: [Any] {
+        let items: [Any] = ["수신: \(recipientEmail)\n제목: \(mailSubject)\n\n\(mailBody)"]
+        return items
     }
 
     // MARK: - 메일 내용
