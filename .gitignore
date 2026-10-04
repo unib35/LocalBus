@@ -9,7 +9,6 @@ xcuserdata/
 # Swift Package Manager
 .build/
 .swiftpm/
-Package.resolved
 
 # CocoaPods
 Pods/
@@ -65,3 +64,19 @@ internal-docs/
 # Firebase 설정 (민감 정보 - 추적 제외)
 GoogleService-Info.plist
 **/GoogleService-Info.plist
+
+# 서버/관리자 개발 의존성 및 생성물
+node_modules/
+/server/dist/
+/admin/dist/
+/admin/.next/
+.dev.vars
+.dev.vars.*
+.env.*
+!.env.example
+!.dev.vars.example
+.wrangler/
+*.tsbuildinfo
+
+# 원본 압축 및 충돌 변경 복원 자료 (로컬 보관)
+/archives/
