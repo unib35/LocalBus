@@ -2,9 +2,7 @@ import XCTest
 
 /// 홈·시간표·설정 화면의 주요 흐름을 검증한다.
 ///
-/// 이전 버전은 표시 텍스트(`"평일"`, 내비게이션 타이틀 `"시외버스"`)를 직접 매칭했는데,
-/// Liquid Glass 재디자인으로 홈 화면의 내비게이션 바가 사라지고 문구가 바뀌면서
-/// 12개 테스트가 전부 실패했다. 이제는 `AccessibilityID` 식별자로만 요소를 찾는다.
+/// 주요 요소는 AccessibilityID로 찾고, 시스템 탭은 식별자 또는 접근성 이름으로 찾는다.
 final class LocalBusAppUITests: XCTestCase {
 
     private var app: XCUIApplication!
@@ -16,6 +14,19 @@ final class LocalBusAppUITests: XCTestCase {
 
     override func tearDownWithError() throws {
         app = nil
+    }
+
+    func test_정류장탭_노선변경과_홈복귀() throws {
+        let stopsTab = app.tabBars.buttons["정류장 위치"]
+        XCTAssertTrue(stopsTab.waitForExistence(timeout: UITest.contentTimeout))
+        stopsTab.tap()
+        XCTAssertTrue(app.navigationBars["정류장"].waitForExistence(timeout: UITest.contentTimeout))
+        let yulha = app.element(id: AccessibilityID.routeLine(AppFixture.Line.yulha))
+        XCTAssertTrue(yulha.waitForExistence(timeout: UITest.contentTimeout))
+        yulha.tap()
+        XCTAssertTrue(app.element(id: AccessibilityID.direction(AppFixture.Direction.yulhaToSasang)).waitForSelected(timeout: 5))
+        app.selectTab(AccessibilityID.Tab.home)
+        XCTAssertTrue(app.element(id: AccessibilityID.Home.root).waitForExistence(timeout: 5))
     }
 
     // MARK: - 홈 화면
@@ -77,6 +88,20 @@ final class LocalBusAppUITests: XCTestCase {
             outbound.waitForSelected(timeout: 5),
             "원래 방향으로 되돌릴 수 있어야 합니다"
         )
+    }
+
+    /// 글자와 버튼 여백도 전환을 실행해야 합니다.
+    func test_홈_방향글자와_변경버튼여백으로_왕복전환() throws {
+        let outboundID = AccessibilityID.direction(AppFixture.Direction.jangyuToSasang)
+        let inboundID = AccessibilityID.direction(AppFixture.Direction.sasangToJangyu)
+        let outbound = app.element(id: outboundID)
+        XCTAssertTrue(outbound.waitForExistence(timeout: UITest.contentTimeout))
+        outbound.tap()
+        XCTAssertTrue(app.element(id: inboundID).waitForSelected(timeout: 5))
+
+        // 아이콘/글자가 아닌 버튼 안쪽 여백을 눌러 터치 영역을 검증합니다.
+        app.element(id: outboundID).coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        XCTAssertTrue(app.element(id: outboundID).waitForSelected(timeout: 5))
     }
 
     /// 노선(장유/율하) 전환 시 방향 버튼이 해당 노선 것으로 교체되는지 확인한다.

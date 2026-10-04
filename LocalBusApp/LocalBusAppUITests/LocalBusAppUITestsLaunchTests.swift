@@ -23,11 +23,10 @@ final class LocalBusAppUITestsLaunchTests: XCTestCase {
     /// 라이트 모드 선호 설정에서도 실행이 되는지 확인한다.
     ///
     /// 앱은 `@AppStorage("colorSchemePreference")` 로 자체 색상 모드를 관리하며
-    /// 기본값이 다크다. 여기서는 시스템 스타일을 라이트로 주더라도 실행 경로가
-    /// 깨지지 않는지만 확인한다.
+    /// 기본값이 다크이므로 앱 선호 설정과 시스템 스타일을 모두 라이트로 지정한다.
     func test_라이트_모드에서도_실행된다() throws {
         let app = UITest.launchToHome { app in
-            app.launchArguments += ["-UIUserInterfaceStyle", "Light"]
+            app.launchArguments += ["-UIUserInterfaceStyle", "Light", "-colorSchemePreference", "0"]
         }
 
         attachScreenshot(of: app, named: "홈 화면 (라이트 모드 실행)")

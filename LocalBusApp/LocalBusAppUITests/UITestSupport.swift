@@ -66,7 +66,17 @@ extension XCUIApplication {
 
     /// 탭 바 항목을 식별자로 선택한다.
     func selectTab(_ identifier: String, file: StaticString = #filePath, line: UInt = #line) {
-        let tab = tabBars.buttons[identifier]
+        // iOS 18의 SwiftUI TabView는 재실행 시 tabItem의 식별자를 누락할 수 있습니다.
+        // 화면 계층에 실제 표시된 탭의 접근성 이름으로도 찾되, 탭 바 범위는 유지합니다.
+        let labels = [
+            AccessibilityID.Tab.home: "홈",
+            AccessibilityID.Tab.timetable: "전체 시간표",
+            AccessibilityID.Tab.settings: "설정"
+        ]
+        let predicate = NSPredicate(format: "identifier == %@ OR label == %@", identifier, labels[identifier] ?? identifier)
+        // iPadOS 18의 상단 탭은 tabBar 밖의 버튼 또는 레이블로 노출됩니다.
+        let tabBarButton = tabBars.buttons.matching(predicate).firstMatch
+        let tab = tabBarButton.exists ? tabBarButton : descendants(matching: .any).matching(predicate).firstMatch
         XCTAssertTrue(
             tab.waitForExistence(timeout: 10),
             "탭 '\(identifier)' 이 존재해야 합니다",
