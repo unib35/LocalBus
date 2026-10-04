@@ -20,7 +20,7 @@ struct WidgetDataHelper {
     }()
 
     static var koreaCalendar: Calendar {
-        var calendar = Calendar.current
+        var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = koreaTimeZone
         return calendar
     }
@@ -29,68 +29,51 @@ struct WidgetDataHelper {
         // v1.0 무료 출시: IAP 미적용 상태이므로 위젯을 모두에게 개방한다.
         // IAP 도입 시 아래 한 줄을 `EntitlementStore.shared.isPro`로 되돌리면 잠금이 복원된다.
         let isPro = true
-        let times = loadTimetable(for: date, routeKey: routeKey)
-        let firstBusTime = times.first ?? "06:00"
-
-        guard let nextIndex = findNextBusIndex(times: times, from: date) else {
-            return BusEntry(
-                date: date,
-                routeKey: routeKey,
-                nextBusTime: nil,
-                remainingMinutes: 0,
-                direction: direction,
-                isServiceEnded: true,
-                firstBusTime: firstBusTime,
-                upcomingBuses: [],
-                isLastBus: false,
-                isNightBus: false,
-                isPro: isPro
-            )
-        }
-
-        let nextBus = times[nextIndex]
-        let remaining = minutesUntil(timeString: nextBus, from: date) ?? 0
-
-        var upcoming: [(String, Int)] = []
-        for i in (nextIndex + 1)..<min(nextIndex + 5, times.count) {
-            if let mins = minutesUntil(timeString: times[i], from: date) {
-                upcoming.append((times[i], mins))
-            }
-        }
-
+        let data = loadTimetableData()
+        let timetable = data?.routes?[routeKey]?.timetable ?? data?.timetable
+        let weekday = timetable?.weekday ?? []
+        let weekend = timetable?.weekend ?? []
+        let holidays = data?.holidays ?? []
+        let future = TimetableTimeline.departures(weekday: weekday, weekend: weekend, holidays: holidays, from: date)
+        let today = TimetableTimeline.calendar.startOfDay(for: date)
+        let next = future.first
+        let ended = next.map { $0.serviceDate > today } ?? true
+        let firstTime = ended ? (next?.time ?? "--:--") :
+            (TimetableTimeline.times(on: next?.serviceDate ?? date, weekday: weekday, weekend: weekend, holidays: holidays).first ?? "--:--")
         return BusEntry(
-            date: date,
-            routeKey: routeKey,
-            nextBusTime: nextBus,
-            remainingMinutes: remaining,
-            direction: direction,
-            isServiceEnded: false,
-            firstBusTime: firstBusTime,
-            upcomingBuses: upcoming,
-            isLastBus: (nextIndex == times.count - 1),
-            isNightBus: isNightBusTime(nextBus),
-            isPro: isPro
+            date: date, routeKey: routeKey, nextBusTime: ended ? nil : next?.time,
+            remainingMinutes: next.map { max(0, Int(ceil($0.date.timeIntervalSince(date) / 60))) } ?? 0,
+            direction: direction, isServiceEnded: ended, firstBusTime: firstTime,
+            upcomingBuses: ended ? [] : future.dropFirst().prefix(4).map {
+                ($0.time, max(0, Int(ceil($0.date.timeIntervalSince(date) / 60))))
+            },
+            isLastBus: !ended && (next?.isLast ?? false),
+            isNightBus: next.map { isNightBusTime($0.time) } ?? false, isPro: isPro
         )
     }
 
     /// 시간표 데이터 로드.
-    /// 1순위: App Group 공유 캐시(메인 앱이 원격에서 받아 저장) → 앱 업데이트 없이 갱신 반영.
-    /// 2순위: 번들 동봉 JSON(빌드 시점 데이터) → 캐시가 아직 없을 때의 폴백.
+    /// App Group 캐시와 번들의 버전/수정일을 비교해 최신 자료를 사용합니다.
+    /// 같은 버전·수정일이면 사용자가 적용한 캐시를 우선합니다.
     static func loadTimetableData() -> WidgetTimetableData? {
         let decoder = JSONDecoder()
-
-        if let cached = EntitlementStore.sharedDefaults.data(forKey: EntitlementStore.timetableCacheKey),
-           let json = try? decoder.decode(WidgetTimetableData.self, from: cached) {
-            return json
-        }
-
-        if let url = Bundle.main.url(forResource: "timetable", withExtension: "json"),
-           let data = try? Data(contentsOf: url),
-           let json = try? decoder.decode(WidgetTimetableData.self, from: data) {
-            return json
-        }
-
-        return nil
+        let cached = EntitlementStore.sharedDefaults.data(forKey: EntitlementStore.timetableCacheKey)
+            .flatMap { bytes in
+                guard let data = try? TimetableData.validatedDecode(bytes),
+                      (try? data.validate(requireRoutes: true)) != nil else { return nil as WidgetTimetableData? }
+                return try? decoder.decode(WidgetTimetableData.self, from: bytes)
+            }
+        let bundled = Bundle.main.url(forResource: "timetable", withExtension: "json")
+            .flatMap { try? Data(contentsOf: $0) }
+            .flatMap { bytes in
+                guard let data = try? TimetableData.validatedDecode(bytes),
+                      (try? data.validate(requireRoutes: true)) != nil else { return nil as WidgetTimetableData? }
+                return try? decoder.decode(WidgetTimetableData.self, from: bytes)
+            }
+        guard let bundled else { return cached }
+        guard let cached, let cachedRevision = cached.meta else { return bundled }
+        guard let bundledRevision = bundled.meta else { return cached }
+        return cachedRevision >= bundledRevision ? cached : bundled
     }
 
     static func loadTimetable(for date: Date, routeKey: String) -> [String] {
@@ -125,7 +108,7 @@ struct WidgetDataHelper {
     }
 
     static func findNextBusIndex(times: [String], from date: Date) -> Int? {
-        var calendar = Calendar.current
+        var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
 
         let currentHour = calendar.component(.hour, from: date)
@@ -143,7 +126,7 @@ struct WidgetDataHelper {
     }
 
     static func minutesUntil(timeString: String, from date: Date) -> Int? {
-        var calendar = Calendar.current
+        var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
 
         let parts = timeString.split(separator: ":")
@@ -234,6 +217,7 @@ private func formatUpcomingMinutes(_ minutes: Int) -> String {
 }
 
 struct WidgetTimetableData: Codable {
+    let meta: TimetableRevision?
     let holidays: [String]
     let timetable: WidgetTimetable?
     let routes: [String: WidgetRouteData]?
@@ -931,4 +915,28 @@ struct LocalBusWidget: Widget {
     BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20", remainingMinutes: 15, direction: "장유 → 사상",
              isServiceEnded: false, firstBusTime: "06:00",
              upcomingBuses: [], isLastBus: false, isNightBus: false, isPro: false)
+}
+
+#Preview(as: .accessoryCircular) {
+    LocalBusWidget()
+} timeline: {
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20",
+             remainingMinutes: 15, direction: "장유 → 사상", isServiceEnded: false,
+             firstBusTime: "06:00", upcomingBuses: [], isLastBus: false, isNightBus: false, isPro: true)
+}
+
+#Preview(as: .accessoryRectangular) {
+    LocalBusWidget()
+} timeline: {
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20",
+             remainingMinutes: 15, direction: "장유 → 사상", isServiceEnded: false,
+             firstBusTime: "06:00", upcomingBuses: [], isLastBus: false, isNightBus: false, isPro: true)
+}
+
+#Preview(as: .accessoryInline) {
+    LocalBusWidget()
+} timeline: {
+    BusEntry(date: .now, routeKey: WidgetDataHelper.defaultRouteKey, nextBusTime: "07:20",
+             remainingMinutes: 15, direction: "장유 → 사상", isServiceEnded: false,
+             firstBusTime: "06:00", upcomingBuses: [], isLastBus: false, isNightBus: false, isPro: true)
 }

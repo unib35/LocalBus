@@ -1,8 +1,15 @@
 import Foundation
 import UserNotifications
 
+protocol BusNotificationScheduling {
+    func requestAuthorization() async -> Bool
+    func scheduleBusNotification(departure: TimetableTimeline.Departure, minutesBefore: Int, direction: RouteDirection) async throws
+    func cancelNotification(identifier: String)
+    func scheduledBusNotificationKeys() async -> Set<String>
+}
+
 /// 버스 알림 서비스
-final class NotificationService {
+final class NotificationService: BusNotificationScheduling {
     static let shared = NotificationService()
     private let busNotificationPrefix = "bus_"
     private let lastBusNotificationIdentifier = "last_bus_daily_notification"
@@ -23,45 +30,35 @@ final class NotificationService {
         }
     }
 
-    /// 버스 출발 알림 예약
-    /// - Parameters:
-    ///   - busTime: 버스 출발 시간 (HH:mm 형식)
-    ///   - minutesBefore: 몇 분 전 알림
-    ///   - direction: 방향 이름
-    func scheduleBusNotification(busTime: String, minutesBefore: Int, direction: String) {
-        let components = busTime.split(separator: ":")
-        guard components.count == 2,
-              let hour = Int(components[0]),
-              let minute = Int(components[1]) else { return }
-
-        var dateComponents = DateComponents()
-        dateComponents.hour = hour
-        dateComponents.minute = minute - minutesBefore
-
-        // 분이 음수가 되면 시간 조정
-        if dateComponents.minute! < 0 {
-            dateComponents.hour! -= 1
-            dateComponents.minute! += 60
-        }
-
-        let content = UNMutableNotificationContent()
-        content.title = "버스 출발 알림"
-        content.body = "\(direction) \(busTime) 버스가 \(minutesBefore)분 후 출발합니다"
-        content.sound = .default
-
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
-        let request = UNNotificationRequest(
-            identifier: busNotificationIdentifier(busTime: busTime, minutesBefore: minutesBefore),
-            content: content,
-            trigger: trigger
-        )
-
-        UNUserNotificationCenter.current().add(request)
+    static func busNotificationIdentifier(departure: Date, direction: RouteDirection, minutesBefore: Int) -> String {
+        "bus_v2_\(direction.rawValue)_\(Int(departure.timeIntervalSince1970))_\(minutesBefore)"
     }
 
-    /// 특정 버스 알림 취소
-    func cancelNotification(busTime: String, minutesBefore: Int) {
-        let identifier = busNotificationIdentifier(busTime: busTime, minutesBefore: minutesBefore)
+    static func reminderComponents(departure: Date, minutesBefore: Int, now: Date = Date()) throws -> DateComponents {
+        guard minutesBefore > 0 else { throw ScheduleError.invalidTime }
+        let reminder = departure.addingTimeInterval(-Double(minutesBefore) * 60)
+        guard reminder > now else { throw ScheduleError.tooLate }
+        var components = TimetableTimeline.calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: reminder)
+        components.calendar = TimetableTimeline.calendar
+        components.timeZone = TimetableTimeline.calendar.timeZone
+        return components
+    }
+
+    func scheduleBusNotification(departure: TimetableTimeline.Departure, minutesBefore: Int, direction: RouteDirection) async throws {
+        let components = try Self.reminderComponents(departure: departure.date, minutesBefore: minutesBefore)
+        let content = UNMutableNotificationContent()
+        content.title = "버스 출발 알림"
+        content.body = "\(direction.displayName) \(departure.time) 버스가 \(minutesBefore)분 후 출발합니다"
+        content.sound = .default
+        let request = UNNotificationRequest(
+            identifier: Self.busNotificationIdentifier(departure: departure.date, direction: direction, minutesBefore: minutesBefore),
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        )
+        try await UNUserNotificationCenter.current().add(request)
+    }
+
+    func cancelNotification(identifier: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
     }
 
@@ -70,37 +67,54 @@ final class NotificationService {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
 
-    /// 막차 30분 전 매일 반복 알림 예약
-    func scheduleLastBusNotification(lastBusTime: String, direction: String) {
-        let components = lastBusTime.split(separator: ":")
-        guard components.count == 2,
-              let hour = Int(components[0]),
-              let minute = Int(components[1]) else { return }
-
-        var notifyMinute = minute - 30
-        var notifyHour = hour
-        if notifyMinute < 0 {
-            notifyHour -= 1
-            notifyMinute += 60
+    enum ScheduleError: LocalizedError {
+        case invalidTime, tooLate
+        var errorDescription: String? {
+            switch self {
+            case .invalidTime: return "시간표를 불러온 뒤 다시 시도해주세요."
+            case .tooLate: return "출발 5분 전 알림 시각이 지났습니다. 다음 버스를 선택해주세요."
+            }
         }
+    }
 
-        var dateComponents = DateComponents()
-        dateComponents.hour = notifyHour
-        dateComponents.minute = notifyMinute
+    /// 시각을 하루 안으로 정규화한다. 00:10의 30분 전은 23:40이다.
+    static func lastBusReminderComponents(for time: String) throws -> DateComponents {
+        let parts = time.split(separator: ":", omittingEmptySubsequences: false)
+        guard parts.count == 2, let hour = Int(parts[0]), let minute = Int(parts[1]),
+              (0..<24).contains(hour), (0..<60).contains(minute) else {
+            throw ScheduleError.invalidTime
+        }
+        let minutes = (hour * 60 + minute - 30 + 1440) % 1440
+        var components = DateComponents()
+        components.calendar = Calendar(identifier: .gregorian)
+        components.timeZone = TimeZone(identifier: "Asia/Seoul")
+        components.hour = minutes / 60
+        components.minute = minutes % 60
+        return components
+    }
 
+    func scheduleLastBusNotification(lastBusTime: String, direction: String) async throws {
+        let components = try Self.lastBusReminderComponents(for: lastBusTime)
         let content = UNMutableNotificationContent()
         content.title = "막차 알림"
         content.body = "\(direction) 막차(\(lastBusTime))가 30분 후 출발합니다"
         content.sound = .default
+        content.userInfo = ["direction": direction, "departure": lastBusTime]
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+        try await UNUserNotificationCenter.current().add(UNNotificationRequest(
+            identifier: lastBusNotificationIdentifier, content: content, trigger: trigger
+        ))
+    }
 
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
-        let request = UNNotificationRequest(
-            identifier: lastBusNotificationIdentifier,
-            content: content,
-            trigger: trigger
-        )
-
-        UNUserNotificationCenter.current().add(request)
+    func lastBusReminderSummary() async -> String? {
+        let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
+        guard let request = requests.first(where: { $0.identifier == lastBusNotificationIdentifier }),
+              let trigger = request.trigger as? UNCalendarNotificationTrigger,
+              let hour = trigger.dateComponents.hour,
+              let minute = trigger.dateComponents.minute,
+              (0..<24).contains(hour), (0..<60).contains(minute) else { return nil }
+        let direction = request.content.userInfo["direction"] as? String ?? "기존 노선"
+        return "\(direction) · 매일 " + String(format: "%02d:%02d", hour, minute) + " 알림"
     }
 
     /// 막차 알림 취소
@@ -110,26 +124,12 @@ final class NotificationService {
         )
     }
 
-    /// 예약된 알림이 있는지 확인
-    func hasScheduledNotification(busTime: String, minutesBefore: Int) async -> Bool {
-        let identifier = busNotificationIdentifier(busTime: busTime, minutesBefore: minutesBefore)
-        let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
-        return requests.contains { $0.identifier == identifier }
-    }
-
-    /// 예약된 개별 버스 알림 키 목록 반환
+    /// 날짜와 방향을 알 수 없는 구버전 예약은 잘못 울리지 않도록 제거합니다.
     func scheduledBusNotificationKeys() async -> Set<String> {
-        let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
-        return Set(
-            requests.compactMap { request in
-                let identifier = request.identifier
-                guard identifier.hasPrefix(busNotificationPrefix) else { return nil }
-                return String(identifier.dropFirst(busNotificationPrefix.count))
-            }
-        )
-    }
-
-    private func busNotificationIdentifier(busTime: String, minutesBefore: Int) -> String {
-        "\(busNotificationPrefix)\(busTime)_\(minutesBefore)"
+        let center = UNUserNotificationCenter.current()
+        let requests = await center.pendingNotificationRequests()
+        let legacy = requests.filter { $0.identifier.hasPrefix(busNotificationPrefix) && !$0.identifier.hasPrefix("bus_v2_") }
+        center.removePendingNotificationRequests(withIdentifiers: legacy.map(\.identifier))
+        return Set(requests.filter { $0.identifier.hasPrefix("bus_v2_") }.map(\.identifier))
     }
 }

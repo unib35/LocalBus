@@ -5,132 +5,45 @@ import Foundation
 @MainActor
 final class LiveActivityService {
     static let shared = LiveActivityService()
-    private var currentActivity: Activity<BusLiveActivityAttributes>?
-    private var phaseTimer: Timer?
-
     private init() {}
 
-    /// Live Activity 시작
-    /// - Parameters:
-    ///   - departureTime: 출발 시간 문자열 ("07:20")
-    ///   - direction: 방향 표시 이름 ("장유 → 사상")
-    ///   - durationMinutes: 소요 시간 (분)
-    func startActivity(departureTime: String, direction: String, durationMinutes: Int) {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-
-        // 기존 활동 종료 (참조를 먼저 분리해 레이스 컨디션 방지)
-        let oldActivity = currentActivity
-        currentActivity = nil
-        phaseTimer?.invalidate()
-        phaseTimer = nil
-        Task {
-            await oldActivity?.end(nil, dismissalPolicy: .immediate)
+    /// 푸시 서버 없이 실제 운행 상태를 추측하지 않고 예약한 편의 예정 시각을 표시합니다.
+    func startActivity(departure: TimetableTimeline.Departure, direction: String, durationMinutes: Int) async {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled, departure.date > Date(), durationMinutes > 0 else { return }
+        // 재실행 후에도 시스템의 활동 목록을 사용해 중복을 제거합니다.
+        for activity in Activity<BusLiveActivityAttributes>.activities {
+            await activity.end(nil, dismissalPolicy: .immediate)
         }
-
-        guard let departureDate = dateFromTimeString(departureTime),
-              departureDate > Date() else { return }
-
-        let arrivalDate = departureDate.addingTimeInterval(TimeInterval(durationMinutes * 60))
-
-        let attributes = BusLiveActivityAttributes(
-            direction: direction,
-            departureTime: departureTime,
-            durationMinutes: durationMinutes
-        )
-
-        let initialState = BusLiveActivityAttributes.ContentState(
-            departureDate: departureDate,
-            arrivalDate: arrivalDate,
-            phase: .waitingForDeparture
-        )
-
+        let arrival = departure.date.addingTimeInterval(Double(durationMinutes) * 60)
+        let attributes = BusLiveActivityAttributes(direction: direction, departureTime: departure.time, durationMinutes: durationMinutes)
+        let state = BusLiveActivityAttributes.ContentState(departureDate: departure.date, arrivalDate: arrival, phase: .waitingForDeparture)
         do {
-            let activity = try Activity.request(
-                attributes: attributes,
-                content: .init(state: initialState, staleDate: nil),
-                pushType: nil
-            )
-            currentActivity = activity
-            schedulePhaseTransition(departureDate: departureDate, arrivalDate: arrivalDate)
+            _ = try Activity.request(attributes: attributes, content: .init(state: state, staleDate: arrival), pushType: nil)
         } catch {
-            print("Live Activity 시작 실패: \(error)")
+            // 로컬 출발 알림의 성공 여부와 독립적인 보조 표시입니다.
         }
     }
 
-    /// Live Activity 종료
     func endActivity() {
-        phaseTimer?.invalidate()
-        phaseTimer = nil
-        let activityToEnd = currentActivity
-        currentActivity = nil
+        let activities = Activity<BusLiveActivityAttributes>.activities
         Task {
-            await activityToEnd?.end(nil, dismissalPolicy: .immediate)
+            for activity in activities { await activity.end(nil, dismissalPolicy: .immediate) }
         }
     }
 
-    /// 현재 Live Activity가 활성 상태인지
+    func endActivity(departure: Date, direction: String) async {
+        for activity in Activity<BusLiveActivityAttributes>.activities where activity.attributes.direction == direction && activity.content.state.departureDate == departure {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
+    func reconcileActivities(now: Date = Date()) async {
+        for activity in Activity<BusLiveActivityAttributes>.activities where activity.content.state.arrivalDate <= now {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
     var isActivityActive: Bool {
-        currentActivity != nil
-    }
-
-    // MARK: - Private
-
-    /// 출발 시각에 phase를 inTransit으로 전환, 도착 시각에 종료
-    private func schedulePhaseTransition(departureDate: Date, arrivalDate: Date) {
-        phaseTimer?.invalidate()
-
-        let now = Date()
-        let departureDelay = departureDate.timeIntervalSince(now)
-
-        if departureDelay > 0 {
-            phaseTimer = Timer.scheduledTimer(withTimeInterval: departureDelay, repeats: false) { [weak self] _ in
-                Task { @MainActor in
-                    self?.transitionToInTransit(departureDate: departureDate, arrivalDate: arrivalDate)
-                }
-            }
-        } else {
-            transitionToInTransit(departureDate: departureDate, arrivalDate: arrivalDate)
-        }
-    }
-
-    private func transitionToInTransit(departureDate: Date, arrivalDate: Date) {
-        let transitState = BusLiveActivityAttributes.ContentState(
-            departureDate: departureDate,
-            arrivalDate: arrivalDate,
-            phase: .inTransit
-        )
-
-        Task {
-            await currentActivity?.update(.init(state: transitState, staleDate: nil))
-        }
-
-        let arrivalDelay = arrivalDate.timeIntervalSince(Date())
-        if arrivalDelay > 0 {
-            phaseTimer = Timer.scheduledTimer(withTimeInterval: arrivalDelay, repeats: false) { [weak self] _ in
-                Task { @MainActor in
-                    self?.endActivity()
-                }
-            }
-        } else {
-            endActivity()
-        }
-    }
-
-    /// "HH:mm" 문자열을 오늘 날짜의 Date로 변환 (KST)
-    private func dateFromTimeString(_ timeString: String) -> Date? {
-        let parts = timeString.split(separator: ":")
-        guard parts.count == 2,
-              let hour = Int(parts[0]),
-              let minute = Int(parts[1]) else { return nil }
-
-        var calendar = Calendar.current
-        calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
-
-        var components = calendar.dateComponents([.year, .month, .day], from: Date())
-        components.hour = hour
-        components.minute = minute
-        components.second = 0
-
-        return calendar.date(from: components)
+        !Activity<BusLiveActivityAttributes>.activities.isEmpty
     }
 }

@@ -8,7 +8,7 @@ private struct KakaoDirectionsResponse: Decodable {
 
 private struct KakaoRoute: Decodable {
     let resultCode: Int
-    let summary: KakaoSummary
+    let summary: KakaoSummary?
 
     enum CodingKeys: String, CodingKey {
         case resultCode = "result_code"
@@ -34,6 +34,7 @@ private struct TrafficCache {
 // MARK: - TrafficService
 
 /// Kakao Mobility API를 이용해 실시간 교통 소요시간을 조회합니다.
+@MainActor
 final class TrafficService {
 
     static let shared = TrafficService()
@@ -60,7 +61,7 @@ final class TrafficService {
         }
 
         guard let minutes = await requestDuration(origin: origin, destination: destination) else {
-            return cache[cacheKey]?.durationMinutes  // 실패 시 만료된 캐시라도 반환
+            return nil  // 만료된 값을 실시간 정보로 사용하지 않습니다.
         }
 
         cache[cacheKey] = TrafficCache(durationMinutes: minutes, cachedAt: Date())
@@ -101,7 +102,8 @@ final class TrafficService {
 
             guard let route = result.routes.first, route.resultCode == 0 else { return nil }
 
-            return route.summary.duration / 60  // 초 → 분
+            guard let seconds = route.summary?.duration, seconds > 0 else { return nil }
+            return Int(ceil(Double(seconds) / 60))
         } catch {
             return nil
         }

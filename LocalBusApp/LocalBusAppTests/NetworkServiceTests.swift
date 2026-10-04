@@ -176,6 +176,19 @@ struct NetworkServiceTests {
             let _: MockData = try await sut.fetch(from: url, session: session)
         }
     }
+    @Test func 과대응답은_디코딩전에거절() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        MockURLProtocol.requestHandler = { request in
+            (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Length": "2000001"])!, Data())
+        }
+        await #expect(throws: NetworkError.requestFailed) {
+            let _: MockData = try await NetworkService().fetch(from: URL(string: "https://example.com/large")!, session: session)
+        }
+    }
+
 }
 
 // MARK: - MockURLProtocol for Testing

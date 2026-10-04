@@ -12,6 +12,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        guard !PreviewRuntime.isRunning else { return true }
         FirebaseApp.configure()
 
         Messaging.messaging().delegate = self
@@ -39,13 +40,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         guard let token = fcmToken else { return }
         UserDefaults.standard.set(token, forKey: "fcmToken")
 
-        #if DEBUG
-        print("FCM Token: \(token)")
-        #endif
 
         // 이 콜백은 APNs 토큰이 확보된 뒤에 불리므로 여기서 구독해야 성공한다.
         // 설정에서 끈 사용자는 제외한다.
-        let isSubscribed = UserDefaults.standard.object(forKey: "noticeAlertEnabled") as? Bool ?? true
+        let isSubscribed = UserDefaults.standard.object(forKey: "noticeAlertEnabled") as? Bool ?? false
         guard isSubscribed else { return }
 
         Messaging.messaging().subscribe(toTopic: Self.noticeTopic) { error in
